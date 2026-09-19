@@ -1,12 +1,12 @@
 # HomHive Current State
 
-Last updated: September 17, 2026
+Last updated: September 19, 2026
 
 ## Current Milestone
 
-Day 2 of the 38-day HomHive build roadmap.
+Day 3 of the 38-day HomHive build roadmap.
 
-Focus: Household state foundation and backend data contracts.
+Focus: Deterministic task discovery and duplicate-task prevention.
 
 ## Completed
 
@@ -52,7 +52,7 @@ Implemented a Pydantic Observation model containing:
 
 Observation values and confidence are validated between 0.0 and 1.0.
 
-Supported observation sources currently include:
+Supported observation sources:
 
 - photo
 - video
@@ -60,7 +60,7 @@ Supported observation sources currently include:
 - history
 - external_research
 
-Initial observation categories include:
+Initial observation categories:
 
 - dish_load
 - laundry_load
@@ -70,7 +70,7 @@ Initial observation categories include:
 
 #### Household State
 
-Implemented HouseholdState.
+Implemented `HouseholdState`.
 
 Household state separates:
 
@@ -81,7 +81,7 @@ Observation history preserves observations over time.
 
 Current observations contain the latest known observation for each location and category pair.
 
-Current-state keys currently use:
+Current-state keys use:
 
 `location:category`
 
@@ -89,13 +89,14 @@ Example:
 
 `kitchen:dish_load`
 
-When a newer observation for the same location and category arrives, the current observation is replaced while the historical observations remain available.
+When a newer observation for the same location and category arrives, the current observation is replaced while previous observations remain in history.
 
 #### Task Model
 
-Implemented a Pydantic Task model containing:
+Implemented a Pydantic `Task` model containing:
 
 - id
+- task_key
 - description
 - source_observation_id
 - urgency
@@ -106,37 +107,19 @@ Implemented a Pydantic Task model containing:
 - created_at
 - metadata
 
-Task urgency currently supports:
+Task urgency supports:
 
 - low
 - medium
 - high
 - critical
 
-Task status currently supports:
+Task status supports:
 
 - pending
 - in_progress
 - completed
 - dismissed
-
-#### Testing
-
-Added pytest test suite under:
-
-`backend/tests/`
-
-Current test files:
-
-- test_observation.py
-- test_household_state.py
-- test_task.py
-
-Current result:
-
-**11 tests passing**
-
-Tests currently verify observation validation, household-state behavior, historical observation preservation, current-state replacement, and task validation.
 
 #### Python Environment
 
@@ -155,9 +138,131 @@ Current declared dependencies:
 - pydantic
 - pytest
 
+### Day 3
+
+#### Service Layer
+
+Created:
+
+`backend/app/services/`
+
+Added:
+
+- `__init__.py`
+- `task_discovery.py`
+
+This separates application behavior from the core data models.
+
+#### Deterministic Task Discovery
+
+Implemented task discovery that converts qualifying observations into candidate tasks.
+
+Current rules:
+
+- `dish_load >= 0.70`
+  - Creates a dish-clearing task
+  - Estimated effort: 15 minutes
+
+- `laundry_load >= 0.75`
+  - Creates a laundry task
+  - Estimated effort: 45 minutes
+
+Categories without configured rules currently produce no task.
+
+Task discovery is deterministic at this stage. LLM reasoning is not required for simple, well-defined conditions.
+
+#### Task Rules
+
+Introduced a frozen `TaskRule` dataclass containing:
+
+- threshold
+- description
+- effort_minutes
+
+This separates task-discovery policy from the discovery mechanism.
+
+#### Task Identity
+
+Added `task_key` to the `Task` model.
+
+Example:
+
+`kitchen:dish_load`
+
+`id` identifies a specific task instance.
+
+`task_key` identifies the underlying work condition and is used for duplicate detection.
+
+#### Duplicate Task Prevention
+
+`discover_task()` now accepts existing tasks.
+
+If a task with the same `task_key` is already:
+
+- pending
+- in_progress
+
+a duplicate task is not created.
+
+If the previous task is:
+
+- completed
+- dismissed
+
+a new task may be created when the condition occurs again.
+
+Observation history remains independent from task deduplication.
+
+#### End-to-End State Flow
+
+Added a test covering a sequence where:
+
+1. Dish load starts below the task threshold.
+2. Dish load increases and creates a task.
+3. Another observation of the unresolved condition does not create a duplicate.
+4. The original task is completed.
+5. The condition occurs again and creates a new task.
+6. All observations remain in history.
+7. Current state points to the latest observation.
+
+This verifies behavior across time rather than only testing isolated models.
+
+#### Testing
+
+Current test files include:
+
+- `test_observation.py`
+- `test_household_state.py`
+- `test_task.py`
+- `test_task_discovery.py`
+- `test_task_discovery_flow.py`
+
+Current result:
+
+**21 tests passing**
+
+Tests currently cover:
+
+- Observation validation
+- Enum validation
+- Task validation
+- Household-state updates
+- Observation history preservation
+- Current-state replacement
+- Dish task discovery
+- Laundry task discovery
+- Threshold behavior
+- Unsupported task categories
+- Task-key generation
+- Pending-task deduplication
+- In-progress-task deduplication
+- Re-creation after task completion
+- Different task-key handling
+- Multi-observation state-to-task flow
+
 ## Current Architecture
 
-The implemented foundation currently looks like:
+The implemented system currently looks like:
 
 Observation
     |
@@ -169,9 +274,29 @@ HouseholdState
     +-- current_observations
     |
     v
-Task
+Task Discovery
+    |
+    +-- TaskRule
+    |
+    +-- threshold evaluation
+    |
+    +-- duplicate detection
+    |
+    v
+Task / None
 
-The reasoning, forecasting, research, perception, and priority layers have not been implemented yet.
+The current implementation can represent observations, maintain historical and current state, discover basic tasks, and prevent duplicate active tasks.
+
+The following layers have not yet been implemented:
+
+- perception
+- LLM reasoning
+- prioritization
+- forecasting
+- external research
+- persistence/database
+- API layer
+- frontend integration
 
 ## External Services Available
 
@@ -183,19 +308,19 @@ Credits/access are available for:
 - Toloka
 - Tandem
 
-These services have not yet been integrated into the application.
+These services have not yet been integrated.
 
 Planned high-level roles:
 
 - Nebius: model inference and core reasoning
-- Tavily: external research when household context is insufficient
-- LangSmith: tracing and evaluation of AI workflows
+- Tavily: external research when internal context is insufficient
+- LangSmith: AI workflow tracing and evaluation
 - Toloka: potential human evaluation/data validation
 - Tandem: role to be determined based on available capabilities
 
 ## Current Test Status
 
-11 passed.
+**21 passed**
 
 ## Current Blockers
 
@@ -203,6 +328,10 @@ None.
 
 ## Next
 
-Continue the Day 2 roadmap after documenting the architectural decisions made during implementation.
+Continue to Day 4 of the HomHive roadmap.
 
-Do not begin external AI service integration until the internal data foundation for the current milestone is complete.
+The internal foundation currently supports:
+
+Observation → State → Deterministic Task Discovery → Duplicate Prevention
+
+AI reasoning, perception, forecasting, external research, persistence, APIs, and frontend integration remain future layers.

@@ -191,3 +191,136 @@ Reasoning / Research
 Task and Priority Plan
 
 This keeps the core application architecture independent from individual AI providers.
+
+---
+
+## ADR-007: Use Deterministic Rules Before LLM Reasoning
+
+### Status
+
+Accepted
+
+### Decision
+
+Simple and well-defined task conditions should initially use deterministic rules instead of LLM reasoning.
+
+For example:
+
+`dish_load >= 0.70`
+
+can deterministically produce a candidate dish-clearing task.
+
+### Reason
+
+Deterministic rules are faster, cheaper, predictable, and easy to test.
+
+LLM reasoning should be reserved for situations where fixed rules are insufficient or the situation is ambiguous.
+
+---
+
+## ADR-008: Separate Task Discovery from Prioritization
+
+### Status
+
+Accepted
+
+### Decision
+
+Task discovery and task prioritization are separate responsibilities.
+
+Task discovery answers:
+
+`Does something need to be done?`
+
+Prioritization answers:
+
+`How important is this compared with other tasks?`
+
+### Reason
+
+A condition can justify creating a task without immediately determining its relative importance.
+
+Separating these concerns allows the future priority engine to consider additional context such as deadlines, historical trends, consequences, effort, confidence, and user constraints.
+
+---
+
+## ADR-009: Use Stable Task Keys for Deduplication
+
+### Status
+
+Accepted
+
+### Decision
+
+Tasks contain a `task_key` representing the underlying work condition.
+
+Current format:
+
+`location:category`
+
+Example:
+
+`kitchen:dish_load`
+
+The task `id` identifies a specific task instance.
+
+The `task_key` identifies the underlying work condition.
+
+### Reason
+
+Multiple observations may describe the same unresolved condition.
+
+If a task with the same `task_key` is already `pending` or `in_progress`, another task should not be created.
+
+A `completed` or `dismissed` task does not prevent the same condition from generating a future task.
+
+---
+
+## ADR-010: Preserve Observations During Task Deduplication
+
+### Status
+
+Accepted
+
+### Decision
+
+Task deduplication does not deduplicate or remove observations.
+
+Every valid observation continues to be stored in `observation_history`.
+
+### Reason
+
+Repeated observations may contain useful temporal information even when they refer to the same unresolved task.
+
+Preserving them enables future:
+
+- trend detection
+- rate-of-change analysis
+- forecasting
+- temporal reasoning
+
+---
+
+## ADR-011: Use Frozen Dataclasses for Static Task Rules
+
+### Status
+
+Accepted
+
+### Decision
+
+Static task-discovery rules use a frozen Python `dataclass`.
+
+A `TaskRule` currently contains:
+
+- `threshold`
+- `description`
+- `effort_minutes`
+
+### Reason
+
+Task rules are internal application configuration rather than external data contracts.
+
+A frozen dataclass provides a lightweight structured representation and prevents accidental mutation.
+
+Pydantic remains responsible for runtime-validated domain models such as `Observation`, `HouseholdState`, and `Task`.

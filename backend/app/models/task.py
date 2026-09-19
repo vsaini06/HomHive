@@ -8,6 +8,7 @@ from .enums import TaskStatus, UrgencyLevel
 
 class Task(BaseModel):
     id: str
+    task_key: str
     description: str = Field(min_length=1)
     source_observation_id: str
     urgency: UrgencyLevel
