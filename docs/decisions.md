@@ -324,3 +324,106 @@ Task rules are internal application configuration rather than external data cont
 A frozen dataclass provides a lightweight structured representation and prevents accidental mutation.
 
 Pydantic remains responsible for runtime-validated domain models such as `Observation`, `HouseholdState`, and `Task`.
+
+---
+
+## ADR-012: Confidence Thresholds Are Category-Specific
+
+### Status
+
+Accepted
+
+### Decision
+
+Minimum observation confidence is stored as part of each `TaskRule` rather than using one global confidence threshold.
+
+### Reason
+
+Different observation categories may eventually require different levels of certainty.
+
+For example, a simple dish-load observation may tolerate more uncertainty than a future maintenance or safety-related observation.
+
+---
+
+## ADR-013: Low-Confidence Observations Are Preserved
+
+### Status
+
+Accepted
+
+### Decision
+
+Observations that fail the task-discovery confidence threshold remain part of household state and observation history.
+
+### Reason
+
+Insufficient confidence for action does not make an observation useless.
+
+Historical uncertain evidence may later support temporal reasoning, trend analysis, evaluation, or evidence aggregation.
+
+---
+
+## ADR-014: Repeated Uncertain Observations Do Not Automatically Increase Confidence
+
+### Status
+
+Accepted for MVP
+
+### Decision
+
+Multiple low-confidence observations do not automatically combine into a high-confidence decision.
+
+### Reason
+
+Repeated observations may share the same source of error, such as poor lighting, camera angle, or perception-model failure.
+
+Evidence aggregation should be implemented explicitly rather than implicitly inside task discovery.
+
+---
+
+## ADR-015: Task Discovery Decisions Are Explainable
+
+### Status
+
+Accepted
+
+### Decision
+
+Detailed task discovery returns a structured `TaskDiscoveryResult` containing:
+
+- task
+- reason
+
+Current reasons include:
+
+- task_created
+- unsupported_category
+- below_threshold
+- low_confidence
+- duplicate_active_task
+
+### Reason
+
+The system should represent why it acted or why it chose not to act.
+
+Structured decision reasons support debugging, evaluation, observability, future UI explanations, and tracing.
+
+---
+
+## ADR-016: Preserve the Simple Task Discovery Interface
+
+### Status
+
+Accepted
+
+### Decision
+
+`discover_task_detailed()` provides the richer decision result.
+
+`discover_task()` remains available and returns:
+
+`Task | None`
+
+### Reason
+
+This preserves backward compatibility while allowing newer components to consume richer decision information.

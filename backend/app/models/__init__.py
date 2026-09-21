@@ -4,6 +4,10 @@ from .enums import (
     TaskStatus,
     UrgencyLevel,
 )
+from .task_discovery_result import (
+    TaskDiscoveryReason,
+    TaskDiscoveryResult,
+)
 from .household_state import HouseholdState
 from .observation import Observation
 from .task import Task
@@ -16,4 +20,6 @@ __all__ = [
     "Task",
     "TaskStatus",
     "UrgencyLevel",
+    "TaskDiscoveryReason",
+    "TaskDiscoveryResult",
 ]

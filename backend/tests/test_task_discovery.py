@@ -172,3 +172,62 @@ def test_different_task_key_is_allowed():
     )
     assert new_task is not None
     assert new_task.task_key == "laundry_room:laundry_load"
+
+def test_high_value_high_confidence_creates_task():
+    observation = Observation(
+        id="obs_conf_001",
+        source="photo",
+        location="kitchen",
+        category="dish_load",
+        value=0.85,
+        confidence=0.90,
+    )
+
+    task = discover_task(observation)
+
+    assert task is not None
+
+
+def test_high_value_low_confidence_does_not_create_task():
+    observation = Observation(
+        id="obs_conf_002",
+        source="photo",
+        location="kitchen",
+        category="dish_load",
+        value=0.85,
+        confidence=0.40,
+    )
+
+    task = discover_task(observation)
+
+    assert task is None
+
+
+def test_low_value_high_confidence_does_not_create_task():
+    observation = Observation(
+        id="obs_conf_003",
+        source="photo",
+        location="kitchen",
+        category="dish_load",
+        value=0.40,
+        confidence=0.95,
+    )
+
+    task = discover_task(observation)
+
+    assert task is None
+
+
+def test_confidence_at_minimum_threshold_creates_task():
+    observation = Observation(
+        id="obs_conf_004",
+        source="photo",
+        location="kitchen",
+        category="dish_load",
+        value=0.80,
+        confidence=0.70,
+    )
+
+    task = discover_task(observation)
+
+    assert task is not None

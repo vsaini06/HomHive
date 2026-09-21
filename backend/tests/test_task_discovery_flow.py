@@ -87,3 +87,101 @@ def test_household_observation_to_task_flow():
         state.current_observations["kitchen:dish_load"].id
         == "obs_004"
     )
+
+def test_low_confidence_observations_are_preserved_without_task():
+    state = HouseholdState(id="home_002")
+    active_tasks = []
+
+    observations = [
+        Observation(
+            id="obs_low_001",
+            source="photo",
+            location="kitchen",
+            category="dish_load",
+            value=0.82,
+            confidence=0.40,
+        ),
+        Observation(
+            id="obs_low_002",
+            source="photo",
+            location="kitchen",
+            category="dish_load",
+            value=0.86,
+            confidence=0.50,
+        ),
+        Observation(
+            id="obs_low_003",
+            source="photo",
+            location="kitchen",
+            category="dish_load",
+            value=0.88,
+            confidence=0.60,
+        ),
+    ]
+
+    for observation in observations:
+        state.add_observation(observation)
+
+        task = discover_task(
+            observation,
+            existing_tasks=active_tasks,
+        )
+
+        assert task is None
+
+    assert len(state.observation_history) == 3
+
+    current = state.current_observations["kitchen:dish_load"]
+
+    assert current.id == "obs_low_003"
+    assert current.value == 0.88
+    assert current.confidence == 0.60
+
+def test_high_confidence_observation_after_uncertain_evidence_creates_task():
+    state = HouseholdState(id="home_003")
+    active_tasks = []
+
+    low_confidence_observation = Observation(
+        id="obs_recovery_001",
+        source="photo",
+        location="kitchen",
+        category="dish_load",
+        value=0.85,
+        confidence=0.45,
+    )
+
+    state.add_observation(low_confidence_observation)
+
+    first_task = discover_task(
+        low_confidence_observation,
+        existing_tasks=active_tasks,
+    )
+
+    assert first_task is None
+
+    high_confidence_observation = Observation(
+        id="obs_recovery_002",
+        source="photo",
+        location="kitchen",
+        category="dish_load",
+        value=0.88,
+        confidence=0.92,
+    )
+
+    state.add_observation(high_confidence_observation)
+
+    second_task = discover_task(
+        high_confidence_observation,
+        existing_tasks=active_tasks,
+    )
+
+    assert second_task is not None
+    assert second_task.source_observation_id == "obs_recovery_002"
+    assert second_task.task_key == "kitchen:dish_load"
+
+    assert len(state.observation_history) == 2
+
+    current = state.current_observations["kitchen:dish_load"]
+
+    assert current.id == "obs_recovery_002"
+    assert current.confidence == 0.92

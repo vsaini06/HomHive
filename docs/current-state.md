@@ -4,9 +4,9 @@ Last updated: September 19, 2026
 
 ## Current Milestone
 
-Day 3 of the 38-day HomHive build roadmap.
+Day 4 of the 38-day HomHive build roadmap.
 
-Focus: Deterministic task discovery and duplicate-task prevention.
+Focus: Confidence-aware and explainable task discovery.
 
 ## Completed
 
@@ -276,14 +276,16 @@ HouseholdState
     v
 Task Discovery
     |
-    +-- TaskRule
-    |
-    +-- threshold evaluation
-    |
+    +-- category rule
+    +-- value threshold
+    +-- confidence threshold
     +-- duplicate detection
     |
     v
-Task / None
+TaskDiscoveryResult
+    |
+    +-- task
+    +-- reason
 
 The current implementation can represent observations, maintain historical and current state, discover basic tasks, and prevent duplicate active tasks.
 
@@ -318,9 +320,88 @@ Planned high-level roles:
 - Toloka: potential human evaluation/data validation
 - Tandem: role to be determined based on available capabilities
 
+### Day 4
+
+#### Confidence-Aware Task Discovery
+
+Extended task discovery to consider observation confidence in addition to the observed value.
+
+Each `TaskRule` now contains:
+
+- threshold
+- min_confidence
+- description
+- effort_minutes
+
+Current dish and laundry rules require a minimum confidence of `0.70`.
+
+A task is created only when both the condition threshold and confidence threshold are satisfied.
+
+#### Confidence Handling
+
+Current behavior:
+
+- High value + high confidence -> task
+- High value + low confidence -> no task
+- Low value + high confidence -> no task
+- Confidence exactly at the minimum threshold -> accepted
+
+Low-confidence observations are still preserved in household history and current state even when they do not produce tasks.
+
+Repeated low-confidence observations do not automatically combine into higher confidence.
+
+A later high-confidence observation can independently trigger a task.
+
+#### Explainable Discovery Results
+
+Added:
+
+`backend/app/models/task_discovery_result.py`
+
+Introduced:
+
+- `TaskDiscoveryResult`
+- `TaskDiscoveryReason`
+
+Current discovery reasons:
+
+- `task_created`
+- `unsupported_category`
+- `below_threshold`
+- `low_confidence`
+- `duplicate_active_task`
+
+Added:
+
+`discover_task_detailed()`
+
+This returns both the discovered task and the reason for the decision.
+
+The existing `discover_task()` interface remains available and continues returning:
+
+`Task | None`
+
+This preserves backward compatibility for existing callers.
+
+#### Testing
+
+Added coverage for:
+
+- high-value/high-confidence observations
+- high-value/low-confidence observations
+- low-value/high-confidence observations
+- confidence boundary behavior
+- repeated uncertain observations
+- recovery from uncertain to reliable evidence
+- successful task creation reason
+- below-threshold reason
+- low-confidence reason
+- unsupported-category reason
+- duplicate-active-task reason
+
 ## Current Test Status
 
-**21 passed**
+**32 passed**
 
 ## Current Blockers
 
@@ -328,10 +409,8 @@ None.
 
 ## Next
 
-Continue to Day 4 of the HomHive roadmap.
+Continue to Day 5 of the HomHive roadmap.
 
-The internal foundation currently supports:
+The current system supports structured observations, temporal household state, deterministic task discovery, confidence-aware filtering, duplicate prevention, and explainable discovery outcomes.
 
-Observation → State → Deterministic Task Discovery → Duplicate Prevention
-
-AI reasoning, perception, forecasting, external research, persistence, APIs, and frontend integration remain future layers.
+External AI reasoning, perception, forecasting, research, persistence, APIs, and frontend integration remain future layers.
