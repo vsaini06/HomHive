@@ -11,6 +11,7 @@ from .task_discovery_result import (
 from .household_state import HouseholdState
 from .observation import Observation
 from .task import Task
+from .task_priority import PrioritizedTask
 
 __all__ = [
     "Observation",
@@ -22,4 +23,5 @@ __all__ = [
     "UrgencyLevel",
     "TaskDiscoveryReason",
     "TaskDiscoveryResult",
+    "PrioritizedTask",
 ]

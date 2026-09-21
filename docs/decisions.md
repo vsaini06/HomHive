@@ -427,3 +427,99 @@ Accepted
 ### Reason
 
 This preserves backward compatibility while allowing newer components to consume richer decision information.
+
+---
+
+## ADR-017: Prioritization Is Separate from Task Discovery
+
+### Status
+
+Accepted
+
+### Decision
+
+Task discovery and task prioritization are implemented as separate system layers.
+
+### Reason
+
+Discovery determines whether work exists.
+
+Prioritization determines the relative importance of discovered work.
+
+Keeping these concerns separate allows prioritization to change without changing task identity or discovery behavior.
+
+---
+
+## ADR-018: Priority Is Dynamic State, Not Task Identity
+
+### Status
+
+Accepted
+
+### Decision
+
+Priority scores are stored in `PrioritizedTask` rather than directly on `Task`.
+
+### Reason
+
+The underlying task may remain unchanged while its priority changes because of time, confidence, forecasts, deadlines, or other contextual information.
+
+---
+
+## ADR-019: Deterministic Priority Scoring Precedes LLM Reasoning
+
+### Status
+
+Accepted
+
+### Decision
+
+Initial priority scoring uses deterministic signals and explicit weights.
+
+Current signals are:
+
+- urgency
+- confidence
+- effort efficiency
+
+### Reason
+
+Simple ranking behavior should remain predictable, testable, and inexpensive.
+
+Future AI reasoning can augment the deterministic baseline when contextual decisions require richer reasoning.
+
+---
+
+## ADR-020: Effort Has Limited Influence on Priority
+
+### Status
+
+Accepted
+
+### Decision
+
+Effort efficiency contributes 10% of the current priority score.
+
+### Reason
+
+Short tasks may be easier to schedule, but convenience should not dominate importance.
+
+Urgency remains the strongest current signal.
+
+---
+
+## ADR-021: Priority Ties Use a Deterministic Fallback
+
+### Status
+
+Accepted for MVP
+
+### Decision
+
+Tasks with equal priority scores are ordered by task ID.
+
+### Reason
+
+Input ordering from databases or APIs should not accidentally determine the action plan.
+
+Task ID is only a reproducibility mechanism and may later be replaced by a meaningful temporal signal.

@@ -4,9 +4,9 @@ Last updated: September 19, 2026
 
 ## Current Milestone
 
-Day 4 of the 38-day HomHive build roadmap.
+Day 5 of the 38-day HomHive build roadmap.
 
-Focus: Confidence-aware and explainable task discovery.
+Focus: Deterministic task prioritization and ordered action planning.
 
 ## Completed
 
@@ -399,9 +399,118 @@ Added coverage for:
 - unsupported-category reason
 - duplicate-active-task reason
 
+### Day 5
+
+#### Task Prioritization
+
+Added a prioritization layer separate from task discovery.
+
+Task discovery answers:
+
+"What work exists?"
+
+Task prioritization answers:
+
+"What should happen first?"
+
+Added:
+
+`backend/app/models/task_priority.py`
+
+with:
+
+- `PrioritizedTask`
+- `priority_score`
+
+Priority is intentionally kept separate from the core `Task` model because priority can change as context changes while the underlying task remains the same.
+
+#### Priority Signals
+
+The current deterministic MVP uses three signals:
+
+- urgency
+- confidence
+- effort efficiency
+
+Current weighting:
+
+- urgency: 60%
+- confidence: 30%
+- effort efficiency: 10%
+
+Urgency mapping:
+
+- LOW = 0.25
+- MEDIUM = 0.50
+- HIGH = 0.75
+- CRITICAL = 1.00
+
+Effort normalization:
+
+`1 / (1 + effort_minutes / 30)`
+
+The weights are MVP heuristics and should be evaluated and tuned later rather than treated as objectively correct.
+
+#### Ranking
+
+Added:
+
+`backend/app/services/task_prioritization.py`
+
+The service can:
+
+- calculate effort scores
+- calculate priority scores
+- prioritize individual tasks
+- rank collections of tasks
+
+Tasks are ordered by descending priority score.
+
+Equal scores use task ID as a deterministic fallback tie-breaker.
+
+Task ID is not considered a measure of importance. It is only used to guarantee reproducible ordering until a meaningful temporal tie-breaker is introduced.
+
+#### Current Pipeline
+
+Observation
+    ↓
+HouseholdState
+    ↓
+Task Discovery
+    ↓
+Candidate Tasks
+    ↓
+Priority Scoring
+    ↓
+Ordered Action Plan
+
+Urgency is currently assigned manually or defaults to MEDIUM.
+
+Automatic urgency inference has not yet been implemented.
+
+#### Testing
+
+Added tests for:
+
+- effort normalization
+- shorter versus longer effort
+- priority score bounds
+- urgency influence
+- confidence influence
+- prioritized task creation
+- urgency versus effort behavior
+- multi-task ranking
+- empty task collections
+- deterministic tie-breaking
+- observation-to-prioritized-plan integration
+
+Current result:
+
+**43 tests passing**
+
 ## Current Test Status
 
-**32 passed**
+**43 passed**
 
 ## Current Blockers
 
@@ -409,8 +518,8 @@ None.
 
 ## Next
 
-Continue to Day 5 of the HomHive roadmap.
+Continue to Day 6 of the HomHive roadmap.
 
-The current system supports structured observations, temporal household state, deterministic task discovery, confidence-aware filtering, duplicate prevention, and explainable discovery outcomes.
+The current system supports structured observations, temporal state, confidence-aware task discovery, explainable discovery outcomes, duplicate prevention, deterministic priority scoring, and ordered action planning.
 
-External AI reasoning, perception, forecasting, research, persistence, APIs, and frontend integration remain future layers.
+Urgency inference, forecasting, external AI reasoning, research, persistence, APIs, perception, and frontend integration remain future layers.
