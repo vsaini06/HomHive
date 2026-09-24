@@ -21,10 +21,7 @@ class HouseholdState(BaseModel):
     def add_observation(self, observation: Observation) -> None:
         self.observation_history.append(observation)
 
-        state_key = (
-            f"{observation.location}:{observation.category.value}"
-        )
+        state_key = observation.state_key()
 
         self.current_observations[state_key] = observation
-
         self.updated_at = datetime.now(timezone.utc)

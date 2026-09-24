@@ -638,93 +638,65 @@ Trend change is rounded to four decimal places before comparison with the stabil
 
 This prevents binary floating-point representation from incorrectly classifying a conceptual change of exactly `0.05` as slightly greater than `0.05`.
 
-#### Current State Pipeline
+## Day 7 - Household Entity Model
 
-The implemented state pipeline is now:
+Implemented persistent household entity representation.
 
+### Added
+
+- EntityType enum
+- HouseholdEntity model
+- optional specific entity identity
+- identification confidence
+- extensible entity attributes
+- optional Observation.entity_id
+- entity-aware state identity
+- Observation.state_key() as the canonical state-key policy
+
+### Entity-aware state tracking
+
+State identity now follows:
+
+entity_id + category
+when an entity is known
+
+location + category
+when no entity is associated
+
+This prevents multiple physical entities of the same category in the same
+location from being merged into one state stream.
+
+### Current Entity Flow
+
+HouseholdEntity
+    ↓ entity_id
 Observation
-
-    ↓
-
+    ↓ state_key()
 HouseholdState
-
-    +-- observation_history
-
-    +-- current_observations
-
     ↓
-
-State Aggregation
-
-    +-- group by location + category
-
-    +-- confidence weighting
-
-    +-- recency weighting
-
-    +-- weighted current value
-
-    +-- trend detection
-
+Temporal State Aggregation
     ↓
-
 AggregatedState
 
-This derived-state layer is now available for future task discovery, forecasting, and reasoning layers.
+Entity identification itself is not implemented yet.
 
-Task discovery has not yet been migrated to operate directly on `AggregatedState`.
+### Testing
 
-#### Testing
+77 automated tests passing.
 
-Added coverage for:
+Coverage added for:
 
-- recency weighting
-- confidence-based observation weighting
-- strong versus weak conflicting observations
-- newer reliable observations shifting current state
-- invalid cross-location aggregation
-- invalid cross-category aggregation
-- empty observation aggregation
-- whole-house state grouping
-- same category across different locations
-- empty household aggregation
-- temporal aggregation through household state
-- unknown trend with insufficient history
-- rising trends
-- falling trends
-- stable trends
-- timestamp ordering independent of input order
-- exact stability-threshold behavior
-- floating-point boundary handling
-
-Current result:
-
-**61 tests passing**
-
-## Current Blockers
-
-None.
+- basic entity creation
+- unknown entity identity
+- identified entities
+- entity attributes
+- identification confidence bounds
+- required name/location
+- optional observation-to-entity references
+- entity-aware state keys
+- multiple entities in the same location
+- independent entity attribute dictionaries
 
 ## Next
 
-Continue to Day 7 of the HomHive roadmap.
-
-Day 7 introduces the household entity model.
-
-The next architectural distinction is:
-
-Entity
-→ What physical thing is this?
-
-Observation
-→ What was observed about it?
-
-State
-→ What does the system currently believe about its condition?
-
-Task
-→ What should be done about it?
-
-The current system supports structured observations, observation history, derived temporal state, confidence and recency weighting, trend detection, confidence-aware task discovery, explainable discovery outcomes, duplicate prevention, deterministic priority scoring, and ordered action planning.
-
-Entity identification, urgency inference, forecasting, external AI reasoning, research, persistence, APIs, perception, contextual planning, and frontend integration remain future layers.
+Day 8 - Entity Identification Workflow

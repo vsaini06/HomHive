@@ -4,6 +4,7 @@ from .state_aggregation import (
     calculate_observation_weight,
     calculate_recency_weight,
     calculate_trend,
+    build_state_key,
 )
 
 __all__ = [
@@ -12,5 +13,6 @@ __all__ = [
     "calculate_observation_weight",
     "calculate_recency_weight",
     "calculate_trend",
+    "build_state_key",
 ]
     

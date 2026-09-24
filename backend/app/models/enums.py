@@ -33,3 +33,10 @@ class TrendDirection(str, Enum):
     STABLE = "stable"
     FALLING = "falling"
     UNKNOWN = "unknown"
+
+class EntityType(str, Enum):
+    PLANT = "plant"
+    APPLIANCE = "appliance"
+    AREA = "area"
+    FIXTURE = "fixture"
+    OTHER = "other"

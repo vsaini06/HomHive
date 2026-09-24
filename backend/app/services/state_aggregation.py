@@ -103,6 +103,11 @@ def aggregate_observations(
     )
 
 
+def build_state_key(
+    observation: Observation,
+) -> str:
+    return observation.state_key()
+
 
 def aggregate_household_state(
     household_state: HouseholdState,
@@ -113,9 +118,8 @@ def aggregate_household_state(
     ] = {}
 
     for observation in household_state.observation_history:
-        state_key = (
-            f"{observation.location}:"
-            f"{observation.category.value}"
+        state_key = build_state_key(
+            observation
         )
 
         grouped_observations.setdefault(

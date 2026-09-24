@@ -600,3 +600,99 @@ For the current MVP, aggregated-state confidence uses the maximum confidence amo
 
 ### Why
 Repeated observations may contain correlated errors. Multiple uncertain observations should not automatically create artificial confidence. More sophisticated confidence aggregation can be evaluated later.
+
+## ADR-028: Household entities are modeled separately from observations.
+
+### Decision:
+Persistent physical things are represented by HouseholdEntity rather than
+embedding identity information directly into observations.
+
+### Reason:
+Entity identity and observed condition have different lifecycles. The same
+entity can accumulate many observations over time.
+
+
+## ADR-029: Entity type and specific identity are separate.
+
+### Decision:
+HouseholdEntity uses a broad EntityType while identity stores the optional
+specific recognized identity.
+
+Example:
+entity_type = PLANT
+identity = "Monstera deliciosa"
+
+### Reason:
+The system may know that an object is a plant before knowing its exact species.
+
+
+## ADR-030: Identification confidence is separate from observation confidence.
+
+### Decision:
+HouseholdEntity stores identification_confidence independently from
+Observation.confidence.
+
+### Reason:
+Confidence that an object is a Monstera is different from confidence that
+its leaves appear unhealthy.
+
+
+## ADR-031: Observations may optionally reference entities.
+
+### Decision:
+Observation.entity_id is optional.
+
+### Reason:
+Observations must be representable before entity identification succeeds,
+and some observations may describe locations or conditions without a
+specific entity.
+
+
+## ADR-032: Entity identity takes precedence in state keys.
+
+### Decision:
+When entity_id exists, state identity uses:
+
+entity_id:category
+
+Otherwise it falls back to:
+
+location:category
+
+### Reason:
+Multiple entities of the same category may exist in the same location.
+
+
+## ADR-033: State-key policy has one source of truth.
+
+### Decision:
+Observation.state_key() owns state identity construction.
+
+HouseholdState and temporal aggregation reuse that policy.
+
+### Reason:
+This prevents different parts of the system from generating incompatible
+state identities.
+
+
+## ADR-034: Entity attributes remain extensible.
+
+### Decision:
+Entity-specific intrinsic properties are stored in attributes rather than
+adding every possible plant, appliance, area, or fixture property to the
+core model.
+
+### Reason:
+Different entity types require different properties while the core entity
+contract should remain stable.
+
+
+## ADR-035: External entity knowledge is not part of HouseholdEntity.
+
+### Decision:
+Web-researched care instructions, manuals, maintenance guidance, and similar
+knowledge are not stored directly in the core HouseholdEntity contract.
+
+### Reason:
+"What is this physical thing?" and "What external knowledge do we have about
+this type of thing?" are separate concerns.

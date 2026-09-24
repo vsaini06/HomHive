@@ -16,6 +16,7 @@ from app.services.state_aggregation import (
     calculate_observation_weight,
     calculate_recency_weight,
     calculate_trend,
+    build_state_key,
 )
 
 #-tests-
@@ -556,3 +557,86 @@ def test_change_at_stable_threshold_is_stable():
     )
 
     assert trend == TrendDirection.STABLE
+
+#-19-
+def test_state_key_uses_entity_when_available():
+    observation = Observation(
+        id="obs_001",
+        source=ObservationSource.PHOTO,
+        location="living_room",
+        entity_id="entity_plant_001",
+        category=ObservationCategory.PLANT_CONDITION,
+        value=0.40,
+        confidence=0.90,
+    )
+
+    state_key = build_state_key(
+        observation
+    )
+
+    assert (
+        state_key
+        == "entity_plant_001:plant_condition"
+    )
+
+#-20-
+def test_state_key_uses_location_without_entity():
+    observation = Observation(
+        id="obs_001",
+        source=ObservationSource.PHOTO,
+        location="living_room",
+        category=ObservationCategory.PLANT_CONDITION,
+        value=0.40,
+        confidence=0.90,
+    )
+
+    state_key = build_state_key(
+        observation
+    )
+
+    assert (
+        state_key
+        == "living_room:plant_condition"
+    )
+
+#-21-
+def test_different_entities_in_same_location_stay_separate():
+    state = HouseholdState(
+        id="home_001"
+    )
+
+    plant_one = Observation(
+        id="obs_plant_001",
+        source=ObservationSource.PHOTO,
+        location="living_room",
+        entity_id="entity_plant_001",
+        category=ObservationCategory.PLANT_CONDITION,
+        value=0.30,
+        confidence=0.90,
+    )
+    plant_two = Observation(
+        id="obs_plant_002",
+        source=ObservationSource.PHOTO,
+        location="living_room",
+        entity_id="entity_plant_002",
+        category=ObservationCategory.PLANT_CONDITION,
+        value=0.80,
+        confidence=0.90,
+    )
+
+    state.add_observation(plant_one)
+    state.add_observation(plant_two)
+    aggregated_states = aggregate_household_state(
+        state
+    )
+
+    assert len(aggregated_states) == 2
+    assert (
+        "entity_plant_001:plant_condition"
+        in aggregated_states
+    )
+    assert (
+        "entity_plant_002:plant_condition"
+        in aggregated_states
+    )
+

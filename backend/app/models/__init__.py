@@ -4,6 +4,7 @@ from .enums import (
     TaskStatus,
     UrgencyLevel,
     TrendDirection,
+    EntityType,
 )
 from .task_discovery_result import (
     TaskDiscoveryReason,
@@ -14,6 +15,7 @@ from .observation import Observation
 from .task import Task
 from .task_priority import PrioritizedTask
 from .aggregated_state import AggregatedState
+from .household_entity import HouseholdEntity
 
 __all__ = [
     "Observation",
@@ -28,4 +30,6 @@ __all__ = [
     "PrioritizedTask",
     "AggregatedState",
     "TrendDirection",
+    "EntityType",
+    "HouseholdEntity",
 ]
