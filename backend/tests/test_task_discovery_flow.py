@@ -1,7 +1,9 @@
 from app.models import HouseholdState, Observation, TaskStatus
 from app.services.task_discovery import discover_task
 
+#-tests-
 
+#-1-
 def test_household_observation_to_task_flow():
     state = HouseholdState(id="home_001")
     active_tasks = []
@@ -80,14 +82,13 @@ def test_household_observation_to_task_flow():
     )
 
     assert new_task is not None
-
     assert len(state.observation_history) == 4
-
     assert (
         state.current_observations["kitchen:dish_load"].id
         == "obs_004"
     )
 
+#-2-
 def test_low_confidence_observations_are_preserved_without_task():
     state = HouseholdState(id="home_002")
     active_tasks = []
@@ -128,7 +129,6 @@ def test_low_confidence_observations_are_preserved_without_task():
         )
 
         assert task is None
-
     assert len(state.observation_history) == 3
 
     current = state.current_observations["kitchen:dish_load"]
@@ -137,6 +137,7 @@ def test_low_confidence_observations_are_preserved_without_task():
     assert current.value == 0.88
     assert current.confidence == 0.60
 
+#-3-
 def test_high_confidence_observation_after_uncertain_evidence_creates_task():
     state = HouseholdState(id="home_003")
     active_tasks = []
@@ -178,7 +179,6 @@ def test_high_confidence_observation_after_uncertain_evidence_creates_task():
     assert second_task is not None
     assert second_task.source_observation_id == "obs_recovery_002"
     assert second_task.task_key == "kitchen:dish_load"
-
     assert len(state.observation_history) == 2
 
     current = state.current_observations["kitchen:dish_load"]

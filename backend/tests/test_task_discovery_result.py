@@ -7,7 +7,9 @@ from app.services.task_discovery import (
     discover_task_detailed,
 )
 
+#-tests-
 
+#-1-
 def test_detailed_result_reports_task_created():
     observation = Observation(
         id="obs_result_001",
@@ -23,7 +25,7 @@ def test_detailed_result_reports_task_created():
     assert result.task is not None
     assert result.reason == TaskDiscoveryReason.TASK_CREATED
 
-
+#-2-
 def test_detailed_result_reports_below_threshold():
     observation = Observation(
         id="obs_result_002",
@@ -39,7 +41,7 @@ def test_detailed_result_reports_below_threshold():
     assert result.task is None
     assert result.reason == TaskDiscoveryReason.BELOW_THRESHOLD
 
-
+#-3-
 def test_detailed_result_reports_low_confidence():
     observation = Observation(
         id="obs_result_003",
@@ -55,7 +57,7 @@ def test_detailed_result_reports_low_confidence():
     assert result.task is None
     assert result.reason == TaskDiscoveryReason.LOW_CONFIDENCE
 
-
+#-4-
 def test_detailed_result_reports_unsupported_category():
     observation = Observation(
         id="obs_result_004",
@@ -71,7 +73,7 @@ def test_detailed_result_reports_unsupported_category():
     assert result.task is None
     assert result.reason == TaskDiscoveryReason.UNSUPPORTED_CATEGORY
 
-
+#-5-
 def test_detailed_result_reports_duplicate_active_task():
     first_observation = Observation(
         id="obs_result_005",

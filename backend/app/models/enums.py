@@ -27,3 +27,9 @@ class UrgencyLevel(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
+class TrendDirection(str, Enum):
+    RISING = "rising"
+    STABLE = "stable"
+    FALLING = "falling"
+    UNKNOWN = "unknown"

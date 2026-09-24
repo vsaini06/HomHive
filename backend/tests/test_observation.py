@@ -3,7 +3,9 @@ from pydantic import ValidationError
 
 from app.models import Observation
 
+#-tests-
 
+#-1-
 def test_valid_observation():
     observation = Observation(
         id="obs_001",
@@ -19,7 +21,7 @@ def test_valid_observation():
     assert observation.value == 0.82
     assert observation.confidence == 0.91
 
-
+#-2-
 def test_observation_rejects_invalid_value():
     with pytest.raises(ValidationError):
         Observation(
@@ -31,7 +33,7 @@ def test_observation_rejects_invalid_value():
             confidence=0.91,
         )
 
-
+#-3-
 def test_observation_rejects_invalid_source():
     with pytest.raises(ValidationError):
         Observation(

@@ -7,7 +7,9 @@ from app.models import (
 from app.services.task_discovery import discover_task
 from app.services.task_prioritization import prioritize_tasks
 
+#-tests-
 
+#-1-
 def test_observations_become_prioritized_action_plan():
     state = HouseholdState(id="home_priority_001")
 
@@ -53,10 +55,8 @@ def test_observations_become_prioritized_action_plan():
     prioritized = prioritize_tasks(discovered_tasks)
 
     assert len(prioritized) == 2
-
     assert prioritized[0].task.id == "task_obs_dishes"
     assert prioritized[1].task.id == "task_obs_laundry"
-
     assert (
         prioritized[0].priority_score
         > prioritized[1].priority_score

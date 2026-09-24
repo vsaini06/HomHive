@@ -523,3 +523,80 @@ Tasks with equal priority scores are ordered by task ID.
 Input ordering from databases or APIs should not accidentally determine the action plan.
 
 Task ID is only a reproducibility mechanism and may later be replaced by a meaningful temporal signal.
+
+## ADR-022: Derived state is separate from raw observations
+
+### Decision
+Raw observations remain preserved in `HouseholdState.observation_history`, while `AggregatedState` represents the system's derived belief about the current condition.
+
+### Why
+A single observation is evidence, not necessarily the true current state. Separating evidence from derived state allows multiple observations to contribute to the system's current belief without destroying historical information.
+
+---
+
+## ADR-023: State aggregation uses confidence and recency
+
+### Decision
+Observation influence is calculated using:
+
+`observation_weight = confidence * recency_weight`
+
+where:
+
+`recency_weight = 1 / (1 + age_hours)`
+
+### Why
+Newer observations should generally influence current state more strongly, but a recent low-confidence observation should not automatically replace older high-confidence evidence.
+
+---
+
+## ADR-024: State identity uses location and category
+
+### Decision
+Observations are grouped using:
+
+`location + category`
+
+Example:
+
+`kitchen:dish_load`
+
+### Why
+The same observation category can exist independently in different locations. Kitchen dishes and dining-room dishes must not be treated as the same state.
+
+---
+
+## ADR-025: Trend detection is deterministic and threshold-based
+
+### Decision
+Trend direction is classified as:
+
+- `UNKNOWN` when fewer than two observations exist
+- `STABLE` when absolute change is less than or equal to `0.05`
+- `RISING` when change is greater than the stable threshold
+- `FALLING` when change is less than the negative stable threshold
+
+Observations are ordered by timestamp before trend calculation.
+
+### Why
+The MVP needs explainable trend information without introducing forecasting or statistical models prematurely. Timestamp ordering also prevents input-list order from affecting the result.
+
+---
+
+## ADR-026: Floating-point trend comparisons are normalized
+
+### Decision
+Absolute trend change is rounded to four decimal places before comparison with the stable threshold.
+
+### Why
+Binary floating-point representation can produce values such as `0.050000000000000044` for a conceptual change of `0.05`. This should not change the intended classification at the stability boundary.
+
+---
+
+## ADR-027: Aggregated confidence is not accumulated
+
+### Decision
+For the current MVP, aggregated-state confidence uses the maximum confidence among contributing observations rather than increasing confidence based on observation count.
+
+### Why
+Repeated observations may contain correlated errors. Multiple uncertain observations should not automatically create artificial confidence. More sophisticated confidence aggregation can be evaluated later.

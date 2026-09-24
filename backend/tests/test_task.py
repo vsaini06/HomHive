@@ -3,7 +3,9 @@ from pydantic import ValidationError
 
 from app.models import Task
 
+#-tests-
 
+#-1-
 def test_valid_task():
     task = Task(
         id="task_001",
@@ -24,7 +26,7 @@ def test_valid_task():
     assert task.status.value == "pending"
     assert task.deadline is None
 
-
+#-2-
 def test_task_rejects_invalid_urgency():
     with pytest.raises(ValidationError):
         Task(
@@ -37,7 +39,7 @@ def test_task_rejects_invalid_urgency():
             confidence=0.91,
         )
 
-
+#-3-
 def test_task_rejects_zero_effort():
     with pytest.raises(ValidationError):
         Task(
@@ -50,7 +52,7 @@ def test_task_rejects_zero_effort():
             confidence=0.91,
         )
 
-
+#-4-
 def test_task_rejects_invalid_confidence():
     with pytest.raises(ValidationError):
         Task(
@@ -63,7 +65,7 @@ def test_task_rejects_invalid_confidence():
             confidence=1.5,
         )
 
-
+#-5-
 def test_task_rejects_empty_description():
     with pytest.raises(ValidationError):
         Task(
