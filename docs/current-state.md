@@ -1,14 +1,12 @@
 # HomHive Current State
 
-Last updated: September 19, 2026
+Last updated: September 23, 2026
 
 ## Current Milestone
 
-Day 5 of the 38-day HomHive build roadmap.
+Day 6 of the 38-day HomHive build roadmap.
 
-Focus: Deterministic task prioritization and ordered action planning.
-
-## Completed
+Focus: Temporal state aggregation, confidence and recency weighting, conflict handling, and trend detection.
 
 ### Day 1
 
@@ -262,42 +260,96 @@ Tests currently cover:
 
 ## Current Architecture
 
-The implemented system currently looks like:
+The implemented system currently contains two connected deterministic flows.
+
+### State Understanding
 
 Observation
-    |
-    v
+
+    ↓
+
 HouseholdState
-    |
+
     +-- observation_history
-    |
+
     +-- current_observations
-    |
-    v
+
+    ↓
+
+State Aggregation
+
+    +-- confidence weighting
+
+    +-- recency weighting
+
+    +-- conflict handling
+
+    +-- trend detection
+
+    ↓
+
+AggregatedState
+
+
+### Task Decision Flow
+
+Observation
+
+    ↓
+
 Task Discovery
-    |
+
     +-- category rule
+
     +-- value threshold
+
     +-- confidence threshold
+
     +-- duplicate detection
-    |
-    v
+
+    ↓
+
 TaskDiscoveryResult
-    |
+
     +-- task
+
     +-- reason
 
-The current implementation can represent observations, maintain historical and current state, discover basic tasks, and prevent duplicate active tasks.
+    ↓
 
-The following layers have not yet been implemented:
+Candidate Tasks
 
+    ↓
+
+Priority Scoring
+
+    +-- urgency
+
+    +-- confidence
+
+    +-- effort efficiency
+
+    ↓
+
+Ordered Action Plan
+
+The state-understanding and task-decision flows are not yet fully connected.
+
+Task discovery currently operates on observations rather than derived `AggregatedState`.
+
+Future work will determine how derived state, trends, forecasting, and contextual reasoning influence task creation and prioritization.
+
+The following major layers have not yet been implemented:
+
+- household entity identification
 - perception
-- LLM reasoning
-- prioritization
 - forecasting
 - external research
+- LLM reasoning
 - persistence/database
 - API layer
+- calendar and personal-context integration
+- presence and availability reasoning
 - frontend integration
 
 ## External Services Available
@@ -470,47 +522,184 @@ Equal scores use task ID as a deterministic fallback tie-breaker.
 
 Task ID is not considered a measure of importance. It is only used to guarantee reproducible ordering until a meaningful temporal tie-breaker is introduced.
 
-#### Current Pipeline
+### Day 6
+
+#### Temporal State Aggregation
+
+Added a derived-state layer that converts observation history into a current belief about each household condition.
+
+Added:
+
+`backend/app/models/aggregated_state.py`
+
+with:
+
+- location
+- category
+- current_value
+- confidence
+- trend
+- latest_observation
+- observation_count
+- updated_at
+
+`AggregatedState` is intentionally separate from raw `Observation` data.
+
+An observation represents evidence captured at a specific point in time.
+
+An aggregated state represents the system's current derived belief after considering multiple observations.
+
+#### Confidence and Recency Weighting
+
+Added:
+
+`backend/app/services/state_aggregation.py`
+
+Observation influence is calculated using:
+
+`observation_weight = confidence * recency_weight`
+
+Current recency function:
+
+`recency_weight = 1 / (1 + age_hours)`
+
+This gives newer observations greater influence while still allowing older high-confidence evidence to contribute to the current state.
+
+A recent low-confidence observation therefore does not automatically replace older reliable evidence.
+
+The aggregated current value is calculated as a weighted average:
+
+`sum(value * weight) / sum(weight)`
+
+#### Aggregated Confidence
+
+Current MVP aggregated confidence uses the maximum confidence among contributing observations.
+
+Repeated observations do not automatically increase confidence.
+
+This is intentionally conservative because multiple observations may contain correlated errors.
+
+A more sophisticated confidence model may be introduced after evaluation.
+
+#### State Grouping
+
+Added:
+
+`aggregate_household_state()`
+
+Observation history is grouped using:
+
+`location:category`
+
+Examples:
+
+`kitchen:dish_load`
+
+`laundry_room:laundry_load`
+
+This allows multiple observations of the same condition to contribute to one derived state while keeping different locations and categories independent.
+
+An empty household state produces an empty aggregation rather than inventing zero-valued conditions.
+
+#### Trend Detection
+
+Added temporal trend classification using `TrendDirection`.
+
+Supported directions:
+
+- rising
+- stable
+- falling
+- unknown
+
+Trend calculation sorts observations by timestamp before comparing the oldest and newest values.
+
+This means trend behavior does not depend on the order in which observations are supplied to the function.
+
+With fewer than two observations, trend is:
+
+`unknown`
+
+Current stability threshold:
+
+`0.05`
+
+Changes with an absolute magnitude less than or equal to the threshold are classified as stable.
+
+Larger positive changes are classified as rising.
+
+Larger negative changes are classified as falling.
+
+This is intentionally a simple deterministic MVP heuristic rather than a forecasting model.
+
+#### Floating-Point Boundary Handling
+
+Trend change is rounded to four decimal places before comparison with the stability threshold.
+
+This prevents binary floating-point representation from incorrectly classifying a conceptual change of exactly `0.05` as slightly greater than `0.05`.
+
+#### Current State Pipeline
+
+The implemented state pipeline is now:
 
 Observation
+
     ↓
+
 HouseholdState
-    ↓
-Task Discovery
-    ↓
-Candidate Tasks
-    ↓
-Priority Scoring
-    ↓
-Ordered Action Plan
 
-Urgency is currently assigned manually or defaults to MEDIUM.
+    +-- observation_history
 
-Automatic urgency inference has not yet been implemented.
+    +-- current_observations
+
+    ↓
+
+State Aggregation
+
+    +-- group by location + category
+
+    +-- confidence weighting
+
+    +-- recency weighting
+
+    +-- weighted current value
+
+    +-- trend detection
+
+    ↓
+
+AggregatedState
+
+This derived-state layer is now available for future task discovery, forecasting, and reasoning layers.
+
+Task discovery has not yet been migrated to operate directly on `AggregatedState`.
 
 #### Testing
 
-Added tests for:
+Added coverage for:
 
-- effort normalization
-- shorter versus longer effort
-- priority score bounds
-- urgency influence
-- confidence influence
-- prioritized task creation
-- urgency versus effort behavior
-- multi-task ranking
-- empty task collections
-- deterministic tie-breaking
-- observation-to-prioritized-plan integration
+- recency weighting
+- confidence-based observation weighting
+- strong versus weak conflicting observations
+- newer reliable observations shifting current state
+- invalid cross-location aggregation
+- invalid cross-category aggregation
+- empty observation aggregation
+- whole-house state grouping
+- same category across different locations
+- empty household aggregation
+- temporal aggregation through household state
+- unknown trend with insufficient history
+- rising trends
+- falling trends
+- stable trends
+- timestamp ordering independent of input order
+- exact stability-threshold behavior
+- floating-point boundary handling
 
 Current result:
 
-**43 tests passing**
-
-## Current Test Status
-
-**43 passed**
+**61 tests passing**
 
 ## Current Blockers
 
@@ -518,8 +707,24 @@ None.
 
 ## Next
 
-Continue to Day 6 of the HomHive roadmap.
+Continue to Day 7 of the HomHive roadmap.
 
-The current system supports structured observations, temporal state, confidence-aware task discovery, explainable discovery outcomes, duplicate prevention, deterministic priority scoring, and ordered action planning.
+Day 7 introduces the household entity model.
 
-Urgency inference, forecasting, external AI reasoning, research, persistence, APIs, perception, and frontend integration remain future layers.
+The next architectural distinction is:
+
+Entity
+→ What physical thing is this?
+
+Observation
+→ What was observed about it?
+
+State
+→ What does the system currently believe about its condition?
+
+Task
+→ What should be done about it?
+
+The current system supports structured observations, observation history, derived temporal state, confidence and recency weighting, trend detection, confidence-aware task discovery, explainable discovery outcomes, duplicate prevention, deterministic priority scoring, and ordered action planning.
+
+Entity identification, urgency inference, forecasting, external AI reasoning, research, persistence, APIs, perception, contextual planning, and frontend integration remain future layers.
