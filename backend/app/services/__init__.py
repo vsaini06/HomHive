@@ -6,6 +6,10 @@ from .state_aggregation import (
     calculate_trend,
     build_state_key,
 )
+from .entity_resolution import (
+    is_entity_compatible,
+    resolve_entity,
+)
 
 __all__ = [
     "aggregate_household_state",
@@ -14,5 +18,7 @@ __all__ = [
     "calculate_recency_weight",
     "calculate_trend",
     "build_state_key",
+    "is_entity_compatible",
+    "resolve_entity",
 ]
     

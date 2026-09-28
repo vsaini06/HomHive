@@ -40,3 +40,8 @@ class EntityType(str, Enum):
     AREA = "area"
     FIXTURE = "fixture"
     OTHER = "other"
+
+class EntityResolutionStatus(str, Enum):
+    MATCH = "match"
+    CREATE = "create"
+    UNCERTAIN = "uncertain"
