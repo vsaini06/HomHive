@@ -696,3 +696,246 @@ knowledge are not stored directly in the core HouseholdEntity contract.
 ### Reason:
 "What is this physical thing?" and "What external knowledge do we have about
 this type of thing?" are separate concerns.
+
+## ADR-036: Separate Entity Identification from Entity Resolution
+
+### Status
+
+Accepted
+
+### Decision
+
+Entity identification and entity resolution are separate processes.
+
+Entity identification answers:
+
+`What does this object appear to be?`
+
+Entity resolution answers:
+
+`Does this observation correspond to an existing physical household entity?`
+
+### Reason
+
+Recognizing two objects as the same species, model, or type does not mean they are the same physical object.
+
+For example, two plants may both be identified as:
+
+`Monstera deliciosa`
+
+while still representing two different household entities.
+
+
+---
+
+## ADR-037: Identification Results Are Candidates, Not Persistent Entities
+
+### Status
+
+Accepted
+
+### Decision
+
+Perception or future AI identification produces an:
+
+`EntityIdentificationCandidate`
+
+rather than directly creating or modifying a `HouseholdEntity`.
+
+### Reason
+
+Model predictions may be incomplete or uncertain.
+
+A temporary identification result should not automatically become persistent household state.
+
+This also allows identification to be verified or resolved before changing stored entities.
+
+
+---
+
+## ADR-038: Entity Resolution Uses Three Outcomes
+
+### Status
+
+Accepted
+
+### Decision
+
+Entity resolution produces one of:
+
+- `MATCH`
+- `CREATE`
+- `UNCERTAIN`
+
+### Reason
+
+Entity resolution cannot always be represented safely as a binary existing/new decision.
+
+When available evidence cannot reliably distinguish between existing entities or a possible new entity, HomHive should preserve uncertainty rather than force a decision.
+
+
+---
+
+## ADR-039: Compatibility Does Not Establish Physical Identity
+
+### Status
+
+Accepted
+
+### Decision
+
+Entity compatibility is used only to determine whether an existing entity could potentially correspond to an identification candidate.
+
+Compatibility currently considers:
+
+- entity type
+- observed location
+- known identity conflicts
+
+A compatible entity is not automatically considered a match.
+
+### Reason
+
+Two entities may have the same type, location, and identity while still being different physical objects.
+
+For example, two Monstera plants may exist in the same room.
+
+
+---
+
+## ADR-040: Physical Entity Matching Requires Explicit Match Evidence
+
+### Status
+
+Accepted
+
+### Decision
+
+A compatible entity requires additional `EntityMatchEvidence` before automatic resolution can return `MATCH`.
+
+Match evidence contains:
+
+- `entity_id`
+- `score`
+- `reasons`
+
+### Reason
+
+Compatibility narrows possible entities but does not provide sufficient evidence that two observations refer to the same physical object.
+
+Keeping match evidence explicit also allows future evidence sources such as visual similarity, historical information, or user confirmation.
+
+
+---
+
+## ADR-041: Exact Identity Alone Is Insufficient for Physical Matching
+
+### Status
+
+Accepted
+
+### Decision
+
+An exact identity match contributes to entity-match evidence but cannot independently establish a physical entity match.
+
+The deterministic MVP currently assigns exact identity agreement a score contribution of:
+
+`0.50`
+
+### Reason
+
+Identity describes what an object is, not which physical instance it is.
+
+For example:
+
+`LG WM4000HWA`
+
+may identify a washing-machine model but does not uniquely identify one physical washing machine.
+
+
+---
+
+## ADR-042: Missing Evidence and Contradictory Evidence Are Different
+
+### Status
+
+Accepted
+
+### Decision
+
+Missing attributes are not treated as mismatches.
+
+Only attributes available on both the identification candidate and stored entity are compared.
+
+Explicitly conflicting shared attributes are recorded as contradictory evidence.
+
+### Reason
+
+A photo may not expose every known property of an entity.
+
+Failure to observe an attribute does not imply that the attribute conflicts with stored knowledge.
+
+
+---
+
+## ADR-043: Explicit Attribute Contradictions Prevent Automatic Strong Matching
+
+### Status
+
+Accepted for MVP
+
+### Decision
+
+When shared candidate and entity attributes explicitly conflict, deterministic match evidence cannot reach the automatic match threshold.
+
+### Reason
+
+HomHive should prefer `UNCERTAIN` over automatically associating an observation with the wrong physical entity when contradictory evidence exists.
+
+
+---
+
+## ADR-044: Entity Match Threshold Is an MVP Heuristic
+
+### Status
+
+Accepted for MVP
+
+### Decision
+
+Automatic entity matching currently uses:
+
+`MATCH_THRESHOLD = 0.80`
+
+This value is not considered a permanent or empirically validated threshold.
+
+### Reason
+
+The current deterministic matching system establishes an explainable baseline.
+
+The threshold should later be evaluated and calibrated using real identification and entity-resolution data.
+
+
+---
+
+## ADR-045: Automatic Resolution Orchestrates Existing Resolution Components
+
+### Status
+
+Accepted
+
+### Decision
+
+`resolve_entity_automatically()` coordinates:
+
+1. compatibility filtering
+2. match-evidence generation
+3. evidence-aware resolution
+
+It does not duplicate the logic implemented by those components.
+
+### Reason
+
+Compatibility, evidence generation, resolution policy, and orchestration should remain independently testable and replaceable.
+
+Future vision or learned matching systems can therefore improve evidence generation without requiring the entire resolution pipeline to be rewritten.

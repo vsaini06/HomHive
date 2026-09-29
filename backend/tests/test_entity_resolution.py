@@ -11,8 +11,10 @@ from app.models import (
 )
 
 from app.services import (
+    generate_match_evidence,
     is_entity_compatible,
     resolve_entity,
+    resolve_entity_automatically,
 )
 
 #-tests-
@@ -447,4 +449,312 @@ def test_multiple_strong_matches_remain_uncertain():
     )
     assert result.matched_entity_id is None
 
+#-19-
+def test_match_evidence_scores_exact_identity():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.PLANT,
+        identity="Monstera deliciosa",
+        confidence=0.95,
+    )
+    entity = HouseholdEntity(
+        id="entity_001",
+        entity_type=EntityType.PLANT,
+        name="Plant",
+        location="living_room",
+        identity="Monstera deliciosa",
+    )
+    evidence = generate_match_evidence(
+        candidate,
+        entity,
+    )
 
+    assert evidence.score == 0.50
+    assert (
+        "exact identity match"
+        in evidence.reasons
+    )
+
+#-20-
+def test_match_evidence_scores_matching_attributes():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.APPLIANCE,
+        identity="LG WM4000HWA",
+        confidence=0.95,
+        attributes={
+            "color": "white",
+            "door": "front_load",
+        },
+    )
+    entity = HouseholdEntity(
+        id="entity_001",
+        entity_type=EntityType.APPLIANCE,
+        name="Washer",
+        location="laundry_room",
+        identity="LG WM4000HWA",
+        attributes={
+            "color": "white",
+            "door": "front_load",
+        },
+    )
+    evidence = generate_match_evidence(
+        candidate,
+        entity,
+    )
+
+    assert evidence.score == 1.0
+
+#-21-
+def test_match_evidence_scores_partial_attribute_match():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.APPLIANCE,
+        identity=None,
+        confidence=0.90,
+        attributes={
+            "color": "white",
+            "door": "front_load",
+        },
+    )
+    entity = HouseholdEntity(
+        id="entity_001",
+        entity_type=EntityType.APPLIANCE,
+        name="Washer",
+        location="laundry_room",
+        attributes={
+            "color": "white",
+            "door": "top_load",
+        },
+    )
+    evidence = generate_match_evidence(
+        candidate,
+        entity,
+    )
+
+    assert evidence.score == 0.25
+
+#-22-
+def test_match_evidence_is_zero_without_shared_evidence():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.PLANT,
+        identity=None,
+        confidence=0.80,
+        attributes={},
+    )
+    entity = HouseholdEntity(
+        id="entity_001",
+        entity_type=EntityType.PLANT,
+        name="Plant",
+        location="living_room",
+        identity="Monstera deliciosa",
+        attributes={
+            "pot_color": "white",
+        },
+    )
+    evidence = generate_match_evidence(
+        candidate,
+        entity,
+    )
+
+    assert evidence.score == 0.0
+    assert evidence.reasons == []
+
+#-23-
+def test_automatic_resolution_creates_when_no_entity_is_compatible():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.PLANT,
+        identity="Monstera deliciosa",
+        confidence=0.95,
+    )
+    result = resolve_entity_automatically(
+        candidate=candidate,
+        observed_location="living_room",
+        known_entities=[],
+    )
+
+    assert (
+        result.status
+        == EntityResolutionStatus.CREATE
+    )
+    assert result.matched_entity_id is None
+
+#-24-
+def test_automatic_resolution_matches_with_strong_evidence():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.APPLIANCE,
+        identity="LG WM4000HWA",
+        confidence=0.95,
+        attributes={
+            "color": "white",
+            "door": "front_load",
+        },
+    )
+    entity = HouseholdEntity(
+        id="entity_washer_001",
+        entity_type=EntityType.APPLIANCE,
+        name="Washer",
+        location="laundry_room",
+        identity="LG WM4000HWA",
+        attributes={
+            "color": "white",
+            "door": "front_load",
+        },
+    )
+    result = resolve_entity_automatically(
+        candidate=candidate,
+        observed_location="laundry_room",
+        known_entities=[entity],
+    )
+
+    assert (
+        result.status
+        == EntityResolutionStatus.MATCH
+    )
+    assert (
+        result.matched_entity_id
+        == "entity_washer_001"
+    )
+    assert result.confidence == 1.0
+
+#-25-
+def test_automatic_resolution_does_not_match_on_identity_alone():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.PLANT,
+        identity="Monstera deliciosa",
+        confidence=0.95,
+    )
+    entity = HouseholdEntity(
+        id="entity_plant_001",
+        entity_type=EntityType.PLANT,
+        name="Living Room Plant",
+        location="living_room",
+        identity="Monstera deliciosa",
+    )
+    result = resolve_entity_automatically(
+        candidate=candidate,
+        observed_location="living_room",
+        known_entities=[entity],
+    )
+
+    assert (
+        result.status
+        == EntityResolutionStatus.UNCERTAIN
+    )
+    assert result.matched_entity_id is None
+
+#-26-
+def test_automatic_resolution_is_uncertain_for_multiple_strong_matches():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.APPLIANCE,
+        identity="LG WM4000HWA",
+        confidence=0.95,
+        attributes={
+            "color": "white",
+            "door": "front_load",
+        },
+    )
+    first = HouseholdEntity(
+        id="entity_001",
+        entity_type=EntityType.APPLIANCE,
+        name="Washer One",
+        location="laundry_room",
+        identity="LG WM4000HWA",
+        attributes={
+            "color": "white",
+            "door": "front_load",
+        },
+    )
+    second = HouseholdEntity(
+        id="entity_002",
+        entity_type=EntityType.APPLIANCE,
+        name="Washer Two",
+        location="laundry_room",
+        identity="LG WM4000HWA",
+        attributes={
+            "color": "white",
+            "door": "front_load",
+        },
+    )
+    result = resolve_entity_automatically(
+        candidate=candidate,
+        observed_location="laundry_room",
+        known_entities=[
+            first,
+            second,
+        ],
+    )
+
+    assert (
+        result.status
+        == EntityResolutionStatus.UNCERTAIN
+    )
+    assert result.matched_entity_id is None
+
+#-27-
+def test_conflicting_attributes_prevent_strong_match():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.APPLIANCE,
+        identity="LG WM4000HWA",
+        confidence=0.95,
+        attributes={
+            "color": "white",
+            "door": "front_load",
+            "control": "digital",
+        },
+    )
+    entity = HouseholdEntity(
+        id="entity_001",
+        entity_type=EntityType.APPLIANCE,
+        name="Washer",
+        location="laundry_room",
+        identity="LG WM4000HWA",
+        attributes={
+            "color": "white",
+            "door": "front_load",
+            "control": "analog",
+        },
+    )
+    evidence = generate_match_evidence(
+        candidate,
+        entity,
+    )
+
+    assert evidence.score < 0.80
+    assert (
+        "conflicting entity attributes"
+        in evidence.reasons
+    )
+
+#-28-
+def test_conflicting_attributes_keep_automatic_resolution_uncertain():
+    candidate = EntityIdentificationCandidate(
+        entity_type=EntityType.APPLIANCE,
+        identity="LG WM4000HWA",
+        confidence=0.95,
+        attributes={
+            "color": "white",
+            "door": "front_load",
+            "control": "digital",
+        },
+    )
+    entity = HouseholdEntity(
+        id="entity_001",
+        entity_type=EntityType.APPLIANCE,
+        name="Washer",
+        location="laundry_room",
+        identity="LG WM4000HWA",
+        attributes={
+            "color": "white",
+            "door": "front_load",
+            "control": "analog",
+        },
+    )
+    result = resolve_entity_automatically(
+        candidate=candidate,
+        observed_location="laundry_room",
+        known_entities=[entity],
+    )
+
+    assert (
+        result.status
+        == EntityResolutionStatus.UNCERTAIN
+    )
+    assert result.matched_entity_id is None

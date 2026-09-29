@@ -697,6 +697,75 @@ Coverage added for:
 - multiple entities in the same location
 - independent entity attribute dictionaries
 
-## Next
+## Day 8: Entity Identification and Resolution
 
-Day 8 - Entity Identification Workflow
+### Implemented
+
+- EntityIdentificationCandidate
+- EntityResolutionStatus
+- EntityResolutionResult
+- EntityMatchEvidence
+- entity compatibility filtering
+- deterministic match-evidence generation
+- evidence-aware entity resolution
+- automatic resolution orchestration
+- MATCH / CREATE / UNCERTAIN outcomes
+- contradiction-aware matching
+
+### Identification vs Resolution
+
+Entity identification determines what an observed object appears to be.
+
+Entity resolution determines whether that observation corresponds to an
+existing physical household entity.
+
+These remain separate concerns.
+
+### Resolution Pipeline
+
+Identification Candidate
+    ↓
+Compatibility Filtering
+    ↓
+Match Evidence Generation
+    ↓
+Evidence-Aware Resolution
+    ↓
+MATCH / CREATE / UNCERTAIN
+
+### Current Matching Rules
+
+Compatibility currently considers:
+
+- entity type
+- observed location
+- known identity conflicts
+
+Match evidence currently considers:
+
+- exact identity agreement
+- shared attribute agreement
+- conflicting attributes
+
+Exact identity alone is not sufficient to establish physical identity.
+
+The current automatic match threshold is 0.80 and is an MVP heuristic,
+not an empirically calibrated threshold.
+
+Explicit attribute contradictions prevent automatic strong matching.
+
+### Current Limitations
+
+- no real vision model integration yet
+- no image similarity or embeddings
+- no user-confirmation workflow
+- no persistent entity database
+- no entity relocation handling
+- attribute importance is not weighted
+- match threshold has not been empirically calibrated
+- external research is not yet part of identification
+- no Tavily integration yet
+
+### Testing
+
+113 automated tests passing.
