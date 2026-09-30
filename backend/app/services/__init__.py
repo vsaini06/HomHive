@@ -12,6 +12,7 @@ from .entity_resolution import (
     resolve_entity,
     resolve_entity_automatically,
 )
+from .entity_service import EntityService
 
 __all__ = [
     "aggregate_household_state",
@@ -24,5 +25,6 @@ __all__ = [
     "resolve_entity",
     "generate_match_evidence",
     "resolve_entity_automatically",
+    "EntityService",
 ]
     
