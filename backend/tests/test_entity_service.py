@@ -1,3 +1,4 @@
+import pytest
 from app.models import EntityType
 from app.repositories import EntityRepository
 from app.services import EntityService
@@ -55,3 +56,32 @@ def test_entity_service_filters_entities():
         entities[0].id
         == "entity_plant_001"
     )
+
+#-5-
+def test_entity_service_renames_entity():
+    repository = EntityRepository()
+    service = EntityService(
+        repository=repository
+    )
+    entity = service.rename_entity(
+        entity_id="entity_plant_001",
+        name="  My Monstera  ",
+    )
+
+    assert entity is not None
+    assert entity.name == "My Monstera"
+
+#-6-
+def test_entity_service_rejects_empty_name():
+    repository = EntityRepository()
+    service = EntityService(
+        repository=repository
+    )
+    with pytest.raises(
+        ValueError,
+        match="Entity name cannot be empty.",
+    ):
+        service.rename_entity(
+            entity_id="entity_plant_001",
+            name="   ",
+        )

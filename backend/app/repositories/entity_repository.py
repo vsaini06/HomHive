@@ -59,3 +59,19 @@ class EntityRepository:
             ]
 
         return list(entities)
+
+    def update_name(
+    self,
+    entity_id: str,
+    name: str,
+    ) -> HouseholdEntity | None:
+        entity = self.get_by_id(
+            entity_id
+        )
+
+        if entity is None:
+            return None
+
+        entity.name = name
+
+        return entity

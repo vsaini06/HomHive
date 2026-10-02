@@ -52,3 +52,29 @@ def test_entity_repository_filters_by_entity_type():
         entities[0].id
         == "entity_plant_001"
     )
+
+#-5-
+def test_entity_repository_updates_name():
+    repository = EntityRepository()
+    entity = repository.update_name(
+        entity_id="entity_plant_001",
+        name="My Monstera",
+    )
+
+    assert entity is not None
+    assert entity.name == "My Monstera"
+    stored_entity = repository.get_by_id(
+        "entity_plant_001"
+    )
+    assert stored_entity is not None
+    assert stored_entity.name == "My Monstera"
+
+#-6-
+def test_entity_repository_update_returns_none_for_unknown_entity():
+    repository = EntityRepository()
+    entity = repository.update_name(
+        entity_id="does_not_exist",
+        name="New Name",
+    )
+
+    assert entity is None

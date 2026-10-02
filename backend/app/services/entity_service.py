@@ -30,3 +30,20 @@ class EntityService:
             location=location,
             entity_type=entity_type,
         )
+
+    def rename_entity(
+        self,
+        entity_id: str,
+        name: str,
+    ) -> HouseholdEntity | None:
+        cleaned_name = name.strip()
+
+        if not cleaned_name:
+            raise ValueError(
+                "Entity name cannot be empty."
+            )
+
+        return self._repository.update_name(
+            entity_id=entity_id,
+            name=cleaned_name,
+        )
