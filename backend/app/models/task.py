@@ -10,7 +10,7 @@ class Task(BaseModel):
     id: str
     task_key: str
     description: str = Field(min_length=1)
-    source_observation_id: str
+    source_observation_id: str | None = None
     urgency: UrgencyLevel
     estimated_effort_minutes: int = Field(gt=0)
     deadline: datetime | None = None

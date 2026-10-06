@@ -1,43 +1,82 @@
 # HomHive Current State
 
-Last updated: September 23, 2026
+Last updated: October 2026
 
 ## Current Milestone
 
-Day 6 of the 38-day HomHive build roadmap.
+Day 10 of the 38-day HomHive build roadmap.
 
-Focus: Temporal state aggregation, confidence and recency weighting, conflict handling, and trend detection.
+Current focus: deterministic forecasting, threshold prediction, intervention decisions, and predictive task lifecycle.
 
-### Day 1
+Current automated test result:
 
-- Initialized HomHive Git repository.
-- Created initial project structure.
-- Added backend and frontend directories.
-- Added sample-data structure.
-- Added evaluation structure.
-- Added project documentation:
-  - architecture.md
-  - evaluation.md
-  - hackathon.md
-  - product-spec.md
-- Added README and MIT license.
-- Added project .gitignore.
+```text
+194 passed
+```
 
-### Day 2
+## What Exists Today
 
-#### Backend Structure
+HomHive currently has a tested Python backend foundation covering:
 
-Created Python application structure under:
+- observation modeling
+- household state history
+- deterministic task discovery
+- confidence-aware task discovery
+- explainable discovery results
+- task deduplication
+- deterministic task prioritization
+- temporal state aggregation
+- trend detection
+- household entity modeling
+- entity-aware state identity
+- entity identification contracts
+- deterministic entity resolution
+- FastAPI application foundation
+- Strawberry GraphQL API
+- repository/service separation
+- deterministic state forecasting
+- threshold-crossing prediction
+- forecast confidence
+- intervention decisions
+- predictive task discovery
+- predictive task reconciliation
+- predictive task lifecycle
 
-`backend/app/`
+The project does not yet process real household images or call external AI/research services.
 
-Created model package:
+---
 
-`backend/app/models/`
+## Day 1: Repository Foundation
 
-#### Observation Model
+Created the initial HomHive repository and project structure.
 
-Implemented a Pydantic Observation model containing:
+Added:
+
+- backend
+- frontend
+- sample data
+- evaluation structure
+- documentation
+- README
+- MIT license
+- `.gitignore`
+
+Initial documentation included:
+
+- `architecture.md`
+- `evaluation.md`
+- `hackathon.md`
+- `product-spec.md`
+
+---
+
+## Day 2: Core Domain Models
+
+Created the Python backend model layer.
+
+### Observation
+
+Implemented `Observation` with:
 
 - id
 - source
@@ -48,313 +87,651 @@ Implemented a Pydantic Observation model containing:
 - timestamp
 - metadata
 
-Observation values and confidence are validated between 0.0 and 1.0.
+Observation value and confidence are validated between `0.0` and `1.0`.
 
-Supported observation sources:
+Supported observation sources include:
 
 - photo
 - video
-- user_input
+- user input
 - history
-- external_research
+- external research
 
-Initial observation categories:
+Initial categories include:
 
-- dish_load
-- laundry_load
-- plant_condition
-- lawn_condition
-- maintenance_status
+- dish load
+- laundry load
+- plant condition
+- lawn condition
+- maintenance status
 
-#### Household State
+### HouseholdState
 
-Implemented `HouseholdState`.
+Implemented:
 
-Household state separates:
+```text
+observation_history
+current_observations
+```
 
-- `observation_history`
-- `current_observations`
+Historical observations remain available after current state changes.
 
-Observation history preserves observations over time.
+### Task
 
-Current observations contain the latest known observation for each location and category pair.
-
-Current-state keys use:
-
-`location:category`
-
-Example:
-
-`kitchen:dish_load`
-
-When a newer observation for the same location and category arrives, the current observation is replaced while previous observations remain in history.
-
-#### Task Model
-
-Implemented a Pydantic `Task` model containing:
+Implemented the initial `Task` model with:
 
 - id
-- task_key
+- task key
 - description
-- source_observation_id
+- source observation
 - urgency
-- estimated_effort_minutes
+- effort
 - deadline
 - confidence
 - status
-- created_at
+- creation time
 - metadata
 
-Task urgency supports:
+---
 
-- low
-- medium
-- high
-- critical
+## Day 3: Deterministic Task Discovery
 
-Task status supports:
+Created the service layer and deterministic task-discovery rules.
 
-- pending
-- in_progress
-- completed
-- dismissed
+Initial rules cover dish and laundry conditions.
 
-#### Python Environment
+Task discovery separates:
 
-Created an isolated Python virtual environment:
+```text
+Observation
+```
 
-`backend/.venv/`
+from:
 
-The virtual environment is excluded from Git.
+```text
+Task
+```
 
-Created:
+Added stable `task_key` values for duplicate detection.
 
-`backend/requirements.txt`
+Active pending or in-progress tasks prevent duplicate work from being created.
 
-Current declared dependencies:
-
-- pydantic
-- pytest
-
-### Day 3
-
-#### Service Layer
-
-Created:
-
-`backend/app/services/`
-
-Added:
-
-- `__init__.py`
-- `task_discovery.py`
-
-This separates application behavior from the core data models.
-
-#### Deterministic Task Discovery
-
-Implemented task discovery that converts qualifying observations into candidate tasks.
-
-Current rules:
-
-- `dish_load >= 0.70`
-  - Creates a dish-clearing task
-  - Estimated effort: 15 minutes
-
-- `laundry_load >= 0.75`
-  - Creates a laundry task
-  - Estimated effort: 45 minutes
-
-Categories without configured rules currently produce no task.
-
-Task discovery is deterministic at this stage. LLM reasoning is not required for simple, well-defined conditions.
-
-#### Task Rules
-
-Introduced a frozen `TaskRule` dataclass containing:
-
-- threshold
-- description
-- effort_minutes
-
-This separates task-discovery policy from the discovery mechanism.
-
-#### Task Identity
-
-Added `task_key` to the `Task` model.
-
-Example:
-
-`kitchen:dish_load`
-
-`id` identifies a specific task instance.
-
-`task_key` identifies the underlying work condition and is used for duplicate detection.
-
-#### Duplicate Task Prevention
-
-`discover_task()` now accepts existing tasks.
-
-If a task with the same `task_key` is already:
-
-- pending
-- in_progress
-
-a duplicate task is not created.
-
-If the previous task is:
-
-- completed
-- dismissed
-
-a new task may be created when the condition occurs again.
+Completed or dismissed work can later be generated again if the condition returns.
 
 Observation history remains independent from task deduplication.
 
-#### End-to-End State Flow
+End-of-day result:
 
-Added a test covering a sequence where:
+```text
+21 tests passing
+```
 
-1. Dish load starts below the task threshold.
-2. Dish load increases and creates a task.
-3. Another observation of the unresolved condition does not create a duplicate.
-4. The original task is completed.
-5. The condition occurs again and creates a new task.
-6. All observations remain in history.
-7. Current state points to the latest observation.
+---
 
-This verifies behavior across time rather than only testing isolated models.
+## Day 4: Confidence and Explainability
 
-#### Testing
+Extended task discovery with category-specific confidence requirements.
 
-Current test files include:
+Current task creation requires both:
 
-- `test_observation.py`
-- `test_household_state.py`
-- `test_task.py`
-- `test_task_discovery.py`
-- `test_task_discovery_flow.py`
+- condition threshold satisfied
+- minimum confidence satisfied
 
-Current result:
+Low-confidence observations remain in household history even when they do not create tasks.
 
-**21 tests passing**
+Repeated uncertain observations do not automatically increase confidence.
 
-Tests currently cover:
+Added:
 
-- Observation validation
-- Enum validation
-- Task validation
-- Household-state updates
-- Observation history preservation
-- Current-state replacement
-- Dish task discovery
-- Laundry task discovery
-- Threshold behavior
-- Unsupported task categories
-- Task-key generation
-- Pending-task deduplication
-- In-progress-task deduplication
-- Re-creation after task completion
-- Different task-key handling
-- Multi-observation state-to-task flow
+```text
+TaskDiscoveryResult
+TaskDiscoveryReason
+```
+
+Detailed discovery can explain outcomes including:
+
+- task created
+- unsupported category
+- below threshold
+- low confidence
+- duplicate active task
+
+The original `Task | None` discovery interface remains available.
+
+---
+
+## Day 5: Task Prioritization
+
+Separated task prioritization from task discovery.
+
+Current priority signals:
+
+```text
+urgency       60%
+confidence    30%
+effort        10%
+```
+
+Effort score:
+
+```text
+1 / (1 + effort_minutes / 30)
+```
+
+Equal priority scores use task ID as a deterministic fallback.
+
+These values are MVP heuristics.
+
+---
+
+## Day 6: Temporal State Aggregation
+
+Added `AggregatedState`.
+
+Raw observations remain preserved while aggregation produces a derived current belief.
+
+Observation weighting:
+
+```text
+confidence * recency_weight
+```
+
+Recency:
+
+```text
+1 / (1 + age_hours)
+```
+
+Current value is calculated using a weighted average.
+
+Aggregated confidence currently uses the maximum contributing observation confidence.
+
+Repeated observations do not automatically increase confidence.
+
+### Trend Detection
+
+Added:
+
+- rising
+- stable
+- falling
+- unknown
+
+The current stability threshold is:
+
+```text
+0.05
+```
+
+Timestamp ordering is used before trend calculation.
+
+Floating-point changes are normalized before boundary comparison.
+
+---
+
+## Day 7: Household Entities
+
+Added persistent household entity representation.
+
+Implemented:
+
+- `EntityType`
+- `HouseholdEntity`
+- optional specific identity
+- identification confidence
+- extensible attributes
+- optional `Observation.entity_id`
+
+State identity was updated.
+
+When an entity is known:
+
+```text
+entity_id:category
+```
+
+When an entity is not known:
+
+```text
+location:category
+```
+
+`Observation.state_key()` is the canonical state-key policy.
+
+This prevents multiple entities of the same category in the same location from being merged.
+
+End-of-day result:
+
+```text
+77 tests passing
+```
+
+---
+
+## Day 8: Entity Identification and Resolution
+
+Implemented:
+
+- `EntityIdentificationCandidate`
+- `EntityResolutionStatus`
+- `EntityResolutionResult`
+- `EntityMatchEvidence`
+- compatibility filtering
+- match-evidence generation
+- evidence-aware resolution
+- automatic resolution orchestration
+
+Resolution outcomes:
+
+```text
+MATCH
+CREATE
+UNCERTAIN
+```
+
+Identification and resolution remain separate.
+
+Identification asks:
+
+```text
+What does this object appear to be?
+```
+
+Resolution asks:
+
+```text
+Does this correspond to an existing physical household entity?
+```
+
+Current compatibility considers:
+
+- entity type
+- observed location
+- known identity conflicts
+
+Current evidence considers:
+
+- exact identity agreement
+- shared attribute agreement
+- conflicting attributes
+
+Automatic matching currently uses:
+
+```text
+MATCH_THRESHOLD = 0.80
+```
+
+This is an MVP heuristic.
+
+Explicit contradictions prevent automatic strong matching.
+
+No real vision model is connected yet.
+
+End-of-day result:
+
+```text
+113 tests passing
+```
+
+---
+
+## Day 9: FastAPI and GraphQL Foundation
+
+Added the initial application/API layer.
+
+Technologies:
+
+```text
+FastAPI
+Strawberry GraphQL
+```
+
+Current API strategy is hybrid.
+
+REST currently provides:
+
+```text
+GET /health
+```
+
+GraphQL provides entity operations.
+
+Implemented GraphQL behavior includes:
+
+- retrieve entity by ID
+- retrieve collections of entities
+- filter entity queries
+- rename an entity
+
+Added separation between:
+
+```text
+GraphQL Resolver
+      ↓
+Entity Service
+      ↓
+Entity Repository
+      ↓
+Domain Model
+```
+
+Business validation remains in the service/domain path rather than being embedded entirely in GraphQL.
+
+### Application Factory
+
+Introduced application construction through `create_app()`.
+
+Application dependencies are created at the application boundary and provided to GraphQL through context.
+
+### Repository
+
+Entity storage currently uses an in-memory repository.
+
+Persistence has not yet been implemented.
+
+### Test Isolation
+
+Each test can create a separate FastAPI application instance.
+
+State is shared within one application instance but isolated between different application instances.
+
+End-of-day result:
+
+```text
+141 tests passing
+```
+
+---
+
+## Day 10: Forecasting and Predictive Intervention
+
+Day 10 introduced the first proactive state-prediction path.
+
+### StateForecast
+
+Added `StateForecast`.
+
+A forecast contains:
+
+- location
+- category
+- current value
+- predicted value
+- rate per hour
+- forecast horizon
+- predicted timestamp
+- trend
+- confidence
+
+### Rate of Change
+
+Implemented deterministic rate calculation using timestamped observations.
+
+```text
+(newest_value - oldest_value)
+/
+elapsed_hours
+```
+
+Fewer than two observations produce a zero rate.
+
+Non-positive elapsed time also produces a zero rate.
+
+### Future Value Prediction
+
+Implemented linear future-state projection.
+
+```text
+current_value
++ rate_per_hour * forecast_hours
+```
+
+Values are clamped between `0.0` and `1.0`.
+
+Forecast horizons must be positive.
+
+This is a deterministic MVP baseline, not a learned forecasting model.
+
+---
+
+## Forecast Confidence
+
+Forecast confidence is calculated separately from aggregated-state confidence.
+
+Current heuristic considers:
+
+- average observation confidence
+- number of observations
+- forecast distance
+
+Evidence factor:
+
+```text
+min(1.0, observation_count / 5.0)
+```
+
+Distance factor:
+
+```text
+1 / (1 + forecast_hours / 24.0)
+```
+
+Longer forecasts therefore receive lower confidence.
+
+---
+
+## Threshold Prediction
+
+Added `ThresholdPrediction`.
+
+HomHive can estimate how long a rising state may take to cross a configured threshold.
+
+If:
+
+```text
+current_value >= threshold
+```
+
+then:
+
+```text
+hours_to_threshold = 0
+```
+
+If the state is not moving toward the threshold, no crossing is predicted.
+
+Threshold prediction also includes a predicted crossing timestamp and confidence.
+
+---
+
+## Intervention Decisions
+
+Added:
+
+```text
+InterventionDecision
+InterventionStatus
+```
+
+Current statuses:
+
+```text
+NONE
+MONITOR
+PLAN
+ACT_NOW
+```
+
+The decision layer is separate from forecasting.
+
+A forecast describes expected future state.
+
+An intervention decision determines whether that prediction currently justifies action.
+
+Current behavior considers:
+
+- forecast confidence
+- time to threshold
+- planning window
+
+Low-confidence predictions remain in monitoring.
+
+Conditions already at their threshold can produce `ACT_NOW`.
+
+---
+
+## Predictive Task Discovery
+
+Added predictive task generation from actionable intervention decisions.
+
+Current mapping:
+
+```text
+PLAN
+    ↓
+MEDIUM urgency task
+
+ACT_NOW
+    ↓
+HIGH urgency task
+
+MONITOR / NONE
+    ↓
+No new task
+```
+
+Predictive tasks do not require a single source observation.
+
+`Task.source_observation_id` is therefore now optional.
+
+This avoids creating fake observation provenance for tasks derived from multiple historical observations and a forecast.
+
+---
+
+## Predictive Task Identity
+
+Predictive tasks use deterministic task identity based on the affected state.
+
+Repeated evaluations of the same predictive condition retain the same task identity even when:
+
+- confidence changes
+- time to threshold changes
+- intervention status changes
+
+This provides the basis for task reconciliation.
+
+---
+
+## Predictive Task Reconciliation
+
+Added reconciliation for repeated predictive evaluations.
+
+When no matching predictive task exists:
+
+```text
+create task
+```
+
+When the same task already exists:
+
+```text
+update existing task
+```
+
+The existing task object is preserved while changing information such as:
+
+- urgency
+- confidence
+- metadata
+- intervention status
+
+Unrelated tasks are not modified.
+
+---
+
+## Predictive Task Lifecycle
+
+Predictive tasks now respond to changing conditions.
+
+Current lifecycle:
+
+```text
+PLAN
+    ↓
+Create task
+
+ACT_NOW
+    ↓
+Escalate existing task
+
+MONITOR
+    ↓
+Dismiss existing predictive task
+
+PLAN / ACT_NOW later
+    ↓
+Reactivate existing logical task
+```
+
+Predictive tasks are dismissed rather than deleted when a condition no longer requires action.
+
+This preserves a path for future historical evaluation.
+
+Persistent lifecycle history is not available yet because the database layer has not been implemented.
+
+---
 
 ## Current Architecture
 
-The implemented system currently contains two connected deterministic flows.
+The implemented intelligence flow is now approximately:
 
-### State Understanding
-
-Observation
-
-    ↓
-
+```text
+Observations
+     ↓
 HouseholdState
-
-    +-- observation_history
-
-    +-- current_observations
-
-    ↓
-
+     ↓
 State Aggregation
-
-    +-- confidence weighting
-
-    +-- recency weighting
-
-    +-- conflict handling
-
-    +-- trend detection
-
-    ↓
-
+     ↓
 AggregatedState
+     ↓
+Forecasting
+     ↓
+Threshold Prediction
+     ↓
+Intervention Decision
+     ↓
+Predictive Task Discovery
+     ↓
+Task Reconciliation
+     ↓
+Tasks
+     ↓
+Prioritization
+```
 
+A parallel observation-driven task-discovery path still exists for immediately actionable deterministic conditions.
 
-### Task Decision Flow
+Not every layer is yet connected through one top-level orchestration service.
 
-Observation
+---
 
-    ↓
+## Current Test Status
 
-Task Discovery
+At the end of Day 10:
 
-    +-- category rule
+```text
+194 automated tests passing
+```
 
-    +-- value threshold
+The current suite covers the major implemented domain and service behaviors.
 
-    +-- confidence threshold
+The test count is used as a development checkpoint and should not be interpreted as production-readiness coverage.
 
-    +-- duplicate detection
-
-    ↓
-
-TaskDiscoveryResult
-
-    +-- task
-
-    +-- reason
-
-    ↓
-
-Candidate Tasks
-
-    ↓
-
-Priority Scoring
-
-    +-- urgency
-
-    +-- confidence
-
-    +-- effort efficiency
-
-    ↓
-
-Ordered Action Plan
-
-The state-understanding and task-decision flows are not yet fully connected.
-
-Task discovery currently operates on observations rather than derived `AggregatedState`.
-
-Future work will determine how derived state, trends, forecasting, and contextual reasoning influence task creation and prioritization.
-
-The following major layers have not yet been implemented:
-
-- household entity identification
-- perception
-- forecasting
-- external research
-- LLM reasoning
-- persistence/database
-- API layer
-- calendar and personal-context integration
-- presence and availability reasoning
-- frontend integration
+---
 
 ## External Services Available
 
-Credits/access are available for:
+The project currently has access to:
 
 - Nebius
 - Tavily
@@ -362,410 +739,37 @@ Credits/access are available for:
 - Toloka
 - Tandem
 
-These services have not yet been integrated.
-
-Planned high-level roles:
-
-- Nebius: model inference and core reasoning
-- Tavily: external research when internal context is insufficient
-- LangSmith: AI workflow tracing and evaluation
-- Toloka: potential human evaluation/data validation
-- Tandem: role to be determined based on available capabilities
-
-### Day 4
-
-#### Confidence-Aware Task Discovery
-
-Extended task discovery to consider observation confidence in addition to the observed value.
-
-Each `TaskRule` now contains:
-
-- threshold
-- min_confidence
-- description
-- effort_minutes
-
-Current dish and laundry rules require a minimum confidence of `0.70`.
-
-A task is created only when both the condition threshold and confidence threshold are satisfied.
-
-#### Confidence Handling
-
-Current behavior:
-
-- High value + high confidence -> task
-- High value + low confidence -> no task
-- Low value + high confidence -> no task
-- Confidence exactly at the minimum threshold -> accepted
-
-Low-confidence observations are still preserved in household history and current state even when they do not produce tasks.
-
-Repeated low-confidence observations do not automatically combine into higher confidence.
-
-A later high-confidence observation can independently trigger a task.
-
-#### Explainable Discovery Results
-
-Added:
-
-`backend/app/models/task_discovery_result.py`
-
-Introduced:
-
-- `TaskDiscoveryResult`
-- `TaskDiscoveryReason`
-
-Current discovery reasons:
-
-- `task_created`
-- `unsupported_category`
-- `below_threshold`
-- `low_confidence`
-- `duplicate_active_task`
-
-Added:
-
-`discover_task_detailed()`
-
-This returns both the discovered task and the reason for the decision.
-
-The existing `discover_task()` interface remains available and continues returning:
-
-`Task | None`
-
-This preserves backward compatibility for existing callers.
-
-#### Testing
-
-Added coverage for:
-
-- high-value/high-confidence observations
-- high-value/low-confidence observations
-- low-value/high-confidence observations
-- confidence boundary behavior
-- repeated uncertain observations
-- recovery from uncertain to reliable evidence
-- successful task creation reason
-- below-threshold reason
-- low-confidence reason
-- unsupported-category reason
-- duplicate-active-task reason
-
-### Day 5
-
-#### Task Prioritization
-
-Added a prioritization layer separate from task discovery.
-
-Task discovery answers:
-
-"What work exists?"
-
-Task prioritization answers:
-
-"What should happen first?"
-
-Added:
-
-`backend/app/models/task_priority.py`
-
-with:
-
-- `PrioritizedTask`
-- `priority_score`
-
-Priority is intentionally kept separate from the core `Task` model because priority can change as context changes while the underlying task remains the same.
-
-#### Priority Signals
-
-The current deterministic MVP uses three signals:
-
-- urgency
-- confidence
-- effort efficiency
-
-Current weighting:
-
-- urgency: 60%
-- confidence: 30%
-- effort efficiency: 10%
-
-Urgency mapping:
-
-- LOW = 0.25
-- MEDIUM = 0.50
-- HIGH = 0.75
-- CRITICAL = 1.00
-
-Effort normalization:
-
-`1 / (1 + effort_minutes / 30)`
-
-The weights are MVP heuristics and should be evaluated and tuned later rather than treated as objectively correct.
-
-#### Ranking
-
-Added:
-
-`backend/app/services/task_prioritization.py`
-
-The service can:
-
-- calculate effort scores
-- calculate priority scores
-- prioritize individual tasks
-- rank collections of tasks
-
-Tasks are ordered by descending priority score.
-
-Equal scores use task ID as a deterministic fallback tie-breaker.
-
-Task ID is not considered a measure of importance. It is only used to guarantee reproducible ordering until a meaningful temporal tie-breaker is introduced.
-
-### Day 6
-
-#### Temporal State Aggregation
-
-Added a derived-state layer that converts observation history into a current belief about each household condition.
-
-Added:
-
-`backend/app/models/aggregated_state.py`
-
-with:
-
-- location
-- category
-- current_value
-- confidence
-- trend
-- latest_observation
-- observation_count
-- updated_at
-
-`AggregatedState` is intentionally separate from raw `Observation` data.
-
-An observation represents evidence captured at a specific point in time.
-
-An aggregated state represents the system's current derived belief after considering multiple observations.
-
-#### Confidence and Recency Weighting
-
-Added:
-
-`backend/app/services/state_aggregation.py`
-
-Observation influence is calculated using:
-
-`observation_weight = confidence * recency_weight`
-
-Current recency function:
-
-`recency_weight = 1 / (1 + age_hours)`
-
-This gives newer observations greater influence while still allowing older high-confidence evidence to contribute to the current state.
-
-A recent low-confidence observation therefore does not automatically replace older reliable evidence.
-
-The aggregated current value is calculated as a weighted average:
-
-`sum(value * weight) / sum(weight)`
-
-#### Aggregated Confidence
-
-Current MVP aggregated confidence uses the maximum confidence among contributing observations.
-
-Repeated observations do not automatically increase confidence.
-
-This is intentionally conservative because multiple observations may contain correlated errors.
-
-A more sophisticated confidence model may be introduced after evaluation.
-
-#### State Grouping
-
-Added:
-
-`aggregate_household_state()`
-
-Observation history is grouped using:
-
-`location:category`
-
-Examples:
-
-`kitchen:dish_load`
-
-`laundry_room:laundry_load`
-
-This allows multiple observations of the same condition to contribute to one derived state while keeping different locations and categories independent.
-
-An empty household state produces an empty aggregation rather than inventing zero-valued conditions.
-
-#### Trend Detection
-
-Added temporal trend classification using `TrendDirection`.
-
-Supported directions:
-
-- rising
-- stable
-- falling
-- unknown
-
-Trend calculation sorts observations by timestamp before comparing the oldest and newest values.
-
-This means trend behavior does not depend on the order in which observations are supplied to the function.
-
-With fewer than two observations, trend is:
-
-`unknown`
-
-Current stability threshold:
-
-`0.05`
-
-Changes with an absolute magnitude less than or equal to the threshold are classified as stable.
-
-Larger positive changes are classified as rising.
-
-Larger negative changes are classified as falling.
-
-This is intentionally a simple deterministic MVP heuristic rather than a forecasting model.
-
-#### Floating-Point Boundary Handling
-
-Trend change is rounded to four decimal places before comparison with the stability threshold.
-
-This prevents binary floating-point representation from incorrectly classifying a conceptual change of exactly `0.05` as slightly greater than `0.05`.
-
-## Day 7 - Household Entity Model
-
-Implemented persistent household entity representation.
-
-### Added
-
-- EntityType enum
-- HouseholdEntity model
-- optional specific entity identity
-- identification confidence
-- extensible entity attributes
-- optional Observation.entity_id
-- entity-aware state identity
-- Observation.state_key() as the canonical state-key policy
-
-### Entity-aware state tracking
-
-State identity now follows:
-
-entity_id + category
-when an entity is known
-
-location + category
-when no entity is associated
-
-This prevents multiple physical entities of the same category in the same
-location from being merged into one state stream.
-
-### Current Entity Flow
-
-HouseholdEntity
-    ↓ entity_id
-Observation
-    ↓ state_key()
-HouseholdState
-    ↓
-Temporal State Aggregation
-    ↓
-AggregatedState
-
-Entity identification itself is not implemented yet.
-
-### Testing
-
-77 automated tests passing.
-
-Coverage added for:
-
-- basic entity creation
-- unknown entity identity
-- identified entities
-- entity attributes
-- identification confidence bounds
-- required name/location
-- optional observation-to-entity references
-- entity-aware state keys
-- multiple entities in the same location
-- independent entity attribute dictionaries
-
-## Day 8: Entity Identification and Resolution
-
-### Implemented
-
-- EntityIdentificationCandidate
-- EntityResolutionStatus
-- EntityResolutionResult
-- EntityMatchEvidence
-- entity compatibility filtering
-- deterministic match-evidence generation
-- evidence-aware entity resolution
-- automatic resolution orchestration
-- MATCH / CREATE / UNCERTAIN outcomes
-- contradiction-aware matching
-
-### Identification vs Resolution
-
-Entity identification determines what an observed object appears to be.
-
-Entity resolution determines whether that observation corresponds to an
-existing physical household entity.
-
-These remain separate concerns.
-
-### Resolution Pipeline
-
-Identification Candidate
-    ↓
-Compatibility Filtering
-    ↓
-Match Evidence Generation
-    ↓
-Evidence-Aware Resolution
-    ↓
-MATCH / CREATE / UNCERTAIN
-
-### Current Matching Rules
-
-Compatibility currently considers:
-
-- entity type
-- observed location
-- known identity conflicts
-
-Match evidence currently considers:
-
-- exact identity agreement
-- shared attribute agreement
-- conflicting attributes
-
-Exact identity alone is not sufficient to establish physical identity.
-
-The current automatic match threshold is 0.80 and is an MVP heuristic,
-not an empirically calibrated threshold.
-
-Explicit attribute contradictions prevent automatic strong matching.
-
-### Current Limitations
-
-- no real vision model integration yet
-- no image similarity or embeddings
-- no user-confirmation workflow
-- no persistent entity database
-- no entity relocation handling
-- attribute importance is not weighted
-- match threshold has not been empirically calibrated
-- external research is not yet part of identification
-- no Tavily integration yet
-
-### Testing
-
-113 automated tests passing.
+None of these services are currently integrated into the implemented core pipeline.
+
+Planned roles include:
+
+- Nebius for model inference and reasoning
+- Tavily for conditional external research
+- LangSmith for tracing and evaluation
+- Toloka for potential human evaluation/data validation
+- Tandem after its useful role is confirmed
+
+---
+
+## Not Implemented Yet
+
+Major remaining components include:
+
+- real photo ingestion
+- video ingestion
+- vision-model integration
+- automatic visual entity identification
+- Tavily research
+- Nebius/Nemotron reasoning
+- LangSmith tracing
+- persistent database storage
+- frontend integration
+- calendar context
+- email context
+- quiet hours
+- presence and availability reasoning
+- execution-window planning
+- learned forecasting
+- full predictive/reactive task reconciliation
+
+These should not be treated as existing capabilities until implemented and tested.

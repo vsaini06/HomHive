@@ -22,6 +22,9 @@ from .aggregated_state import AggregatedState
 from .household_entity import HouseholdEntity
 from .entity_resolution import EntityResolutionResult
 from .entity_match import EntityMatchEvidence
+from .state_forecast import StateForecast
+from .threshold_prediction import ThresholdPrediction
+from .intervention import InterventionStatus, InterventionDecision
 
 __all__ = [
     "Observation",
@@ -42,4 +45,8 @@ __all__ = [
     "EntityResolutionStatus",
     "EntityResolutionResult",
     "EntityMatchEvidence",
+    "StateForecast",
+    "ThresholdPrediction",
+    "InterventionStatus",
+    "InterventionDecision",
 ]

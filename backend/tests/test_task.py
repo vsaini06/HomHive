@@ -1,7 +1,10 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models import Task
+from app.models import (
+    Task,
+    UrgencyLevel,
+)
 
 #-tests-
 
@@ -77,3 +80,20 @@ def test_task_rejects_empty_description():
             estimated_effort_minutes=15,
             confidence=0.91,
         )
+
+#-6-
+def test_task_can_exist_without_source_observation():
+    task = Task(
+        id="predictive_task_kitchen:dish_load",
+        task_key="predictive:kitchen:dish_load",
+        description=(
+            "Address predicted dish_load issue "
+            "in kitchen"
+        ),
+        source_observation_id=None,
+        urgency=UrgencyLevel.MEDIUM,
+        estimated_effort_minutes=15,
+        confidence=0.80,
+    )
+
+    assert task.source_observation_id is None
