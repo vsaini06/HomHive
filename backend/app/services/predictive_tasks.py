@@ -1,50 +1,68 @@
 from app.models import (
-    InterventionDecision,
-    InterventionStatus,
+    ActionDecision,
+    ActionState,
     Task,
     TaskStatus,
-    UrgencyLevel,
+    TaskUrgency,
 )
 
 
-def discover_intervention_task(
-    decision: InterventionDecision,
-) -> Task | None:
-    if decision.status in {
-        InterventionStatus.NONE,
-        InterventionStatus.MONITOR,
-    }:
-        return None
+def _predictive_task_key(
+    decision: ActionDecision,
+) -> str:
+    """Build the current identity used for prediction-driven household work."""
 
-    if decision.status == InterventionStatus.ACT_NOW:
-        urgency = UrgencyLevel.HIGH
-    else:
-        urgency = UrgencyLevel.MEDIUM
-
-    state_key = (
-        f"{decision.location}:"
-        f"{decision.category.value}"
-    )
-
-    task_key = (
+    return (
         f"predictive:"
         f"{decision.location}:"
         f"{decision.category.value}"
     )
 
+
+def task_from_action_decision(
+    decision: ActionDecision,
+) -> Task | None:
+    """Turn an actionable forecast decision into household work."""
+
+    if decision.status in {
+        ActionState.NONE,
+        ActionState.MONITOR,
+    }:
+        return None
+
+    if decision.status == ActionState.ACT_NOW:
+        task_urgency = TaskUrgency.HIGH
+    else:
+        task_urgency = TaskUrgency.MEDIUM
+
+    condition_key = (
+        f"{decision.location}:"
+        f"{decision.category.value}"
+    )
+
+    task_key = _predictive_task_key(
+        decision
+    )
+
     return Task(
-        id=f"predictive_task_{state_key}",
+        id=f"predictive_task_{condition_key}",
         task_key=task_key,
         description=(
             f"Address predicted "
             f"{decision.category.value} issue "
             f"in {decision.location}"
         ),
+
+        # This task comes from several observations and a forecast,
+        # so assigning one observation as its source would be misleading.
         source_observation_id=None,
-        urgency=urgency,
+
+        urgency=task_urgency,
         estimated_effort_minutes=15,
         deadline=None,
         confidence=decision.confidence,
+
+        # Keep the existing metadata keys stable until callers are migrated.
         metadata={
             "source": "intervention_prediction",
             "intervention_status": (
@@ -53,16 +71,19 @@ def discover_intervention_task(
             "hours_to_threshold": (
                 decision.hours_to_threshold
             ),
-            "state_key": state_key,
+            "state_key": condition_key,
             "reason": decision.reason,
         },
     )
 
-def reconcile_intervention_task(
-    discovered_task: Task | None,
+
+def update_or_create_predictive_task(
+    candidate_task: Task | None,
     existing_tasks: list[Task],
 ) -> Task | None:
-    if discovered_task is None:
+    """Refresh the matching predictive task, or return the new one if none exists."""
+
+    if candidate_task is None:
         return None
 
     existing_task = next(
@@ -70,48 +91,45 @@ def reconcile_intervention_task(
             task
             for task in existing_tasks
             if task.task_key
-            == discovered_task.task_key
+            == candidate_task.task_key
         ),
         None,
     )
 
     if existing_task is None:
-        return discovered_task
+        return candidate_task
 
+    # Forecasts change over time, but the underlying household work is the same.
     existing_task.description = (
-        discovered_task.description
+        candidate_task.description
     )
-
     existing_task.urgency = (
-        discovered_task.urgency
+        candidate_task.urgency
     )
-
     existing_task.estimated_effort_minutes = (
-        discovered_task.estimated_effort_minutes
+        candidate_task.estimated_effort_minutes
     )
-
     existing_task.deadline = (
-        discovered_task.deadline
+        candidate_task.deadline
     )
-
     existing_task.confidence = (
-        discovered_task.confidence
+        candidate_task.confidence
     )
-
     existing_task.metadata = (
-        discovered_task.metadata.copy()
+        candidate_task.metadata.copy()
     )
 
     return existing_task
 
-def reconcile_intervention_decision(
-    decision: InterventionDecision,
+
+def sync_predictive_task(
+    decision: ActionDecision,
     existing_tasks: list[Task],
 ) -> Task | None:
-    task_key = (
-        f"predictive:"
-        f"{decision.location}:"
-        f"{decision.category.value}"
+    """Keep predictive work aligned with the latest action decision."""
+
+    task_key = _predictive_task_key(
+        decision
     )
 
     existing_task = next(
@@ -124,12 +142,14 @@ def reconcile_intervention_decision(
     )
 
     if decision.status in {
-        InterventionStatus.NONE,
-        InterventionStatus.MONITOR,
+        ActionState.NONE,
+        ActionState.MONITOR,
     }:
         if existing_task is None:
             return None
 
+        # Keep the task instead of deleting it so its lifecycle can be
+        # preserved once durable task history is introduced.
         existing_task.status = (
             TaskStatus.DISMISSED
         )
@@ -148,21 +168,22 @@ def reconcile_intervention_decision(
 
         return existing_task
 
-    discovered_task = (
-        discover_intervention_task(
+    candidate_task = (
+        task_from_action_decision(
             decision
         )
     )
 
-    if discovered_task is None:
+    if candidate_task is None:
         return None
 
+    # A condition can become actionable again after previously improving.
     if existing_task is not None:
         existing_task.status = (
             TaskStatus.PENDING
         )
 
-    return reconcile_intervention_task(
-        discovered_task=discovered_task,
+    return update_or_create_predictive_task(
+        candidate_task=candidate_task,
         existing_tasks=existing_tasks,
     )

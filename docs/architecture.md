@@ -1,984 +1,398 @@
 # HomHive Architecture
 
-This document describes the current technical architecture of HomHive.
+## 1. Purpose
 
-It focuses on components that have been implemented and the boundaries between them. Planned components are included separately so that the architecture does not imply functionality that does not exist yet.
+HomHive is an intelligence layer that turns household evidence into an evolving plan of work.
 
-## 1. System Goal
-
-HomHive is intended to maintain an evolving understanding of household state and use that state to determine what work may need attention.
-
-The system is being designed around the following pipeline:
+The architecture is designed around a simple separation:
 
 ```text
-Household Evidence
-        ↓
-Observations
-        ↓
-Household State
-        ↓
-Derived State
-        ↓
-Prediction
-        ↓
-Decision
-        ↓
-Tasks
-        ↓
-Prioritization
-        ↓
-Action Plan
+Evidence -> State -> Forecast -> Decision -> Work -> Priority
 ```
 
-The current implementation covers the domain models, deterministic task discovery, temporal state aggregation, entity resolution, API foundations, forecasting, intervention decisions, and predictive task lifecycle.
+External AI providers are adapters around these contracts rather than the contracts themselves.
 
-Perception, external research, LLM reasoning, persistent storage, and the user-facing application are not yet connected to this pipeline.
-
----
-
-## 2. Current Backend Structure
-
-The backend is implemented in Python.
-
-The main application structure is organized around:
+## 2. Target end-to-end flow
 
 ```text
-backend/
-├── app/
-│   ├── models/
-│   ├── services/
-│   ├── repositories/
-│   ├── graphql/
-│   └── application setup
-│
-└── tests/
+Phone photo / short video
+        |
+        v
+Media validation and frame sampling             [planned]
+        |
+        v
+Vision adapter                                  [planned]
+        |
+        v
+Observation                                     [implemented]
+        |
+        v
+HouseholdState + history                        [implemented]
+        |
+        v
+ConditionSnapshot                               [implemented]
+        |
+        +--------------------------+
+        |                          |
+        v                          v
+Reactive task discovery       ConditionForecast [implemented]
+        |                          |
+        |                          v
+        |                    ThresholdCrossing   [implemented]
+        |                          |
+        |                          v
+        |                    ActionDecision      [implemented]
+        |                          |
+        +-------------+------------+
+                      |
+                      v
+                     Task                        [implemented]
+                      |
+                      v
+                  ScoredTask                     [implemented]
+                      |
+                      v
+Selective external research                     [planned]
+                      |
+                      v
+Cross-domain Nemotron planning                  [planned]
+                      |
+                      v
+Mobile plan / executor interface                [planned]
 ```
 
-The exact directory structure may continue to evolve as persistence and external integrations are introduced.
-
-The current separation is intentional:
-
-- models define internal domain contracts
-- services contain application and decision logic
-- repositories isolate data access
-- GraphQL exposes selected application capabilities
-- FastAPI hosts the application and REST endpoints
-
-External AI providers are not embedded directly into core domain models.
-
----
-
-## 3. Domain Model
+## 3. Domain model
 
 ### Observation
 
-`Observation` represents evidence about the household at a specific point in time.
+An `Observation` is one timestamped piece of household evidence.
 
-Examples:
-
-```text
-kitchen dish_load = 0.82
-plant_001 plant_condition = 0.35
-```
-
-An observation contains information such as:
+Important fields include:
 
 - source
 - location
 - optional entity reference
-- category
+- condition type
 - normalized value
 - confidence
 - timestamp
 - metadata
 
-Observation values and confidence currently use the range:
-
-```text
-0.0 to 1.0
-```
-
-The meaning of the value depends on the observation category.
-
-Observations are evidence. They do not directly represent tasks.
-
----
+`ConditionType` is the canonical condition vocabulary.
 
 ### HouseholdState
 
-`HouseholdState` maintains both:
+`HouseholdState` keeps both:
+
+- observation history
+- current observations
+
+History supports temporal reasoning. Current observations support fast access to the latest evidence.
+
+State identity is owned by `Observation.state_key()`.
+
+Entity identity takes precedence when an `entity_id` exists. Otherwise the key falls back to location plus condition.
+
+### ConditionSnapshot
+
+`ConditionSnapshot` is the system's derived belief about one current condition.
+
+It combines related observations using confidence and recency rather than simply trusting the newest reading.
+
+Current weighting:
 
 ```text
-observation_history
-current_observations
+recency_weight = 1 / (1 + age_hours)
+
+observation_weight =
+    confidence * recency_weight
 ```
 
-Observation history preserves evidence over time.
-
-Current observations provide the latest observation for each state identity.
-
-State identity is generated by `Observation.state_key()`.
-
-When an observation references a known household entity:
-
-```text
-entity_id:category
-```
-
-is used.
-
-Otherwise:
-
-```text
-location:category
-```
-
-is used as the fallback.
-
-This allows multiple physical entities in the same location to maintain independent state histories.
-
----
-
-### HouseholdEntity
-
-`HouseholdEntity` represents a persistent physical thing or area in the home.
-
-Examples include:
-
-- plants
-- appliances
-- areas
-- fixtures
-
-Entity identity is intentionally separate from observations.
-
-A plant may exist for years while generating many observations describing changing conditions.
-
-The entity model currently supports:
-
-- broad entity type
-- human-readable name
-- location
-- optional specific identity
-- identification confidence
-- extensible attributes
-
-External knowledge such as care instructions or appliance manuals is not stored directly in the core entity contract.
-
----
+The snapshot also includes a deterministic `ConditionTrend`.
 
 ### Task
 
-`Task` represents work that may need to be performed.
+A `Task` represents work that may need to be performed.
 
-A task contains:
+Task identity is separate from the observation that caused it.
 
-- task ID
-- stable task key
-- description
-- optional source observation ID
-- urgency
-- estimated effort
-- optional deadline
-- confidence
-- lifecycle status
-- metadata
+Reactive tasks currently use a location/condition-based task key.
 
-`source_observation_id` is optional because not every task originates from one observation.
+Predictive tasks use a predictive key. Unifying reactive and predictive identity is still an open design decision.
 
-Reactive tasks may originate from a specific observation.
+### TaskDecision
 
-Predictive tasks can originate from a sequence of observations, derived state, and a forecast.
-
-Task provenance therefore must not invent a source observation when no single source exists.
-
----
-
-## 4. Reactive Task Discovery
-
-The current reactive task-discovery path operates on observations.
-
-```text
-Observation
-    ↓
-Task Rule
-    ↓
-Threshold Check
-    ↓
-Confidence Check
-    ↓
-Duplicate Check
-    ↓
-TaskDiscoveryResult
-```
-
-Simple conditions are handled deterministically.
-
-Current examples include dish-load and laundry-load rules.
-
-A task is created only when the configured value and confidence requirements are satisfied.
-
-Task discovery can also return a structured reason explaining why a task was or was not created.
+Reactive task discovery returns a `TaskDecision` so the system can explain why work was or was not created.
 
 Current reasons include:
 
 - task created
-- unsupported category
-- below threshold
+- unsupported condition
+- below trigger level
 - low confidence
-- duplicate active task
+- active task already exists
 
-This deterministic layer is intentionally implemented before introducing LLM reasoning.
+Serialized reason values remain stable where compatibility matters.
 
----
+### ScoredTask
 
-## 5. Task Identity and Deduplication
+A `ScoredTask` pairs a `Task` with its current planning score.
 
-Tasks have two different identifiers.
+Priority is intentionally not stored as permanent task identity.
 
-`id` identifies a task instance.
+### HouseholdEntity
 
-`task_key` identifies the underlying work condition.
+`HouseholdEntity` represents a persistent physical household object or area.
 
-This allows HomHive to avoid generating repeated active tasks when multiple observations describe the same unresolved work.
+Examples:
 
-Reactive task discovery currently prevents duplicates when a matching task is already pending or in progress.
+- plant
+- appliance
+- fixture
+- area
 
-Predictive task discovery uses a deterministic predictive task identity so repeated forecasts of the same condition can update the same logical task.
+Entity identity is separate from observations about changing condition.
 
-Cross-source reconciliation between reactive and predictive task identities is not yet fully unified and remains a future design concern.
+### EntityCandidate
 
----
+An `EntityCandidate` is a temporary identification result. It is not automatically persisted as a household entity.
 
-## 6. Task Prioritization
+### EntityMatchAssessment
 
-Task discovery and task prioritization are separate layers.
+`EntityMatchAssessment` records evidence about whether a candidate may refer to an existing physical entity.
 
-Task discovery asks:
+### EntityResolution
+
+`EntityResolution` represents the resolution outcome.
+
+The entity workflow preserves uncertainty instead of forcing every candidate into an existing/new binary.
+
+### ConditionForecast
+
+`ConditionForecast` projects one condition forward.
+
+Forecast confidence is distinct from snapshot confidence.
+
+### ThresholdCrossing
+
+`ThresholdCrossing` represents a forecast that a condition is expected to reach a configured level.
+
+A forecast and a threshold crossing are separate concepts.
+
+### ActionDecision
+
+`ActionDecision` converts a forecasted threshold event into one of the current action states:
+
+- `NONE`
+- `MONITOR`
+- `PLAN`
+- `ACT_NOW`
+
+Low-confidence predictions may remain visible without creating household work.
+
+## 4. Application services
+
+### Condition tracking
+
+`condition_tracking.py`
+
+Responsibilities:
+
+- recency weighting
+- observation weighting
+- trend detection
+- condition snapshot creation
+- household snapshot grouping
+
+### Reactive tasks
+
+`reactive_tasks.py`
+
+Responsibilities:
+
+- deterministic task triggers
+- confidence gates
+- duplicate active-task prevention
+- explainable task decisions
+
+Current configured reactive domains include dishes and laundry.
+
+### Task ranking
+
+`task_ranking.py`
+
+Current score:
 
 ```text
-Does work exist?
+priority =
+    urgency_score * 0.60
+    + confidence * 0.30
+    + effort_score * 0.10
 ```
 
-Prioritization asks:
+Shorter effort receives a small advantage, but urgency remains dominant.
+
+### State forecasting
+
+`state_forecasting.py`
+
+Responsibilities:
+
+- estimate hourly change
+- project condition level
+- estimate forecast confidence
+- build forecasts
+- estimate time to threshold
+- create threshold-crossing predictions
+
+### Action policy
+
+`action_policy.py`
+
+Responsibilities:
+
+- convert threshold crossings into action states
+- prevent weak forecasts from automatically creating work
+- distinguish monitoring, planning, and immediate action
+
+### Predictive tasks
+
+`predictive_tasks.py`
+
+Responsibilities:
+
+- create tasks from actionable forecast decisions
+- preserve predictive task lifecycle
+- dismiss no-longer-actionable predictive tasks
+- reactivate dismissed predictive work when it becomes actionable again
+
+### Entity resolution
+
+`entity_resolution.py`
+
+Responsibilities:
+
+- filter incompatible entities
+- assess available match evidence
+- resolve candidate identity conservatively
+
+### Household entity service
+
+`household_entity_service.py`
+
+Application layer between the API boundary and repository.
+
+## 5. Repository layer
+
+The current entity repository is in memory.
+
+This is a development-stage boundary, not the final storage architecture.
+
+Planned persistence:
 
 ```text
-Which work should happen first?
+PostgreSQL / Supabase
 ```
 
-The current deterministic priority score uses:
+The storage layer should eventually preserve:
 
-- urgency: 60%
-- confidence: 30%
-- effort efficiency: 10%
+- observations
+- derived state
+- entities
+- tasks
+- task lifecycle
+- forecasts
+- decisions
+- external evidence
+- trace metadata
 
-Effort efficiency is calculated using:
+## 6. API boundary
 
-```text
-1 / (1 + effort_minutes / 30)
-```
+HomHive currently uses FastAPI and Strawberry GraphQL.
 
-Equal scores use task ID as a deterministic fallback.
+The GraphQL entity boundary uses Python-facing names that describe the domain cleanly while preserving deliberate public schema names where compatibility matters.
 
-These weights are MVP heuristics and have not been empirically calibrated.
-
-Priority is represented separately from the underlying `Task` because priority may change while task identity remains stable.
-
----
-
-## 7. Temporal State Aggregation
-
-Raw observations are preserved rather than repeatedly replacing historical evidence.
-
-The aggregation layer derives a current belief from multiple observations.
+The API should remain thin:
 
 ```text
-Observation History
-        ↓
-Group by State Key
-        ↓
-Confidence Weighting
-        +
-Recency Weighting
-        ↓
-AggregatedState
-```
-
-Observation influence currently uses:
-
-```text
-weight = confidence * recency_weight
-```
-
-where:
-
-```text
-recency_weight = 1 / (1 + age_hours)
-```
-
-The derived current value is a weighted average of contributing observations.
-
-This prevents a recent but unreliable observation from automatically replacing older high-confidence evidence.
-
-### Aggregated Confidence
-
-Aggregated confidence currently uses the maximum confidence among contributing observations.
-
-Repeated uncertain observations do not automatically create higher confidence because their errors may be correlated.
-
-This is a conservative MVP policy rather than a final statistical confidence model.
-
----
-
-## 8. Trend Detection
-
-Temporal aggregation also calculates a basic trend:
-
-```text
-RISING
-STABLE
-FALLING
-UNKNOWN
-```
-
-Trend calculation compares timestamp-ordered observations.
-
-With fewer than two observations:
-
-```text
-UNKNOWN
-```
-
-A current stability threshold of `0.05` is used.
-
-The comparison is deterministic and intentionally simple.
-
-Trend detection describes recent direction. It is not itself a forecast.
-
----
-
-## 9. Entity Identification and Resolution
-
-HomHive separates:
-
-```text
-Identification
-"What does this object appear to be?"
-
-Resolution
-"Which physical household entity is this?"
-```
-
-The current entity-resolution pipeline is:
-
-```text
-EntityIdentificationCandidate
-            ↓
-Compatibility Filtering
-            ↓
-Match Evidence Generation
-            ↓
-Evidence-Aware Resolution
-            ↓
-MATCH / CREATE / UNCERTAIN
-```
-
-Compatibility currently considers:
-
-- entity type
-- observed location
-- known identity conflicts
-
-Compatibility alone does not establish physical identity.
-
-Match evidence can consider:
-
-- exact identity agreement
-- shared attribute agreement
-- conflicting attributes
-
-The deterministic automatic-match threshold is currently:
-
-```text
-0.80
-```
-
-This is an MVP heuristic.
-
-Explicit contradictions prevent automatic strong matching.
-
-The current implementation does not yet perform real visual identification. It operates on structured identification candidates that a future perception layer can produce.
-
----
-
-## 10. API Layer
-
-HomHive currently uses FastAPI with Strawberry GraphQL.
-
-The API strategy is hybrid rather than GraphQL-only.
-
-```text
-Client
-  ├── REST
-  │    └── /health
-  │
-  └── GraphQL
-       ├── queries
-       └── mutations
-```
-
-GraphQL currently exposes entity operations.
-
-Implemented behavior includes:
-
-- query an entity by ID
-- query collections of entities
-- filter entity queries
-- rename an entity through a mutation
-
-Business validation remains outside the GraphQL schema where appropriate.
-
-The current application structure separates:
-
-```text
-GraphQL Resolver
-      ↓
-Entity Service
-      ↓
-Entity Repository
-      ↓
+Request
+  |
+  v
+Query / Mutation
+  |
+  v
+Application Service
+  |
+  v
+Repository / Domain Service
+  |
+  v
 Domain Model
+  |
+  v
+GraphQL view mapping
 ```
 
-The GraphQL context receives dependencies from the FastAPI application rather than constructing repository state inside individual resolvers.
+## 7. Planned AI and research adapters
 
----
+### Vision
 
-## 11. Application State and Repository Boundary
-
-Entity storage currently uses an in-memory repository.
-
-The repository abstraction exists so API and service code do not depend directly on the storage implementation.
-
-Each FastAPI application instance owns its application state.
-
-Tests create independent application instances so repository state does not leak between tests.
-
-This provides a clean boundary for introducing persistent storage later without pretending persistence already exists.
-
-PostgreSQL or another production database has not yet been integrated.
-
----
-
-## 12. Forecasting
-
-Day 10 introduced a deterministic forecasting layer.
-
-The forecasting path is:
+Planned behavior:
 
 ```text
-Observation History
-        ↓
-AggregatedState
-        ↓
-Rate of Change
-        ↓
-StateForecast
+media
+  |
+  v
+vision model
+  |
+  v
+structured observations / entity clues
 ```
 
-The current rate calculation uses the oldest and newest timestamped observations:
-
-```text
-rate_per_hour =
-    (newest_value - oldest_value)
-    / elapsed_hours
-```
-
-Future state is projected linearly:
-
-```text
-predicted_value =
-    current_value
-    + rate_per_hour * forecast_hours
-```
-
-Predicted values are clamped to the normalized range:
-
-```text
-0.0 to 1.0
-```
-
-This is a deterministic baseline, not a learned forecasting model.
-
----
-
-## 13. Forecast Confidence
-
-Forecast confidence is separate from aggregated-state confidence.
-
-The current heuristic considers:
-
-- average observation confidence
-- amount of available evidence
-- forecast distance
-
-Evidence contribution is capped after five observations.
-
-Forecast confidence decreases as the forecast horizon becomes longer.
-
-The current implementation provides a transparent baseline that can later be compared against more sophisticated forecasting approaches.
-
----
-
-## 14. Threshold Prediction
-
-HomHive can estimate whether and when a derived state is expected to cross a configured threshold.
-
-```text
-Current State
-      +
-Rate of Change
-      +
-Threshold
-      ↓
-ThresholdPrediction
-```
-
-A threshold prediction contains information such as:
-
-- current value
-- threshold
-- rate per hour
-- estimated hours to threshold
-- predicted crossing time
-- confidence
-
-If the condition is not moving toward the threshold, no threshold prediction is generated.
-
-A state that has already reached the threshold has:
-
-```text
-hours_to_threshold = 0
-```
-
----
-
-## 15. Intervention Decisions
-
-Prediction and intervention are separate concerns.
-
-A forecast describes what the system expects may happen.
-
-An intervention decision determines whether that prediction currently justifies action.
-
-Current intervention states are:
-
-```text
-NONE
-MONITOR
-PLAN
-ACT_NOW
-```
-
-The current deterministic policy considers:
-
-- whether a threshold crossing exists
-- time until threshold crossing
-- forecast confidence
-- configured planning window
-
-Low-confidence predictions remain in monitoring rather than immediately producing work.
-
-This prevents every forecast from becoming a task.
-
----
-
-## 16. Predictive Task Discovery
-
-Actionable intervention decisions can produce predictive tasks.
-
-```text
-ThresholdPrediction
-        ↓
-InterventionDecision
-        ↓
-PLAN / ACT_NOW
-        ↓
-Predictive Task
-```
-
-`MONITOR` and `NONE` do not create new tasks.
-
-Current urgency mapping:
-
-```text
-PLAN     → MEDIUM
-ACT_NOW  → HIGH
-```
-
-Predictive tasks preserve forecast-related information in metadata.
-
-Because these tasks originate from derived temporal evidence rather than one observation:
-
-```text
-source_observation_id = None
-```
-
-is valid.
-
----
-
-## 17. Predictive Task Reconciliation
-
-Repeated predictions should not create repeated copies of the same work.
-
-The current reconciliation layer uses stable predictive task keys.
-
-```text
-New Predictive Decision
-          ↓
-Does matching task exist?
-       /        \
-     no          yes
-     ↓            ↓
-   create       update
-```
-
-Changing forecast confidence, intervention status, or time-to-threshold does not create a new logical task.
-
-The existing task is refreshed.
-
----
-
-## 18. Predictive Task Lifecycle
-
-Predictive tasks can also be withdrawn when conditions improve.
-
-Current lifecycle behavior:
-
-```text
-PLAN
-  ↓
-Task created
-
-ACT_NOW
-  ↓
-Same task escalated
-
-MONITOR
-  ↓
-Existing predictive task dismissed
-
-PLAN / ACT_NOW again
-  ↓
-Same logical task reactivated
-```
-
-Tasks are dismissed rather than deleted so the system can preserve decision history.
-
-Persistent lifecycle history is not yet stored because database persistence has not been implemented.
-
----
-
-## 19. Current Implemented Flow
-
-The main implemented intelligence path now looks like:
-
-```text
-                    Observations
-                         │
-              ┌──────────┴──────────┐
-              │                     │
-              ▼                     ▼
-       Household State       Reactive Rules
-              │                     │
-              ▼                     ▼
-      State Aggregation       Candidate Task
-              │
-              ▼
-          Forecast
-              │
-              ▼
-    Threshold Prediction
-              │
-              ▼
-    Intervention Decision
-              │
-              ▼
-     Predictive Task
-              │
-              ▼
-      Task Reconciliation
-              │
-              └──────────┐
-                         ▼
-                       Tasks
-                         │
-                         ▼
-                  Prioritization
-```
-
-Not every branch is fully integrated through one orchestration service yet.
-
-The architecture is intentionally being built as independently testable layers before connecting external AI services.
-
----
-
-## 20. Planned Perception Layer
-
-The intended perception flow is:
-
-```text
-Photo / Video
-      ↓
-Vision Model
-      ↓
-Structured Observation
-      ↓
-Existing HomHive Domain Pipeline
-```
-
-For videos, representative frames may be extracted before analysis.
-
-HomHive is not intended to build custom cameras or custom vision hardware for the current project.
-
-Phone photos and short videos are the primary planned input mechanism.
-
-This layer has not yet been implemented.
-
----
-
-## 21. Planned Entity Enrichment
-
-When an object cannot be identified confidently from perception alone, the intended flow is:
-
-```text
-Visual Evidence
-      ↓
-Candidate Identification
-      ↓
-External Research if Needed
-      ↓
-Verified / Enriched Identity
-      ↓
-Entity Resolution
-```
-
-Potential examples include:
-
-- plant species
-- appliance manufacturer and model
-- maintenance specifications
-
-External research should be conditional rather than performed for every observation.
-
-Tavily is planned for this role but is not yet integrated.
-
----
-
-## 22. Planned AI Reasoning Layer
-
-Nebius-hosted models, including Nemotron where appropriate, are intended to support reasoning that cannot be handled reliably by deterministic rules.
-
-Potential responsibilities include:
-
-- ambiguous household situations
-- contextual task planning
-- reasoning across multiple competing conditions
-- interpreting researched external information
-- producing dynamic action plans
-
-The LLM layer should augment deterministic components rather than replace them.
-
-No Nemotron or Nebius inference is currently connected to the application.
-
----
-
-## 23. Planned Context Layer
-
-Future planning may incorporate:
-
-- calendar availability
-- work schedules
-- quiet hours
-- task noise level
-- user preferences
-- presence
-- execution constraints
-
-The architecture distinguishes:
-
-```text
-Importance
-How much does this matter?
-
-Executability
-Can this reasonably be done now?
-
-Fit
-Does it fit the available context?
-```
-
-These concepts are planned and are not yet part of the current task-priority implementation.
-
----
-
-## 24. External Services
-
-The project currently has access to:
-
-- Nebius
-- Tavily
-- LangSmith
-- Toloka
-- Tandem
-
-Planned roles:
-
-### Nebius
-
-Model inference and reasoning.
+Vision should produce structured evidence. It should not decide the final household plan.
 
 ### Tavily
 
-Conditional external research and entity enrichment.
+Tavily should be called conditionally when internal household state is not enough.
 
-### LangSmith
+Likely use cases:
 
-Tracing and evaluation of AI workflows.
+- unfamiliar plants
+- appliance/model research
+- maintenance guidance
+- external or seasonal lawn context
+- unfamiliar household situations
 
-### Toloka
+Routine dish and laundry task discovery should not require a web search.
 
-Potential human evaluation and data validation.
+### Nemotron through Nebius
 
-### Tandem
+Nemotron is planned as the cross-domain reasoning layer.
 
-Role will be determined after evaluating its available capabilities against the architecture.
+It should reason over structured facts, forecasts, constraints, and selected evidence rather than inventing household state from prose.
 
-Availability of these services does not mean they are already integrated.
+## 8. Major invariants
 
----
+1. Observation is not state.
+2. State is not forecast.
+3. Forecast is not action.
+4. Action is not task identity.
+5. Task identity is not priority.
+6. Entity identity is not condition.
+7. Missing evidence is not contradictory evidence.
+8. Low confidence can block action without deleting evidence.
+9. External providers should not leak into core models.
+10. Durable persistence is not claimed until it exists.
 
-## 25. Current Technology Direction
+## 9. Open architecture work
 
-Current and planned technologies include:
-
-```text
-Frontend
-Next.js / mobile-first PWA
-
-Backend
-Python
-FastAPI
-Strawberry GraphQL
-
-Validation
-Pydantic
-
-Testing
-pytest
-
-Persistence
-PostgreSQL / Supabase planned
-
-Video Processing
-FFmpeg planned
-
-Reasoning
-Nebius / Nemotron planned
-
-External Research
-Tavily planned
-
-Tracing and Evaluation
-LangSmith planned
-```
-
----
-
-## 26. Current Architectural Boundaries
-
-The following boundaries should remain explicit as the project grows:
-
-```text
-Observation != State
-
-State != Forecast
-
-Forecast != Intervention
-
-Intervention != Task
-
-Task != Priority
-
-Entity Identity != Entity State
-
-Identification != Resolution
-
-Deterministic Logic != LLM Reasoning
-```
-
-These separations allow each layer to be tested, evaluated, and replaced independently.
-
----
-
-## 27. Current Limitations
-
-The current system does not yet include:
-
-- real photo analysis
-- video ingestion
-- multimodal vision inference
-- Tavily research
-- Nebius or Nemotron inference
-- LangSmith tracing
-- Toloka evaluation
-- persistent database storage
-- frontend integration
-- calendar integration
-- email integration
-- quiet-hour constraints
-- presence reasoning
-- execution-window planning
-- learned forecasting
-- full cross-source task reconciliation
-
-The forecasting model is currently linear and deterministic.
-
-Confidence formulas, thresholds, priority weights, and matching thresholds are MVP heuristics and require evaluation with realistic data.
-
----
-
-## 28. Testing
-
-At the end of Day 10:
-
-```text
-194 automated tests passing
-```
-
-The test suite covers behavior across:
-
-- domain validation
-- household state
-- task discovery
-- task deduplication
-- explainable discovery results
-- prioritization
-- temporal aggregation
-- trend detection
-- entity-aware state identity
-- household entities
-- entity identification candidates
-- entity resolution
-- GraphQL queries and mutations
-- application-state isolation
-- forecasting
-- threshold prediction
-- forecast confidence
-- intervention decisions
-- predictive task discovery
-- predictive task reconciliation
-- predictive task lifecycle
-
-The test count is a development checkpoint, not a claim of production readiness.
+- reactive/predictive task identity unification
+- durable persistence
+- media ingestion contract
+- vision adapter
+- external evidence model and cache
+- research routing
+- cross-domain planning contract
+- user-context model
+- executor capability model
+- top-level orchestration service

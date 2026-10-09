@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from app.models import (
     Task,
-    UrgencyLevel,
+    TaskUrgency,
 )
 
 #-tests-
@@ -91,7 +91,7 @@ def test_task_can_exist_without_source_observation():
             "in kitchen"
         ),
         source_observation_id=None,
-        urgency=UrgencyLevel.MEDIUM,
+        urgency=TaskUrgency.MEDIUM,
         estimated_effort_minutes=15,
         confidence=0.80,
     )

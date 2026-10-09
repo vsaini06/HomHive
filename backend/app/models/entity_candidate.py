@@ -5,7 +5,9 @@ from pydantic import BaseModel, Field
 from .enums import EntityType
 
 
-class EntityIdentificationCandidate(BaseModel):
+class EntityCandidate(BaseModel):
+    """A tentative identity for something HomHive has just recognized."""
+
     entity_type: EntityType
     identity: str | None = None
 
@@ -21,4 +23,3 @@ class EntityIdentificationCandidate(BaseModel):
     evidence: list[str] = Field(
         default_factory=list
     )
-    

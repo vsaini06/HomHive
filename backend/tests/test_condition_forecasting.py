@@ -7,19 +7,19 @@ from datetime import (
 import pytest
 
 from app.models import (
-    AggregatedState,
+    ConditionSnapshot,
     Observation,
-    ObservationCategory,
+    ConditionType,
     ObservationSource,
-    TrendDirection,
+    ConditionTrend,
 )
 from app.services import (
-    calculate_rate_per_hour,
-    generate_state_forecast,
-    predict_value,
-    calculate_hours_to_threshold,
-    generate_threshold_prediction,
-    calculate_forecast_confidence,
+    estimate_hourly_change,
+    build_condition_forecast,
+    project_condition_level,
+    estimate_hours_to_threshold,
+    forecast_threshold_crossing,
+    estimate_forecast_confidence,
 )
 
 #-tests-
@@ -31,7 +31,7 @@ def test_calculate_positive_rate_per_hour():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.20,
         confidence=0.90,
         timestamp=now - timedelta(hours=2),
@@ -40,12 +40,12 @@ def test_calculate_positive_rate_per_hour():
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.50,
         confidence=0.90,
         timestamp=now,
     )
-    rate = calculate_rate_per_hour(
+    rate = estimate_hourly_change(
         [
             old_observation,
             new_observation,
@@ -62,7 +62,7 @@ def test_calculate_negative_rate_per_hour():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.90,
         timestamp=now - timedelta(hours=2),
@@ -72,12 +72,12 @@ def test_calculate_negative_rate_per_hour():
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.40,
         confidence=0.90,
         timestamp=now,
     )
-    rate = calculate_rate_per_hour(
+    rate = estimate_hourly_change(
         [
             old_observation,
             new_observation,
@@ -94,12 +94,12 @@ def test_rate_is_zero_with_one_observation():
         id="obs_001",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.50,
         confidence=0.90,
         timestamp=now,
     )
-    rate = calculate_rate_per_hour(
+    rate = estimate_hourly_change(
         [observation]
     )
 
@@ -113,7 +113,7 @@ def test_rate_uses_timestamps_not_input_order():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.20,
         confidence=0.90,
         timestamp=now - timedelta(hours=2),
@@ -123,12 +123,12 @@ def test_rate_uses_timestamps_not_input_order():
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.50,
         confidence=0.90,
         timestamp=now,
     )
-    rate = calculate_rate_per_hour(
+    rate = estimate_hourly_change(
         [
             new_observation,
             old_observation,
@@ -138,11 +138,11 @@ def test_rate_uses_timestamps_not_input_order():
     assert rate == pytest.approx(0.15)
 
 #-5-
-def test_predict_value_with_rising_state():
-    predicted_value = predict_value(
-        current_value=0.60,
-        rate_per_hour=0.075,
-        forecast_hours=2.0,
+def test_project_condition_level_with_rising_state():
+    predicted_value = project_condition_level(
+        current_level=0.60,
+        hourly_change=0.075,
+        hours_ahead=2.0,
     )
 
     assert predicted_value == pytest.approx(
@@ -150,11 +150,11 @@ def test_predict_value_with_rising_state():
     )
 
 #-6-
-def test_predict_value_with_falling_state():
-    predicted_value = predict_value(
-        current_value=0.80,
-        rate_per_hour=-0.10,
-        forecast_hours=3.0,
+def test_project_condition_level_with_falling_state():
+    predicted_value = project_condition_level(
+        current_level=0.80,
+        hourly_change=-0.10,
+        hours_ahead=3.0,
     )
 
     assert predicted_value == pytest.approx(
@@ -162,27 +162,27 @@ def test_predict_value_with_falling_state():
     )
 
 #-7-
-def test_predict_value_is_clamped_to_one():
-    predicted_value = predict_value(
-        current_value=0.90,
-        rate_per_hour=0.10,
-        forecast_hours=3.0,
+def test_project_condition_level_is_clamped_to_one():
+    predicted_value = project_condition_level(
+        current_level=0.90,
+        hourly_change=0.10,
+        hours_ahead=3.0,
     )
 
     assert predicted_value == 1.0
 
 #-8-
-def test_predict_value_is_clamped_to_zero():
-    predicted_value = predict_value(
-        current_value=0.10,
-        rate_per_hour=-0.10,
-        forecast_hours=3.0,
+def test_project_condition_level_is_clamped_to_zero():
+    predicted_value = project_condition_level(
+        current_level=0.10,
+        hourly_change=-0.10,
+        hours_ahead=3.0,
     )
 
     assert predicted_value == 0.0
 
 #-9-
-def test_predict_value_rejects_non_positive_forecast_hours():
+def test_project_condition_level_rejects_non_positive_forecast_hours():
     with pytest.raises(
         ValueError,
         match=(
@@ -190,21 +190,21 @@ def test_predict_value_rejects_non_positive_forecast_hours():
             "greater than zero."
         ),
     ):
-        predict_value(
-            current_value=0.50,
-            rate_per_hour=0.10,
-            forecast_hours=0.0,
+        project_condition_level(
+            current_level=0.50,
+            hourly_change=0.10,
+            hours_ahead=0.0,
         )
 
 #-10-
-def test_generate_state_forecast():
+def test_build_condition_forecast():
     now = datetime.now(timezone.utc)
 
     old_observation = Observation(
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.40,
         confidence=0.90,
         timestamp=now - timedelta(hours=2),
@@ -213,34 +213,34 @@ def test_generate_state_forecast():
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.60,
         confidence=0.90,
         timestamp=now,
     )
-    aggregated_state = AggregatedState(
+    aggregated_state = ConditionSnapshot(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.60,
         confidence=0.90,
-        trend=TrendDirection.RISING,
+        trend=ConditionTrend.RISING,
         latest_observation=new_observation,
         observation_count=2,
         updated_at=now,
     )
-    forecast = generate_state_forecast(
-        aggregated_state=aggregated_state,
+    forecast = build_condition_forecast(
+        snapshot=aggregated_state,
         observations=[
             old_observation,
             new_observation,
         ],
-        forecast_hours=2.0,
+        hours_ahead=2.0,
     )
 
     assert forecast.location == "kitchen"
     assert (
         forecast.category
-        == ObservationCategory.DISH_LOAD
+        == ConditionType.DISH_LOAD
     )
     assert forecast.current_value == 0.60
     assert forecast.rate_per_hour == pytest.approx(
@@ -253,14 +253,14 @@ def test_generate_state_forecast():
     assert forecast.predicted_at == (
         now + timedelta(hours=2)
     )
-    assert forecast.trend == TrendDirection.RISING
+    assert forecast.trend == ConditionTrend.RISING
     expected_confidence = (
-        calculate_forecast_confidence(
+        estimate_forecast_confidence(
              observations=[
                 old_observation,
                 new_observation,
             ],
-            forecast_hours=2.0,
+            hours_ahead=2.0,
         )
     )
     assert (
@@ -276,7 +276,7 @@ def test_generate_falling_state_forecast():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="laundry_room",
-        category=ObservationCategory.LAUNDRY_LOAD,
+        category=ConditionType.LAUNDRY_LOAD,
         value=0.80,
         confidence=0.95,
         timestamp=now - timedelta(hours=4),
@@ -285,28 +285,28 @@ def test_generate_falling_state_forecast():
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="laundry_room",
-        category=ObservationCategory.LAUNDRY_LOAD,
+        category=ConditionType.LAUNDRY_LOAD,
         value=0.60,
         confidence=0.95,
         timestamp=now,
     )
-    aggregated_state = AggregatedState(
+    aggregated_state = ConditionSnapshot(
         location="laundry_room",
-        category=ObservationCategory.LAUNDRY_LOAD,
+        category=ConditionType.LAUNDRY_LOAD,
         current_value=0.60,
         confidence=0.95,
-        trend=TrendDirection.FALLING,
+        trend=ConditionTrend.FALLING,
         latest_observation=new_observation,
         observation_count=2,
         updated_at=now,
     )
-    forecast = generate_state_forecast(
-        aggregated_state=aggregated_state,
+    forecast = build_condition_forecast(
+        snapshot=aggregated_state,
         observations=[
             old_observation,
             new_observation,
         ],
-        forecast_hours=2.0,
+        hours_ahead=2.0,
     )
 
     assert forecast.rate_per_hour == pytest.approx(
@@ -315,13 +315,13 @@ def test_generate_falling_state_forecast():
     assert forecast.predicted_value == pytest.approx(
         0.50
     )
-    assert forecast.trend == TrendDirection.FALLING
+    assert forecast.trend == ConditionTrend.FALLING
 
 #-12-
-def test_calculate_hours_to_threshold():
-    hours = calculate_hours_to_threshold(
-        current_value=0.60,
-        rate_per_hour=0.10,
+def test_estimate_hours_to_threshold():
+    hours = estimate_hours_to_threshold(
+        current_level=0.60,
+        hourly_change=0.10,
         threshold=0.90,
     )
 
@@ -329,9 +329,9 @@ def test_calculate_hours_to_threshold():
 
 #-13-
 def test_hours_to_threshold_is_zero_when_threshold_reached():
-    hours = calculate_hours_to_threshold(
-        current_value=0.90,
-        rate_per_hour=0.10,
+    hours = estimate_hours_to_threshold(
+        current_level=0.90,
+        hourly_change=0.10,
         threshold=0.90,
     )
 
@@ -339,9 +339,9 @@ def test_hours_to_threshold_is_zero_when_threshold_reached():
 
 #-14-
 def test_hours_to_threshold_is_zero_when_above_threshold():
-    hours = calculate_hours_to_threshold(
-        current_value=0.95,
-        rate_per_hour=0.10,
+    hours = estimate_hours_to_threshold(
+        current_level=0.95,
+        hourly_change=0.10,
         threshold=0.90,
     )
 
@@ -349,9 +349,9 @@ def test_hours_to_threshold_is_zero_when_above_threshold():
 
 #-15-
 def test_hours_to_threshold_is_none_when_state_is_stable():
-    hours = calculate_hours_to_threshold(
-        current_value=0.60,
-        rate_per_hour=0.0,
+    hours = estimate_hours_to_threshold(
+        current_level=0.60,
+        hourly_change=0.0,
         threshold=0.90,
     )
 
@@ -359,9 +359,9 @@ def test_hours_to_threshold_is_none_when_state_is_stable():
 
 #-16-
 def test_hours_to_threshold_is_none_when_state_is_falling():
-    hours = calculate_hours_to_threshold(
-        current_value=0.60,
-        rate_per_hour=-0.10,
+    hours = estimate_hours_to_threshold(
+        current_level=0.60,
+        hourly_change=-0.10,
         threshold=0.90,
     )
 
@@ -373,21 +373,21 @@ def test_hours_to_threshold_rejects_invalid_threshold():
         ValueError,
         match="Threshold must be between 0 and 1.",
     ):
-        calculate_hours_to_threshold(
-            current_value=0.60,
-            rate_per_hour=0.10,
+        estimate_hours_to_threshold(
+            current_level=0.60,
+            hourly_change=0.10,
             threshold=1.20,
         )
 
 #-18-
-def test_generate_threshold_prediction():
+def test_forecast_threshold_crossing():
     now = datetime.now(timezone.utc)
 
     old_observation = Observation(
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.40,
         confidence=0.90,
         timestamp=now - timedelta(hours=2),
@@ -397,25 +397,25 @@ def test_generate_threshold_prediction():
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.60,
         confidence=0.90,
         timestamp=now,
     )
 
-    aggregated_state = AggregatedState(
+    aggregated_state = ConditionSnapshot(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.60,
         confidence=0.90,
-        trend=TrendDirection.RISING,
+        trend=ConditionTrend.RISING,
         latest_observation=new_observation,
         observation_count=2,
         updated_at=now,
     )
 
-    prediction = generate_threshold_prediction(
-        aggregated_state=aggregated_state,
+    prediction = forecast_threshold_crossing(
+        snapshot=aggregated_state,
         observations=[
             old_observation,
             new_observation,
@@ -432,12 +432,12 @@ def test_generate_threshold_prediction():
     )
     assert prediction.threshold == 0.90
     expected_confidence = (
-        calculate_forecast_confidence(
+        estimate_forecast_confidence(
             observations=[
                 old_observation,
                 new_observation,
             ],
-            forecast_hours=3.0,
+            hours_ahead=3.0,
         )
     )
     assert (
@@ -446,14 +446,14 @@ def test_generate_threshold_prediction():
     )
 
 #-19-
-def test_generate_threshold_prediction_returns_none_when_moving_away():
+def test_forecast_threshold_crossing_returns_none_when_moving_away():
     now = datetime.now(timezone.utc)
 
     old_observation = Observation(
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.70,
         confidence=0.90,
         timestamp=now - timedelta(hours=2),
@@ -462,23 +462,23 @@ def test_generate_threshold_prediction_returns_none_when_moving_away():
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.60,
         confidence=0.90,
         timestamp=now,
     )
-    aggregated_state = AggregatedState(
+    aggregated_state = ConditionSnapshot(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.60,
         confidence=0.90,
-        trend=TrendDirection.FALLING,
+        trend=ConditionTrend.FALLING,
         latest_observation=new_observation,
         observation_count=2,
         updated_at=now,
     )
-    prediction = generate_threshold_prediction(
-        aggregated_state=aggregated_state,
+    prediction = forecast_threshold_crossing(
+        snapshot=aggregated_state,
         observations=[
             old_observation,
             new_observation,
@@ -497,7 +497,7 @@ def test_forecast_confidence_increases_with_more_observations():
             id=f"obs_{index}",
             source=ObservationSource.PHOTO,
             location="kitchen",
-            category=ObservationCategory.DISH_LOAD,
+            category=ConditionType.DISH_LOAD,
             value=0.50,
             confidence=0.90,
             timestamp=now - timedelta(hours=index),
@@ -506,16 +506,16 @@ def test_forecast_confidence_increases_with_more_observations():
     ]
 
     low_evidence_confidence = (
-        calculate_forecast_confidence(
+        estimate_forecast_confidence(
             observations=observations[:2],
-            forecast_hours=2.0,
+            hours_ahead=2.0,
         )
     )
 
     high_evidence_confidence = (
-        calculate_forecast_confidence(
+        estimate_forecast_confidence(
             observations=observations,
-            forecast_hours=2.0,
+            hours_ahead=2.0,
         )
     )
 
@@ -533,7 +533,7 @@ def test_forecast_confidence_decreases_with_distance():
             id=f"obs_{index}",
             source=ObservationSource.PHOTO,
             location="kitchen",
-            category=ObservationCategory.DISH_LOAD,
+            category=ConditionType.DISH_LOAD,
             value=0.50,
             confidence=0.90,
             timestamp=now - timedelta(hours=index),
@@ -542,16 +542,16 @@ def test_forecast_confidence_decreases_with_distance():
     ]
 
     short_forecast_confidence = (
-        calculate_forecast_confidence(
+        estimate_forecast_confidence(
             observations=observations,
-            forecast_hours=2.0,
+            hours_ahead=2.0,
         )
     )
 
     long_forecast_confidence = (
-        calculate_forecast_confidence(
+        estimate_forecast_confidence(
             observations=observations,
-            forecast_hours=24.0,
+            hours_ahead=24.0,
         )
     )
 
@@ -562,9 +562,9 @@ def test_forecast_confidence_decreases_with_distance():
 
 #-22-
 def test_forecast_confidence_is_zero_without_observations():
-    confidence = calculate_forecast_confidence(
+    confidence = estimate_forecast_confidence(
         observations=[],
-        forecast_hours=2.0,
+        hours_ahead=2.0,
     )
 
     assert confidence == 0.0
@@ -575,9 +575,9 @@ def test_forecast_confidence_rejects_negative_hours():
         ValueError,
         match="Forecast hours cannot be negative.",
     ):
-        calculate_forecast_confidence(
+        estimate_forecast_confidence(
             observations=[],
-            forecast_hours=-1.0,
+            hours_ahead=-1.0,
         )
 
 #-24-
@@ -588,7 +588,7 @@ def test_nearer_threshold_crossing_has_higher_confidence():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.40,
         confidence=0.90,
         timestamp=now - timedelta(hours=2),
@@ -598,18 +598,18 @@ def test_nearer_threshold_crossing_has_higher_confidence():
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.60,
         confidence=0.90,
         timestamp=now,
     )
 
-    aggregated_state = AggregatedState(
+    aggregated_state = ConditionSnapshot(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.60,
         confidence=0.90,
-        trend=TrendDirection.RISING,
+        trend=ConditionTrend.RISING,
         latest_observation=new_observation,
         observation_count=2,
         updated_at=now,
@@ -620,14 +620,14 @@ def test_nearer_threshold_crossing_has_higher_confidence():
         new_observation,
     ]
 
-    near_prediction = generate_threshold_prediction(
-        aggregated_state=aggregated_state,
+    near_prediction = forecast_threshold_crossing(
+        snapshot=aggregated_state,
         observations=observations,
         threshold=0.70,
     )
 
-    far_prediction = generate_threshold_prediction(
-        aggregated_state=aggregated_state,
+    far_prediction = forecast_threshold_crossing(
+        snapshot=aggregated_state,
         observations=observations,
         threshold=0.90,
     )
@@ -653,25 +653,25 @@ def test_threshold_prediction_handles_already_reached_threshold():
         id="obs_current",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.95,
         confidence=0.90,
         timestamp=now,
     )
 
-    aggregated_state = AggregatedState(
+    aggregated_state = ConditionSnapshot(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.95,
         confidence=0.90,
-        trend=TrendDirection.UNKNOWN,
+        trend=ConditionTrend.UNKNOWN,
         latest_observation=observation,
         observation_count=1,
         updated_at=now,
     )
 
-    prediction = generate_threshold_prediction(
-        aggregated_state=aggregated_state,
+    prediction = forecast_threshold_crossing(
+        snapshot=aggregated_state,
         observations=[observation],
         threshold=0.90,
     )

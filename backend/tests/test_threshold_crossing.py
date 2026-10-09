@@ -7,20 +7,20 @@ import pytest
 from pydantic import ValidationError
 
 from app.models import (
-    ObservationCategory,
-    ThresholdPrediction,
+    ConditionType,
+    ThresholdCrossing,
 )
-from app.services import decide_intervention
+from app.services import decide_action
 
 #-tests-
 
 #-1-
-def test_threshold_prediction_can_be_created():
+def test_threshold_crossing_can_be_created():
     now = datetime.now(timezone.utc)
 
-    prediction = ThresholdPrediction(
+    prediction = ThresholdCrossing(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.60,
         threshold=0.90,
         rate_per_hour=0.10,
@@ -36,13 +36,13 @@ def test_threshold_prediction_can_be_created():
     assert prediction.confidence == 0.90
 
 #-2-
-def test_threshold_prediction_rejects_invalid_threshold():
+def test_threshold_crossing_rejects_invalid_threshold():
     now = datetime.now(timezone.utc)
 
     with pytest.raises(ValidationError):
-        ThresholdPrediction(
+        ThresholdCrossing(
             location="kitchen",
-            category=ObservationCategory.DISH_LOAD,
+            category=ConditionType.DISH_LOAD,
             current_value=0.60,
             threshold=1.20,
             rate_per_hour=0.10,
@@ -52,13 +52,13 @@ def test_threshold_prediction_rejects_invalid_threshold():
         )
 
 #-3-
-def test_threshold_prediction_rejects_negative_hours():
+def test_threshold_crossing_rejects_negative_hours():
     now = datetime.now(timezone.utc)
 
     with pytest.raises(ValidationError):
-        ThresholdPrediction(
+        ThresholdCrossing(
             location="kitchen",
-            category=ObservationCategory.DISH_LOAD,
+            category=ConditionType.DISH_LOAD,
             current_value=0.60,
             threshold=0.90,
             rate_per_hour=0.10,
@@ -68,7 +68,7 @@ def test_threshold_prediction_rejects_negative_hours():
         )
 
 #-4-
-def test_intervention_rejects_invalid_planning_window():
+def test_action_policy_rejects_invalid_planning_window():
     with pytest.raises(
         ValueError,
         match=(
@@ -76,7 +76,7 @@ def test_intervention_rejects_invalid_planning_window():
             "greater than zero."
         ),
     ):
-        decide_intervention(
+        decide_action(
             None,
-            planning_window_hours=0.0,
+            plan_ahead_hours=0.0,
         )

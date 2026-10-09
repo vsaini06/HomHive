@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models import (
-    EntityIdentificationCandidate,
+    EntityCandidate,
     EntityType,
 )
 
@@ -10,7 +10,7 @@ from app.models import (
 
 #-1-
 def test_identification_candidate_creation():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.88,
@@ -32,7 +32,7 @@ def test_identification_candidate_creation():
 
 #-2-
 def test_identification_candidate_allows_unknown_identity():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
         identity=None,
         confidence=0.75,
@@ -44,7 +44,7 @@ def test_identification_candidate_allows_unknown_identity():
 #-3-
 def test_identification_candidate_rejects_confidence_above_one():
     with pytest.raises(ValidationError):
-        EntityIdentificationCandidate(
+        EntityCandidate(
             entity_type=EntityType.PLANT,
             identity="Monstera deliciosa",
             confidence=1.1,
@@ -53,7 +53,7 @@ def test_identification_candidate_rejects_confidence_above_one():
 #-4-
 def test_identification_candidate_rejects_negative_confidence():
     with pytest.raises(ValidationError):
-        EntityIdentificationCandidate(
+        EntityCandidate(
             entity_type=EntityType.PLANT,
             identity="Monstera deliciosa",
             confidence=-0.1,

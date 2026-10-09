@@ -1,33 +1,123 @@
-# Hackathon Compliance
+# HomHive Hackathon Notes
 
-## Competition
-Nebius x NVIDIA Global AI Hackathon 2026
+This file tracks submission-oriented constraints and integration goals separately from the core architecture.
 
-## Track
-Best Apps and Agents
+## Product strategy
 
-## NVIDIA Open Source Model
-NVIDIA Nemotron
-Exact model: TBD
+HomHive should demonstrate intelligence orchestration rather than a generic chatbot.
 
-## Nebius Usage
-Nebius Token Factory
-Additional services: TBD
+The product should show a credible path from household evidence to a dynamic action plan.
 
-## Tavily Usage
-Runtime external-context research agent
+## Planned sponsor/runtime roles
 
-## Project Start
-September 2026
+### Nebius + NVIDIA Nemotron
 
-## Existing Project
-No. HomHive was created during the hackathon submission period.
+Planned role:
 
-## Public Demo
-TBD
+- cross-domain reasoning
+- constraint handling
+- plan generation
+- explanation
+- future replanning
 
-## Demo Video
-TBD
+Current status:
 
-## Devpost Submission
-TBD
+```text
+Not integrated in the current backend.
+```
+
+### Tavily
+
+Planned role:
+
+- selective research for unfamiliar or context-dependent situations
+- entity verification/enrichment when identity matters
+- grounded maintenance or care guidance
+
+Current status:
+
+```text
+Not integrated in the current backend.
+```
+
+Tavily should not be called for every image or every routine task.
+
+### LangSmith
+
+Planned role:
+
+- traces
+- evaluation support
+- debugging of model/tool workflows
+
+Current status:
+
+```text
+Not integrated.
+```
+
+### Toloka
+
+Potential role:
+
+- evaluation / feedback workflows
+
+Current status:
+
+```text
+Not integrated.
+```
+
+### Tandem
+
+Potential role remains to be finalized.
+
+## MVP proof points
+
+The submission should eventually demonstrate:
+
+- phone-based input
+- normalized household state
+- temporal memory
+- automatic task discovery
+- forecasting
+- selective external research
+- NVIDIA/Nebius runtime reasoning
+- structured output
+- mobile-first experience
+- reproducible setup
+- tests and evaluation
+
+## Scope control
+
+Do not spend the build window on:
+
+- custom foundation-model training
+- custom CV training
+- permanent household hardware
+- physical robotics
+- dozens of domains
+- safety-critical autonomous actions
+
+The four representative domains are enough if the end-to-end behavior is convincing:
+
+- dishes
+- laundry
+- plant care
+- lawn / outdoor
+
+## Current submission readiness
+
+Backend deterministic foundation: strong
+
+External runtime integrations: pending
+
+Durable persistence: pending
+
+Perception: pending
+
+Frontend product flow: pending
+
+End-to-end demo: pending
+
+Evaluation beyond unit/integration tests: pending

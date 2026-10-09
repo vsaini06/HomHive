@@ -1,17 +1,17 @@
 import pytest
 from app.models import EntityType
-from app.repositories import EntityRepository
-from app.services import EntityService
+from app.repositories import HouseholdEntityRepository
+from app.services import HouseholdEntityService
 
 #-tests-
 
 #-1-
 def test_entity_service_gets_entity():
-    repository = EntityRepository()
-    service = EntityService(
+    repository = HouseholdEntityRepository()
+    service = HouseholdEntityService(
         repository=repository
     )
-    entity = service.get_entity(
+    entity = service.find_entity(
         "entity_plant_001"
     )
 
@@ -20,11 +20,11 @@ def test_entity_service_gets_entity():
 
 #-2-
 def test_entity_service_returns_none_for_unknown_entity():
-    repository = EntityRepository()
-    service = EntityService(
+    repository = HouseholdEntityRepository()
+    service = HouseholdEntityService(
         repository=repository
     )
-    entity = service.get_entity(
+    entity = service.find_entity(
         "does_not_exist"
     )
 
@@ -32,8 +32,8 @@ def test_entity_service_returns_none_for_unknown_entity():
 
 #-3-
 def test_entity_service_lists_entities():
-    repository = EntityRepository()
-    service = EntityService(
+    repository = HouseholdEntityRepository()
+    service = HouseholdEntityService(
         repository=repository
     )
     entities = service.list_entities()
@@ -42,8 +42,8 @@ def test_entity_service_lists_entities():
 
 #-4-
 def test_entity_service_filters_entities():
-    repository = EntityRepository()
-    service = EntityService(
+    repository = HouseholdEntityRepository()
+    service = HouseholdEntityService(
         repository=repository
     )
     entities = service.list_entities(
@@ -59,13 +59,13 @@ def test_entity_service_filters_entities():
 
 #-5-
 def test_entity_service_renames_entity():
-    repository = EntityRepository()
-    service = EntityService(
+    repository = HouseholdEntityRepository()
+    service = HouseholdEntityService(
         repository=repository
     )
     entity = service.rename_entity(
         entity_id="entity_plant_001",
-        name="  My Monstera  ",
+        new_name="  My Monstera  ",
     )
 
     assert entity is not None
@@ -73,8 +73,8 @@ def test_entity_service_renames_entity():
 
 #-6-
 def test_entity_service_rejects_empty_name():
-    repository = EntityRepository()
-    service = EntityService(
+    repository = HouseholdEntityRepository()
+    service = HouseholdEntityService(
         repository=repository
     )
     with pytest.raises(
@@ -83,5 +83,5 @@ def test_entity_service_rejects_empty_name():
     ):
         service.rename_entity(
             entity_id="entity_plant_001",
-            name="   ",
+            new_name="   ",
         )

@@ -2,26 +2,26 @@ import pytest
 from pydantic import ValidationError
 
 from app.models import (
-    EntityIdentificationCandidate,
-    EntityResolutionResult,
+    EntityCandidate,
+    EntityResolution,
     EntityResolutionStatus,
     EntityType,
     HouseholdEntity,
-    EntityMatchEvidence,
+    EntityMatchAssessment,
 )
 
 from app.services import (
-    generate_match_evidence,
-    is_entity_compatible,
+    assess_entity_match,
+    candidate_can_match_entity,
     resolve_entity,
-    resolve_entity_automatically,
+    resolve_entity_candidate,
 )
 
 #-tests-
 
 #-1-
 def test_entity_resolution_match():
-    result = EntityResolutionResult(
+    result = EntityResolution(
         status=EntityResolutionStatus.MATCH,
         matched_entity_id="entity_plant_001",
         confidence=0.94,
@@ -37,7 +37,7 @@ def test_entity_resolution_match():
 
 #-2-
 def test_entity_resolution_create():
-    result = EntityResolutionResult(
+    result = EntityResolution(
         status=EntityResolutionStatus.CREATE,
         confidence=0.91,
         reasons=[
@@ -50,7 +50,7 @@ def test_entity_resolution_create():
 
 #-3-
 def test_entity_resolution_uncertain():
-    result = EntityResolutionResult(
+    result = EntityResolution(
         status=EntityResolutionStatus.UNCERTAIN,
         confidence=0.55,
         reasons=[
@@ -64,7 +64,7 @@ def test_entity_resolution_uncertain():
 #-4-
 def test_resolution_rejects_confidence_above_one():
     with pytest.raises(ValidationError):
-        EntityResolutionResult(
+        EntityResolution(
             status=EntityResolutionStatus.MATCH,
             matched_entity_id="entity_001",
             confidence=1.1,
@@ -73,14 +73,14 @@ def test_resolution_rejects_confidence_above_one():
 #-5-
 def test_resolution_rejects_negative_confidence():
     with pytest.raises(ValidationError):
-        EntityResolutionResult(
+        EntityResolution(
             status=EntityResolutionStatus.UNCERTAIN,
             confidence=-0.1,
         )
 
 #-6-
 def test_matching_entity_is_compatible():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.90,
@@ -93,7 +93,7 @@ def test_matching_entity_is_compatible():
         identity="Monstera deliciosa",
     )
 
-    assert is_entity_compatible(
+    assert candidate_can_match_entity(
         candidate,
         "living_room",
         entity,
@@ -101,7 +101,7 @@ def test_matching_entity_is_compatible():
 
 #-7-
 def test_different_entity_type_is_incompatible():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.90,
@@ -113,7 +113,7 @@ def test_different_entity_type_is_incompatible():
         location="living_room",
     )
 
-    assert not is_entity_compatible(
+    assert not candidate_can_match_entity(
         candidate,
         "living_room",
         entity,
@@ -121,7 +121,7 @@ def test_different_entity_type_is_incompatible():
 
 #-8-
 def test_different_entity_type_is_incompatible():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.90,
@@ -133,7 +133,7 @@ def test_different_entity_type_is_incompatible():
         location="living_room",
     )
 
-    assert not is_entity_compatible(
+    assert not candidate_can_match_entity(
         candidate,
         "living_room",
         entity,
@@ -141,7 +141,7 @@ def test_different_entity_type_is_incompatible():
 
 #-9-
 def test_different_location_is_incompatible():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.90,
@@ -154,7 +154,7 @@ def test_different_location_is_incompatible():
         identity="Monstera deliciosa",
     )
 
-    assert not is_entity_compatible(
+    assert not candidate_can_match_entity(
         candidate,
         "living_room",
         entity,
@@ -162,7 +162,7 @@ def test_different_location_is_incompatible():
 
 #-10-
 def test_conflicting_identity_is_incompatible():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.90,
@@ -175,7 +175,7 @@ def test_conflicting_identity_is_incompatible():
         identity="Ficus lyrata",
     )
 
-    assert not is_entity_compatible(
+    assert not candidate_can_match_entity(
         candidate,
         "living_room",
         entity,
@@ -183,7 +183,7 @@ def test_conflicting_identity_is_incompatible():
 
 #-11-
 def test_unknown_candidate_identity_can_be_compatible():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity=None,
         confidence=0.80,
@@ -196,7 +196,7 @@ def test_unknown_candidate_identity_can_be_compatible():
         identity="Monstera deliciosa",
     )
 
-    assert is_entity_compatible(
+    assert candidate_can_match_entity(
         candidate,
         "living_room",
         entity,
@@ -204,7 +204,7 @@ def test_unknown_candidate_identity_can_be_compatible():
 
 #-12-
 def test_resolve_entity_creates_when_no_compatible_entity():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.90,
@@ -212,7 +212,7 @@ def test_resolve_entity_creates_when_no_compatible_entity():
     result = resolve_entity(
         candidate=candidate,
         observed_location="living_room",
-        known_entities=[],
+        household_entities=[],
     )
 
     assert result.status == EntityResolutionStatus.CREATE
@@ -221,7 +221,7 @@ def test_resolve_entity_creates_when_no_compatible_entity():
 
 #-13-
 def test_single_compatible_entity_without_evidence_is_uncertain():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.90,
@@ -236,7 +236,7 @@ def test_single_compatible_entity_without_evidence_is_uncertain():
     result = resolve_entity(
         candidate=candidate,
         observed_location="living_room",
-        known_entities=[
+        household_entities=[
             existing_entity,
         ],
     )
@@ -249,7 +249,7 @@ def test_single_compatible_entity_without_evidence_is_uncertain():
 
 #-14-
 def test_resolve_entity_is_uncertain_with_multiple_compatible_entities():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.90,
@@ -271,7 +271,7 @@ def test_resolve_entity_is_uncertain_with_multiple_compatible_entities():
     result = resolve_entity(
         candidate=candidate,
         observed_location="living_room",
-        known_entities=[
+        household_entities=[
             first_entity,
             second_entity,
         ],
@@ -285,7 +285,7 @@ def test_resolve_entity_is_uncertain_with_multiple_compatible_entities():
 
 #-15-
 def test_resolve_entity_ignores_incompatible_entities():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.90,
@@ -304,7 +304,7 @@ def test_resolve_entity_ignores_incompatible_entities():
         location="living_room",
         identity="Monstera deliciosa",
     )
-    evidence = EntityMatchEvidence(
+    evidence = EntityMatchAssessment(
         entity_id="entity_plant_001",
         score=0.92,
         reasons=[
@@ -314,11 +314,11 @@ def test_resolve_entity_ignores_incompatible_entities():
     result = resolve_entity(
         candidate=candidate,
         observed_location="living_room",
-        known_entities=[
+        household_entities=[
             washer,
             monstera,
         ],
-        match_evidence=[
+        match_assessments=[
             evidence,
         ],
     )
@@ -334,7 +334,7 @@ def test_resolve_entity_ignores_incompatible_entities():
 
 #-16-
 def test_strong_match_evidence_resolves_entity():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.95,
@@ -346,7 +346,7 @@ def test_strong_match_evidence_resolves_entity():
         location="living_room",
         identity="Monstera deliciosa",
     )
-    evidence = EntityMatchEvidence(
+    evidence = EntityMatchAssessment(
         entity_id="entity_plant_001",
         score=0.92,
         reasons=[
@@ -357,8 +357,8 @@ def test_strong_match_evidence_resolves_entity():
     result = resolve_entity(
         candidate=candidate,
         observed_location="living_room",
-        known_entities=[entity],
-        match_evidence=[evidence],
+        household_entities=[entity],
+        match_assessments=[evidence],
     )
 
     assert result.status == EntityResolutionStatus.MATCH
@@ -370,7 +370,7 @@ def test_strong_match_evidence_resolves_entity():
 
 #-17-
 def test_weak_match_evidence_remains_uncertain():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.95,
@@ -382,7 +382,7 @@ def test_weak_match_evidence_remains_uncertain():
         location="living_room",
         identity="Monstera deliciosa",
     )
-    evidence = EntityMatchEvidence(
+    evidence = EntityMatchAssessment(
         entity_id="entity_plant_001",
         score=0.60,
         reasons=[
@@ -392,8 +392,8 @@ def test_weak_match_evidence_remains_uncertain():
     result = resolve_entity(
         candidate=candidate,
         observed_location="living_room",
-        known_entities=[entity],
-        match_evidence=[evidence],
+        household_entities=[entity],
+        match_assessments=[evidence],
     )
 
     assert (
@@ -404,7 +404,7 @@ def test_weak_match_evidence_remains_uncertain():
 
 #-18-
 def test_multiple_strong_matches_remain_uncertain():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.95,
@@ -424,11 +424,11 @@ def test_multiple_strong_matches_remain_uncertain():
         identity="Monstera deliciosa",
     )
     evidence = [
-        EntityMatchEvidence(
+        EntityMatchAssessment(
             entity_id="entity_001",
             score=0.91,
         ),
-        EntityMatchEvidence(
+        EntityMatchAssessment(
             entity_id="entity_002",
             score=0.89,
         ),
@@ -436,11 +436,11 @@ def test_multiple_strong_matches_remain_uncertain():
     result = resolve_entity(
         candidate=candidate,
         observed_location="living_room",
-        known_entities=[
+        household_entities=[
             first,
             second,
         ],
-        match_evidence=evidence,
+        match_assessments=evidence,
     )
 
     assert (
@@ -451,7 +451,7 @@ def test_multiple_strong_matches_remain_uncertain():
 
 #-19-
 def test_match_evidence_scores_exact_identity():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.95,
@@ -463,7 +463,7 @@ def test_match_evidence_scores_exact_identity():
         location="living_room",
         identity="Monstera deliciosa",
     )
-    evidence = generate_match_evidence(
+    evidence = assess_entity_match(
         candidate,
         entity,
     )
@@ -476,7 +476,7 @@ def test_match_evidence_scores_exact_identity():
 
 #-20-
 def test_match_evidence_scores_matching_attributes():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
         identity="LG WM4000HWA",
         confidence=0.95,
@@ -496,7 +496,7 @@ def test_match_evidence_scores_matching_attributes():
             "door": "front_load",
         },
     )
-    evidence = generate_match_evidence(
+    evidence = assess_entity_match(
         candidate,
         entity,
     )
@@ -505,7 +505,7 @@ def test_match_evidence_scores_matching_attributes():
 
 #-21-
 def test_match_evidence_scores_partial_attribute_match():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
         identity=None,
         confidence=0.90,
@@ -524,7 +524,7 @@ def test_match_evidence_scores_partial_attribute_match():
             "door": "top_load",
         },
     )
-    evidence = generate_match_evidence(
+    evidence = assess_entity_match(
         candidate,
         entity,
     )
@@ -533,7 +533,7 @@ def test_match_evidence_scores_partial_attribute_match():
 
 #-22-
 def test_match_evidence_is_zero_without_shared_evidence():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity=None,
         confidence=0.80,
@@ -549,7 +549,7 @@ def test_match_evidence_is_zero_without_shared_evidence():
             "pot_color": "white",
         },
     )
-    evidence = generate_match_evidence(
+    evidence = assess_entity_match(
         candidate,
         entity,
     )
@@ -559,15 +559,15 @@ def test_match_evidence_is_zero_without_shared_evidence():
 
 #-23-
 def test_automatic_resolution_creates_when_no_entity_is_compatible():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.95,
     )
-    result = resolve_entity_automatically(
+    result = resolve_entity_candidate(
         candidate=candidate,
         observed_location="living_room",
-        known_entities=[],
+        household_entities=[],
     )
 
     assert (
@@ -578,7 +578,7 @@ def test_automatic_resolution_creates_when_no_entity_is_compatible():
 
 #-24-
 def test_automatic_resolution_matches_with_strong_evidence():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
         identity="LG WM4000HWA",
         confidence=0.95,
@@ -598,10 +598,10 @@ def test_automatic_resolution_matches_with_strong_evidence():
             "door": "front_load",
         },
     )
-    result = resolve_entity_automatically(
+    result = resolve_entity_candidate(
         candidate=candidate,
         observed_location="laundry_room",
-        known_entities=[entity],
+        household_entities=[entity],
     )
 
     assert (
@@ -616,7 +616,7 @@ def test_automatic_resolution_matches_with_strong_evidence():
 
 #-25-
 def test_automatic_resolution_does_not_match_on_identity_alone():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
         identity="Monstera deliciosa",
         confidence=0.95,
@@ -628,10 +628,10 @@ def test_automatic_resolution_does_not_match_on_identity_alone():
         location="living_room",
         identity="Monstera deliciosa",
     )
-    result = resolve_entity_automatically(
+    result = resolve_entity_candidate(
         candidate=candidate,
         observed_location="living_room",
-        known_entities=[entity],
+        household_entities=[entity],
     )
 
     assert (
@@ -642,7 +642,7 @@ def test_automatic_resolution_does_not_match_on_identity_alone():
 
 #-26-
 def test_automatic_resolution_is_uncertain_for_multiple_strong_matches():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
         identity="LG WM4000HWA",
         confidence=0.95,
@@ -673,10 +673,10 @@ def test_automatic_resolution_is_uncertain_for_multiple_strong_matches():
             "door": "front_load",
         },
     )
-    result = resolve_entity_automatically(
+    result = resolve_entity_candidate(
         candidate=candidate,
         observed_location="laundry_room",
-        known_entities=[
+        household_entities=[
             first,
             second,
         ],
@@ -690,7 +690,7 @@ def test_automatic_resolution_is_uncertain_for_multiple_strong_matches():
 
 #-27-
 def test_conflicting_attributes_prevent_strong_match():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
         identity="LG WM4000HWA",
         confidence=0.95,
@@ -712,7 +712,7 @@ def test_conflicting_attributes_prevent_strong_match():
             "control": "analog",
         },
     )
-    evidence = generate_match_evidence(
+    evidence = assess_entity_match(
         candidate,
         entity,
     )
@@ -725,7 +725,7 @@ def test_conflicting_attributes_prevent_strong_match():
 
 #-28-
 def test_conflicting_attributes_keep_automatic_resolution_uncertain():
-    candidate = EntityIdentificationCandidate(
+    candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
         identity="LG WM4000HWA",
         confidence=0.95,
@@ -747,10 +747,10 @@ def test_conflicting_attributes_keep_automatic_resolution_uncertain():
             "control": "analog",
         },
     )
-    result = resolve_entity_automatically(
+    result = resolve_entity_candidate(
         candidate=candidate,
         observed_location="laundry_room",
-        known_entities=[entity],
+        household_entities=[entity],
     )
 
     assert (

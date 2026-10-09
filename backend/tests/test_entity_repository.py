@@ -1,13 +1,13 @@
 from app.models import EntityType
-from app.repositories import EntityRepository
+from app.repositories import HouseholdEntityRepository
 
 #-tests-
 
 #-1-
 def test_entity_repository_gets_entity_by_id():
-    repository = EntityRepository()
+    repository = HouseholdEntityRepository()
 
-    entity = repository.get_by_id(
+    entity = repository.find_by_id(
         "entity_plant_001"
     )
 
@@ -17,9 +17,9 @@ def test_entity_repository_gets_entity_by_id():
 
 #-2-
 def test_entity_repository_returns_none_for_unknown_id():
-    repository = EntityRepository()
+    repository = HouseholdEntityRepository()
 
-    entity = repository.get_by_id(
+    entity = repository.find_by_id(
         "does_not_exist"
     )
 
@@ -27,7 +27,7 @@ def test_entity_repository_returns_none_for_unknown_id():
 
 #-3-
 def test_entity_repository_filters_by_location():
-    repository = EntityRepository()
+    repository = HouseholdEntityRepository()
 
     entities = repository.list_entities(
         location="laundry_room"
@@ -41,7 +41,7 @@ def test_entity_repository_filters_by_location():
 
 #-4-
 def test_entity_repository_filters_by_entity_type():
-    repository = EntityRepository()
+    repository = HouseholdEntityRepository()
 
     entities = repository.list_entities(
         entity_type=EntityType.PLANT
@@ -55,15 +55,15 @@ def test_entity_repository_filters_by_entity_type():
 
 #-5-
 def test_entity_repository_updates_name():
-    repository = EntityRepository()
-    entity = repository.update_name(
+    repository = HouseholdEntityRepository()
+    entity = repository.rename_entity(
         entity_id="entity_plant_001",
-        name="My Monstera",
+        new_name="My Monstera",
     )
 
     assert entity is not None
     assert entity.name == "My Monstera"
-    stored_entity = repository.get_by_id(
+    stored_entity = repository.find_by_id(
         "entity_plant_001"
     )
     assert stored_entity is not None
@@ -71,10 +71,10 @@ def test_entity_repository_updates_name():
 
 #-6-
 def test_entity_repository_update_returns_none_for_unknown_entity():
-    repository = EntityRepository()
-    entity = repository.update_name(
+    repository = HouseholdEntityRepository()
+    entity = repository.rename_entity(
         entity_id="does_not_exist",
-        name="New Name",
+        new_name="New Name",
     )
 
     assert entity is None

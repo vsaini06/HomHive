@@ -1,5 +1,5 @@
 from app.models import HouseholdState, Observation, TaskStatus
-from app.services.task_discovery import discover_task
+from app.services.reactive_tasks import task_from_observation
 
 #-tests-
 
@@ -19,7 +19,7 @@ def test_household_observation_to_task_flow():
 
     state.add_observation(obs_1)
 
-    task = discover_task(
+    task = task_from_observation(
         obs_1,
         existing_tasks=active_tasks,
     )
@@ -37,7 +37,7 @@ def test_household_observation_to_task_flow():
 
     state.add_observation(obs_2)
 
-    task = discover_task(
+    task = task_from_observation(
         obs_2,
         existing_tasks=active_tasks,
     )
@@ -56,7 +56,7 @@ def test_household_observation_to_task_flow():
 
     state.add_observation(obs_3)
 
-    duplicate = discover_task(
+    duplicate = task_from_observation(
         obs_3,
         existing_tasks=active_tasks,
     )
@@ -76,7 +76,7 @@ def test_household_observation_to_task_flow():
 
     state.add_observation(obs_4)
 
-    new_task = discover_task(
+    new_task = task_from_observation(
         obs_4,
         existing_tasks=active_tasks,
     )
@@ -123,7 +123,7 @@ def test_low_confidence_observations_are_preserved_without_task():
     for observation in observations:
         state.add_observation(observation)
 
-        task = discover_task(
+        task = task_from_observation(
             observation,
             existing_tasks=active_tasks,
         )
@@ -153,7 +153,7 @@ def test_high_confidence_observation_after_uncertain_evidence_creates_task():
 
     state.add_observation(low_confidence_observation)
 
-    first_task = discover_task(
+    first_task = task_from_observation(
         low_confidence_observation,
         existing_tasks=active_tasks,
     )
@@ -171,7 +171,7 @@ def test_high_confidence_observation_after_uncertain_evidence_creates_task():
 
     state.add_observation(high_confidence_observation)
 
-    second_task = discover_task(
+    second_task = task_from_observation(
         high_confidence_observation,
         existing_tasks=active_tasks,
     )

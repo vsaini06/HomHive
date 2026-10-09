@@ -1,14 +1,12 @@
+import pytest
+
 from app.models import Task
-from app.services.task_prioritization import (
-    calculate_effort_score,
-    calculate_priority_score,
-    prioritize_task,
-    prioritize_tasks,
+from app.services.task_ranking import (
+    rank_tasks,
+    score_task,
 )
 
-#-tests-
 
-#-1-
 def make_task(
     task_id: str = "task_001",
     urgency: str = "medium",
@@ -25,20 +23,35 @@ def make_task(
         confidence=confidence,
     )
 
-#-2-
-def test_effort_score_for_30_minutes_is_half():
-    score = calculate_effort_score(30)
 
-    assert score == 0.5
+def test_medium_task_with_30_minute_effort_has_expected_score():
+    task = make_task(
+        urgency="medium",
+        confidence=0.90,
+        effort_minutes=30,
+    )
 
-#-3-
-def test_shorter_task_has_higher_effort_score():
-    short_score = calculate_effort_score(15)
-    long_score = calculate_effort_score(60)
+    scored = score_task(task)
+
+    assert scored.priority_score == pytest.approx(0.62)
+
+
+def test_shorter_task_scores_higher_when_other_signals_match():
+    short_task = make_task(
+        task_id="task_short",
+        effort_minutes=15,
+    )
+    long_task = make_task(
+        task_id="task_long",
+        effort_minutes=60,
+    )
+
+    short_score = score_task(short_task).priority_score
+    long_score = score_task(long_task).priority_score
 
     assert short_score > long_score
 
-#-4-
+
 def test_priority_score_stays_between_zero_and_one():
     task = make_task(
         urgency="high",
@@ -46,11 +59,11 @@ def test_priority_score_stays_between_zero_and_one():
         effort_minutes=15,
     )
 
-    score = calculate_priority_score(task)
+    scored = score_task(task)
 
-    assert 0.0 <= score <= 1.0
+    assert 0.0 <= scored.priority_score <= 1.0
 
-#-5-
+
 def test_higher_urgency_produces_higher_priority():
     medium_task = make_task(
         task_id="task_medium",
@@ -65,42 +78,45 @@ def test_higher_urgency_produces_higher_priority():
         effort_minutes=30,
     )
 
-    medium_score = calculate_priority_score(medium_task)
-    high_score = calculate_priority_score(high_task)
+    medium_score = score_task(
+        medium_task
+    ).priority_score
+    high_score = score_task(
+        high_task
+    ).priority_score
 
     assert high_score > medium_score
 
-#-6-
+
 def test_higher_confidence_produces_higher_priority():
     lower_confidence_task = make_task(
         task_id="task_lower_confidence",
         confidence=0.75,
     )
-
     higher_confidence_task = make_task(
         task_id="task_higher_confidence",
         confidence=0.95,
     )
 
-    lower_score = calculate_priority_score(
+    lower_score = score_task(
         lower_confidence_task
-    )
-    higher_score = calculate_priority_score(
+    ).priority_score
+    higher_score = score_task(
         higher_confidence_task
-    )
+    ).priority_score
 
     assert higher_score > lower_score
 
-#-7-
-def test_prioritize_task_returns_task_and_score():
+
+def test_score_task_returns_task_and_score():
     task = make_task()
 
-    result = prioritize_task(task)
+    scored = score_task(task)
 
-    assert result.task == task
-    assert result.priority_score == calculate_priority_score(task)
+    assert scored.task == task
+    assert 0.0 <= scored.priority_score <= 1.0
 
-#-8-
+
 def test_urgency_outweighs_effort_when_confidence_is_equal():
     high_urgency_long_task = make_task(
         task_id="task_high_long",
@@ -108,7 +124,6 @@ def test_urgency_outweighs_effort_when_confidence_is_equal():
         confidence=0.90,
         effort_minutes=60,
     )
-
     medium_urgency_short_task = make_task(
         task_id="task_medium_short",
         urgency="medium",
@@ -116,17 +131,17 @@ def test_urgency_outweighs_effort_when_confidence_is_equal():
         effort_minutes=5,
     )
 
-    high_score = calculate_priority_score(
+    high_score = score_task(
         high_urgency_long_task
-    )
-    medium_score = calculate_priority_score(
+    ).priority_score
+    medium_score = score_task(
         medium_urgency_short_task
-    )
+    ).priority_score
 
     assert high_score > medium_score
 
-#-9-
-def test_prioritize_tasks_orders_highest_score_first():
+
+def test_rank_tasks_orders_highest_score_first():
     low_task = make_task(
         task_id="task_low",
         urgency="low",
@@ -146,21 +161,21 @@ def test_prioritize_tasks_orders_highest_score_first():
         effort_minutes=30,
     )
 
-    prioritized = prioritize_tasks(
+    ranked = rank_tasks(
         [medium_task, low_task, high_task]
     )
 
-    assert prioritized[0].task.id == "task_high"
-    assert prioritized[1].task.id == "task_medium"
-    assert prioritized[2].task.id == "task_low"
+    assert ranked[0].task.id == "task_high"
+    assert ranked[1].task.id == "task_medium"
+    assert ranked[2].task.id == "task_low"
 
-#-10-
-def test_prioritize_tasks_returns_empty_list_for_no_tasks():
-    prioritized = prioritize_tasks([])
 
-    assert prioritized == []
+def test_rank_tasks_returns_empty_list_for_no_tasks():
+    ranked = rank_tasks([])
 
-#-11-
+    assert ranked == []
+
+
 def test_equal_priority_uses_task_id_as_tiebreaker():
     task_b = make_task(
         task_id="task_b",
@@ -175,9 +190,9 @@ def test_equal_priority_uses_task_id_as_tiebreaker():
         effort_minutes=30,
     )
 
-    prioritized = prioritize_tasks(
+    ranked = rank_tasks(
         [task_b, task_a]
     )
 
-    assert prioritized[0].task.id == "task_a"
-    assert prioritized[1].task.id == "task_b"
+    assert ranked[0].task.id == "task_a"
+    assert ranked[1].task.id == "task_b"

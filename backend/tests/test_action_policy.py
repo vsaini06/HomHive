@@ -6,19 +6,19 @@ from datetime import (
 import pytest
 
 from app.models import (
-    InterventionStatus,
-    ObservationCategory,
-    ThresholdPrediction,
+    ActionState,
+    ConditionType,
+    ThresholdCrossing,
 )
-from app.services import decide_intervention
+from app.services import decide_action
 
 #-tests-
 
 #-1-
-def test_intervention_acts_now_when_threshold_reached():
-    prediction = ThresholdPrediction(
+def test_action_policy_acts_now_when_threshold_reached():
+    crossing = ThresholdCrossing(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.95,
         threshold=0.90,
         rate_per_hour=0.10,
@@ -28,21 +28,21 @@ def test_intervention_acts_now_when_threshold_reached():
         ),
         confidence=0.80,
     )
-    decision = decide_intervention(
-        prediction
+    decision = decide_action(
+        crossing
     )
 
     assert decision is not None
     assert (
         decision.status
-        == InterventionStatus.ACT_NOW
+        == ActionState.ACT_NOW
     )
 
 #-2-
-def test_intervention_plans_for_near_confident_prediction():
-    prediction = ThresholdPrediction(
+def test_action_policy_plans_for_near_confident_prediction():
+    crossing = ThresholdCrossing(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.70,
         threshold=0.90,
         rate_per_hour=0.10,
@@ -52,21 +52,21 @@ def test_intervention_plans_for_near_confident_prediction():
         ),
         confidence=0.80,
     )
-    decision = decide_intervention(
-        prediction
+    decision = decide_action(
+        crossing
     )
 
     assert decision is not None
     assert (
         decision.status
-        == InterventionStatus.PLAN
+        == ActionState.PLAN
     )
 
 #-3-
-def test_intervention_monitors_low_confidence_prediction():
-    prediction = ThresholdPrediction(
+def test_action_policy_monitors_low_confidence_prediction():
+    crossing = ThresholdCrossing(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.70,
         threshold=0.90,
         rate_per_hour=0.10,
@@ -76,21 +76,21 @@ def test_intervention_monitors_low_confidence_prediction():
         ),
         confidence=0.30,
     )
-    decision = decide_intervention(
-        prediction
+    decision = decide_action(
+        crossing
     )
 
     assert decision is not None
     assert (
         decision.status
-        == InterventionStatus.MONITOR
+        == ActionState.MONITOR
     )
 
 #-4-
-def test_intervention_monitors_distant_prediction():
-    prediction = ThresholdPrediction(
+def test_action_policy_monitors_distant_prediction():
+    crossing = ThresholdCrossing(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         current_value=0.50,
         threshold=0.90,
         rate_per_hour=0.01,
@@ -100,26 +100,26 @@ def test_intervention_monitors_distant_prediction():
         ),
         confidence=0.80,
     )
-    decision = decide_intervention(
-        prediction
+    decision = decide_action(
+        crossing
     )
 
     assert decision is not None
     assert (
         decision.status
-        == InterventionStatus.MONITOR
+        == ActionState.MONITOR
     )
 
 #-5-
-def test_intervention_returns_none_without_prediction():
-    decision = decide_intervention(
+def test_action_policy_returns_none_without_prediction():
+    decision = decide_action(
         None
     )
 
     assert decision is None
 
 #-6-
-def test_intervention_rejects_invalid_minimum_confidence():
+def test_action_policy_rejects_invalid_minimum_confidence():
     with pytest.raises(
         ValueError,
         match=(
@@ -127,9 +127,9 @@ def test_intervention_rejects_invalid_minimum_confidence():
             "between 0 and 1."
         ),
     ):
-        decide_intervention(
+        decide_action(
             None,
-            minimum_confidence=1.20,
+            min_confidence=1.20,
         )
 
 #-7-

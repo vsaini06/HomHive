@@ -1,10 +1,10 @@
 from app.models import (
     Observation,
-    TaskDiscoveryReason,
+    TaskDecisionReason,
 )
-from app.services.task_discovery import (
-    discover_task,
-    discover_task_detailed,
+from app.services.reactive_tasks import (
+    task_from_observation,
+    decide_task_from_observation,
 )
 
 #-tests-
@@ -20,10 +20,10 @@ def test_detailed_result_reports_task_created():
         confidence=0.90,
     )
 
-    result = discover_task_detailed(observation)
+    result = decide_task_from_observation(observation)
 
     assert result.task is not None
-    assert result.reason == TaskDiscoveryReason.TASK_CREATED
+    assert result.reason == TaskDecisionReason.TASK_CREATED
 
 #-2-
 def test_detailed_result_reports_below_threshold():
@@ -36,10 +36,10 @@ def test_detailed_result_reports_below_threshold():
         confidence=0.95,
     )
 
-    result = discover_task_detailed(observation)
+    result = decide_task_from_observation(observation)
 
     assert result.task is None
-    assert result.reason == TaskDiscoveryReason.BELOW_THRESHOLD
+    assert result.reason == TaskDecisionReason.BELOW_TRIGGER_LEVEL
 
 #-3-
 def test_detailed_result_reports_low_confidence():
@@ -52,10 +52,10 @@ def test_detailed_result_reports_low_confidence():
         confidence=0.40,
     )
 
-    result = discover_task_detailed(observation)
+    result = decide_task_from_observation(observation)
 
     assert result.task is None
-    assert result.reason == TaskDiscoveryReason.LOW_CONFIDENCE
+    assert result.reason == TaskDecisionReason.LOW_CONFIDENCE
 
 #-4-
 def test_detailed_result_reports_unsupported_category():
@@ -68,10 +68,10 @@ def test_detailed_result_reports_unsupported_category():
         confidence=0.95,
     )
 
-    result = discover_task_detailed(observation)
+    result = decide_task_from_observation(observation)
 
     assert result.task is None
-    assert result.reason == TaskDiscoveryReason.UNSUPPORTED_CATEGORY
+    assert result.reason == TaskDecisionReason.UNSUPPORTED_CONDITION
 
 #-5-
 def test_detailed_result_reports_duplicate_active_task():
@@ -84,7 +84,7 @@ def test_detailed_result_reports_duplicate_active_task():
         confidence=0.95,
     )
 
-    existing_task = discover_task(first_observation)
+    existing_task = task_from_observation(first_observation)
 
     second_observation = Observation(
         id="obs_result_006",
@@ -95,7 +95,7 @@ def test_detailed_result_reports_duplicate_active_task():
         confidence=0.96,
     )
 
-    result = discover_task_detailed(
+    result = decide_task_from_observation(
         second_observation,
         existing_tasks=[existing_task],
     )
@@ -103,5 +103,5 @@ def test_detailed_result_reports_duplicate_active_task():
     assert result.task is None
     assert (
         result.reason
-        == TaskDiscoveryReason.DUPLICATE_ACTIVE_TASK
+        == TaskDecisionReason.ACTIVE_TASK_ALREADY_EXISTS
     )

@@ -1,56 +1,53 @@
 from app.models import (
-    InterventionDecision,
-    InterventionStatus,
-    ObservationCategory,
-    UrgencyLevel,
+    ActionDecision,
+    ActionState,
+    ConditionType,
+    TaskUrgency,
     TaskStatus,
 )
 from app.services import (
-    discover_intervention_task,
-)
-from app.services import (
-    discover_intervention_task,
-    reconcile_intervention_decision,
-    reconcile_intervention_task,
+    task_from_action_decision,
+    sync_predictive_task,
+    update_or_create_predictive_task,
 )
 
 #-tests-
 
 #-1-
-def test_monitor_intervention_does_not_create_task():
-    decision = InterventionDecision(
+def test_monitor_action_does_not_create_task():
+    decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.MONITOR,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.MONITOR,
         hours_to_threshold=12.0,
         confidence=0.70,
         reason="threshold prediction is outside planning window",
     )
 
-    task = discover_intervention_task(
+    task = task_from_action_decision(
         decision
     )
 
     assert task is None
 
 #-2-
-def test_plan_intervention_creates_task():
-    decision = InterventionDecision(
+def test_plan_action_creates_task():
+    decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=3.0,
         confidence=0.80,
         reason="threshold predicted within planning window",
     )
 
-    task = discover_intervention_task(
+    task = task_from_action_decision(
         decision
     )
 
     assert task is not None
 
-    assert task.urgency == UrgencyLevel.MEDIUM
+    assert task.urgency == TaskUrgency.MEDIUM
     assert task.confidence == 0.80
 
     assert (
@@ -70,17 +67,17 @@ def test_plan_intervention_creates_task():
     assert task.source_observation_id is None
 
 #-3-
-def test_act_now_intervention_creates_high_urgency_task():
-    decision = InterventionDecision(
+def test_act_now_action_creates_high_urgency_task():
+    decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.ACT_NOW,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.ACT_NOW,
         hours_to_threshold=0.0,
         confidence=0.90,
         reason="threshold already reached",
     )
 
-    task = discover_intervention_task(
+    task = task_from_action_decision(
         decision
     )
 
@@ -88,7 +85,7 @@ def test_act_now_intervention_creates_high_urgency_task():
 
     assert (
         task.urgency
-        == UrgencyLevel.HIGH
+        == TaskUrgency.HIGH
     )
 
     assert (
@@ -97,21 +94,21 @@ def test_act_now_intervention_creates_high_urgency_task():
     )
 
 #-4-
-def test_intervention_task_id_is_deterministic():
-    decision = InterventionDecision(
+def test_predictive_task_id_is_deterministic():
+    decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=3.0,
         confidence=0.80,
         reason="threshold predicted within planning window",
     )
 
-    first_task = discover_intervention_task(
+    first_task = task_from_action_decision(
         decision
     )
 
-    second_task = discover_intervention_task(
+    second_task = task_from_action_decision(
         decision
     )
 
@@ -122,29 +119,29 @@ def test_intervention_task_id_is_deterministic():
 
 #-5-
 def test_same_state_produces_same_task_key():
-    first_decision = InterventionDecision(
+    first_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=6.0,
         confidence=0.70,
         reason="threshold predicted within planning window",
     )
 
-    second_decision = InterventionDecision(
+    second_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.ACT_NOW,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.ACT_NOW,
         hours_to_threshold=0.0,
         confidence=0.90,
         reason="threshold already reached",
     )
 
-    first_task = discover_intervention_task(
+    first_task = task_from_action_decision(
         first_decision
     )
 
-    second_task = discover_intervention_task(
+    second_task = task_from_action_decision(
         second_decision
     )
 
@@ -161,29 +158,29 @@ def test_same_state_produces_same_task_key():
 
 #-6-
 def test_different_states_produce_different_task_keys():
-    dish_decision = InterventionDecision(
+    dish_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=3.0,
         confidence=0.80,
         reason="threshold predicted within planning window",
     )
 
-    laundry_decision = InterventionDecision(
+    laundry_decision = ActionDecision(
         location="laundry_room",
-        category=ObservationCategory.LAUNDRY_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.LAUNDRY_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=3.0,
         confidence=0.80,
         reason="threshold predicted within planning window",
     )
 
-    dish_task = discover_intervention_task(
+    dish_task = task_from_action_decision(
         dish_decision
     )
 
-    laundry_task = discover_intervention_task(
+    laundry_task = task_from_action_decision(
         laundry_decision
     )
 
@@ -195,64 +192,64 @@ def test_different_states_produce_different_task_keys():
     )
 
 #-7-
-def test_reconcile_returns_new_task_when_no_matching_task_exists():
-    decision = InterventionDecision(
+def test_predictive_task_sync_returns_new_task_when_no_matching_task_exists():
+    decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=3.0,
         confidence=0.80,
         reason="threshold predicted within planning window",
     )
 
-    discovered_task = discover_intervention_task(
+    candidate_task = task_from_action_decision(
         decision
     )
 
-    result = reconcile_intervention_task(
-        discovered_task=discovered_task,
+    result = update_or_create_predictive_task(
+        candidate_task=candidate_task,
         existing_tasks=[],
     )
 
     assert result is not None
-    assert result is discovered_task
+    assert result is candidate_task
     assert (
         result.task_key
         == "predictive:kitchen:dish_load"
     )
 
 #-8-
-def test_reconcile_updates_existing_predictive_task():
-    initial_decision = InterventionDecision(
+def test_predictive_task_sync_updates_existing_predictive_task():
+    initial_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=6.0,
         confidence=0.70,
         reason="threshold predicted within planning window",
     )
 
-    initial_task = discover_intervention_task(
+    initial_task = task_from_action_decision(
         initial_decision
     )
 
     assert initial_task is not None
 
-    updated_decision = InterventionDecision(
+    updated_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.ACT_NOW,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.ACT_NOW,
         hours_to_threshold=0.0,
         confidence=0.90,
         reason="threshold already reached",
     )
 
-    discovered_task = discover_intervention_task(
+    candidate_task = task_from_action_decision(
         updated_decision
     )
 
-    result = reconcile_intervention_task(
-        discovered_task=discovered_task,
+    result = update_or_create_predictive_task(
+        candidate_task=candidate_task,
         existing_tasks=[initial_task],
     )
 
@@ -265,7 +262,7 @@ def test_reconcile_updates_existing_predictive_task():
         == "predictive:kitchen:dish_load"
     )
 
-    assert result.urgency == UrgencyLevel.HIGH
+    assert result.urgency == TaskUrgency.HIGH
 
     assert result.confidence == 0.90
 
@@ -280,37 +277,37 @@ def test_reconcile_updates_existing_predictive_task():
     )
 
 #-9-
-def test_reconcile_does_not_update_unrelated_task():
-    laundry_decision = InterventionDecision(
+def test_predictive_task_sync_does_not_update_unrelated_task():
+    laundry_decision = ActionDecision(
         location="laundry_room",
-        category=ObservationCategory.LAUNDRY_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.LAUNDRY_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=4.0,
         confidence=0.75,
         reason="threshold predicted within planning window",
     )
 
-    laundry_task = discover_intervention_task(
+    laundry_task = task_from_action_decision(
         laundry_decision
     )
 
     assert laundry_task is not None
 
-    kitchen_decision = InterventionDecision(
+    kitchen_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.ACT_NOW,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.ACT_NOW,
         hours_to_threshold=0.0,
         confidence=0.90,
         reason="threshold already reached",
     )
 
-    kitchen_task = discover_intervention_task(
+    kitchen_task = task_from_action_decision(
         kitchen_decision
     )
 
-    result = reconcile_intervention_task(
-        discovered_task=kitchen_task,
+    result = update_or_create_predictive_task(
+        candidate_task=kitchen_task,
         existing_tasks=[laundry_task],
     )
 
@@ -325,7 +322,7 @@ def test_reconcile_does_not_update_unrelated_task():
 
     assert (
         laundry_task.urgency
-        == UrgencyLevel.MEDIUM
+        == TaskUrgency.MEDIUM
     )
 
     assert (
@@ -334,9 +331,9 @@ def test_reconcile_does_not_update_unrelated_task():
     )
 
 #-10-
-def test_reconcile_returns_none_without_discovered_task():
-    result = reconcile_intervention_task(
-        discovered_task=None,
+def test_predictive_task_sync_returns_none_without_candidate_task():
+    result = update_or_create_predictive_task(
+        candidate_task=None,
         existing_tasks=[],
     )
 
@@ -344,33 +341,33 @@ def test_reconcile_returns_none_without_discovered_task():
 
 #-11-
 def test_monitor_dismisses_existing_predictive_task():
-    plan_decision = InterventionDecision(
+    plan_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=3.0,
         confidence=0.80,
         reason="threshold predicted within planning window",
     )
 
     existing_task = (
-        discover_intervention_task(
+        task_from_action_decision(
             plan_decision
         )
     )
 
     assert existing_task is not None
 
-    monitor_decision = InterventionDecision(
+    monitor_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.MONITOR,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.MONITOR,
         hours_to_threshold=12.0,
         confidence=0.70,
         reason="threshold prediction is outside planning window",
     )
 
-    result = reconcile_intervention_decision(
+    result = sync_predictive_task(
         decision=monitor_decision,
         existing_tasks=[existing_task],
     )
@@ -390,16 +387,16 @@ def test_monitor_dismisses_existing_predictive_task():
 
 #-12-
 def test_monitor_does_not_create_new_task():
-    decision = InterventionDecision(
+    decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.MONITOR,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.MONITOR,
         hours_to_threshold=12.0,
         confidence=0.70,
         reason="threshold prediction is outside planning window",
     )
 
-    result = reconcile_intervention_decision(
+    result = sync_predictive_task(
         decision=decision,
         existing_tasks=[],
     )
@@ -408,17 +405,17 @@ def test_monitor_does_not_create_new_task():
 
 #-13-
 def test_actionable_decision_reactivates_dismissed_task():
-    plan_decision = InterventionDecision(
+    plan_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=3.0,
         confidence=0.80,
         reason="threshold predicted within planning window",
     )
 
     existing_task = (
-        discover_intervention_task(
+        task_from_action_decision(
             plan_decision
         )
     )
@@ -429,16 +426,16 @@ def test_actionable_decision_reactivates_dismissed_task():
         TaskStatus.DISMISSED
     )
 
-    act_now_decision = InterventionDecision(
+    act_now_decision = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.ACT_NOW,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.ACT_NOW,
         hours_to_threshold=0.0,
         confidence=0.90,
         reason="threshold already reached",
     )
 
-    result = reconcile_intervention_decision(
+    result = sync_predictive_task(
         decision=act_now_decision,
         existing_tasks=[existing_task],
     )
@@ -447,7 +444,7 @@ def test_actionable_decision_reactivates_dismissed_task():
 
     assert result.status == TaskStatus.PENDING
 
-    assert result.urgency == UrgencyLevel.HIGH
+    assert result.urgency == TaskUrgency.HIGH
 
     assert result.confidence == 0.90
 
@@ -458,33 +455,33 @@ def test_actionable_decision_reactivates_dismissed_task():
 
 #-14-
 def test_monitor_does_not_dismiss_unrelated_task():
-    laundry_decision = InterventionDecision(
+    laundry_decision = ActionDecision(
         location="laundry_room",
-        category=ObservationCategory.LAUNDRY_LOAD,
-        status=InterventionStatus.PLAN,
+        category=ConditionType.LAUNDRY_LOAD,
+        status=ActionState.PLAN,
         hours_to_threshold=3.0,
         confidence=0.80,
         reason="threshold predicted within planning window",
     )
 
     laundry_task = (
-        discover_intervention_task(
+        task_from_action_decision(
             laundry_decision
         )
     )
 
     assert laundry_task is not None
 
-    kitchen_monitor = InterventionDecision(
+    kitchen_monitor = ActionDecision(
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
-        status=InterventionStatus.MONITOR,
+        category=ConditionType.DISH_LOAD,
+        status=ActionState.MONITOR,
         hours_to_threshold=12.0,
         confidence=0.70,
         reason="threshold prediction is outside planning window",
     )
 
-    result = reconcile_intervention_decision(
+    result = sync_predictive_task(
         decision=kitchen_monitor,
         existing_tasks=[laundry_task],
     )

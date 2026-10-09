@@ -1,11 +1,11 @@
 from app.models import (
     HouseholdState,
     Observation,
-    UrgencyLevel,
+    TaskUrgency,
 )
 
-from app.services.task_discovery import discover_task
-from app.services.task_prioritization import prioritize_tasks
+from app.services.reactive_tasks import task_from_observation
+from app.services.task_ranking import rank_tasks
 
 #-tests-
 
@@ -37,7 +37,7 @@ def test_observations_become_prioritized_action_plan():
     for observation in observations:
         state.add_observation(observation)
 
-        task = discover_task(
+        task = task_from_observation(
             observation,
             existing_tasks=discovered_tasks,
         )
@@ -49,15 +49,15 @@ def test_observations_become_prioritized_action_plan():
     assert len(discovered_tasks) == 2
 
 
-    discovered_tasks[0].urgency = UrgencyLevel.HIGH
-    discovered_tasks[1].urgency = UrgencyLevel.MEDIUM
+    discovered_tasks[0].urgency = TaskUrgency.HIGH
+    discovered_tasks[1].urgency = TaskUrgency.MEDIUM
 
-    prioritized = prioritize_tasks(discovered_tasks)
+    ranked = rank_tasks(discovered_tasks)
 
-    assert len(prioritized) == 2
-    assert prioritized[0].task.id == "task_obs_dishes"
-    assert prioritized[1].task.id == "task_obs_laundry"
+    assert len(ranked) == 2
+    assert ranked[0].task.id == "task_obs_dishes"
+    assert ranked[1].task.id == "task_obs_laundry"
     assert (
-        prioritized[0].priority_score
-        > prioritized[1].priority_score
+        ranked[0].priority_score
+        > ranked[1].priority_score
     )

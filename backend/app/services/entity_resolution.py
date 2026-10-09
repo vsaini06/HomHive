@@ -1,162 +1,198 @@
 from app.models import (
-    EntityIdentificationCandidate,
-    EntityResolutionResult,
+    EntityCandidate,
+    EntityMatchAssessment,
+    EntityResolution,
     EntityResolutionStatus,
     HouseholdEntity,
-    EntityMatchEvidence,
 )
 
-MATCH_THRESHOLD = 0.80
 
-def is_entity_compatible(
-    candidate: EntityIdentificationCandidate,
+# HomHive only links an observation to a known object when the evidence
+# is strong enough that an automatic match is unlikely to surprise the user.
+AUTO_MATCH_SCORE_THRESHOLD = 0.80
+
+
+def candidate_can_match_entity(
+    candidate: EntityCandidate,
     observed_location: str,
     entity: HouseholdEntity,
 ) -> bool:
+    """Check whether an existing household entity is a plausible match."""
+
     if candidate.entity_type != entity.entity_type:
         return False
+
     if observed_location != entity.location:
         return False
+
+    # Two known identities that disagree should never be treated as the same object.
     if (
         candidate.identity is not None
         and entity.identity is not None
         and candidate.identity != entity.identity
     ):
         return False
+
     return True
 
-def generate_match_evidence(
-    candidate: EntityIdentificationCandidate,
+
+def assess_entity_match(
+    candidate: EntityCandidate,
     entity: HouseholdEntity,
-) -> EntityMatchEvidence:
-    score = 0.0
-    reasons: list[str] = []
+) -> EntityMatchAssessment:
+    """Score how well a recognized candidate matches one known household entity."""
+
+    match_score = 0.0
+    match_reasons: list[str] = []
 
     if (
         candidate.identity is not None
         and entity.identity is not None
         and candidate.identity == entity.identity
     ):
-        score += 0.50
-        reasons.append(
+        match_score += 0.50
+        match_reasons.append(
             "exact identity match"
         )
 
-    shared_attributes = set(
+    shared_attribute_names = set(
         candidate.attributes
     ).intersection(
         entity.attributes
     )
 
-    matching_attributes = [
-        attribute
-        for attribute in shared_attributes
+    matching_attribute_names = [
+        attribute_name
+        for attribute_name in shared_attribute_names
         if (
-            candidate.attributes[attribute]
-            == entity.attributes[attribute]
+            candidate.attributes[attribute_name]
+            == entity.attributes[attribute_name]
         )
     ]
 
-    conflicting_attributes = [
-        attribute
-        for attribute in shared_attributes
+    conflicting_attribute_names = [
+        attribute_name
+        for attribute_name in shared_attribute_names
         if (
-            candidate.attributes[attribute]
-            != entity.attributes[attribute]
+            candidate.attributes[attribute_name]
+            != entity.attributes[attribute_name]
         )
     ]
 
-    if shared_attributes:
-        attribute_match_ratio = (
-            len(matching_attributes)
-            / len(shared_attributes)
+    if shared_attribute_names:
+        matching_attribute_ratio = (
+            len(matching_attribute_names)
+            / len(shared_attribute_names)
         )
 
-        score += (
-            attribute_match_ratio * 0.50
+        match_score += (
+            matching_attribute_ratio * 0.50
         )
 
-        if matching_attributes:
-            reasons.append(
+        if matching_attribute_names:
+            match_reasons.append(
                 "matching entity attributes"
             )
 
-        if conflicting_attributes:
-            reasons.append(
+        if conflicting_attribute_names:
+            match_reasons.append(
                 "conflicting entity attributes"
             )
 
-            score = min(
-                score,
-                MATCH_THRESHOLD - 0.01,
+            # Conflicting known details should block an automatic match,
+            # even when the remaining evidence looks strong.
+            match_score = min(
+                match_score,
+                AUTO_MATCH_SCORE_THRESHOLD - 0.01,
             )
 
-    return EntityMatchEvidence(
+    return EntityMatchAssessment(
         entity_id=entity.id,
-        score=round(score, 4),
-        reasons=reasons,
+        score=round(
+            match_score,
+            4,
+        ),
+        reasons=match_reasons,
     )
 
+
 def resolve_entity(
-    candidate: EntityIdentificationCandidate,
+    candidate: EntityCandidate,
     observed_location: str,
-    known_entities: list[HouseholdEntity],
-    match_evidence: list[EntityMatchEvidence] | None = None,
-) -> EntityResolutionResult:
-    compatible_entities = [
+    household_entities: list[HouseholdEntity],
+    match_assessments: list[EntityMatchAssessment] | None = None,
+) -> EntityResolution:
+    """Decide whether a candidate matches an existing entity or needs a new one."""
+
+    possible_matches = [
         entity
-        for entity in known_entities
-        if is_entity_compatible(
-            candidate,
-            observed_location,
-            entity,
+        for entity in household_entities
+        if candidate_can_match_entity(
+            candidate=candidate,
+            observed_location=observed_location,
+            entity=entity,
         )
     ]
-    if not compatible_entities:
-        return EntityResolutionResult(
+
+    if not possible_matches:
+        return EntityResolution(
             status=EntityResolutionStatus.CREATE,
             confidence=candidate.confidence,
             reasons=[
                 "no compatible existing entity",
             ],
         )
-    evidence_by_entity = {
-        evidence.entity_id: evidence
-        for evidence in (match_evidence or [])
+
+    assessment_by_entity = {
+        assessment.entity_id: assessment
+        for assessment in (
+            match_assessments or []
+        )
     }
 
-    strong_matches = []
-    for entity in compatible_entities:
-        evidence = evidence_by_entity.get(
+    strong_matches: list[
+        EntityMatchAssessment
+    ] = []
+
+    for entity in possible_matches:
+        assessment = assessment_by_entity.get(
             entity.id
         )
-        if (
-            evidence is not None
-            and evidence.score >= MATCH_THRESHOLD
-        ):
-            strong_matches.append(evidence)
-    if len(strong_matches) == 1:
-        match = strong_matches[0]
 
-        return EntityResolutionResult(
+        if (
+            assessment is not None
+            and assessment.score
+            >= AUTO_MATCH_SCORE_THRESHOLD
+        ):
+            strong_matches.append(
+                assessment
+            )
+
+    if len(strong_matches) == 1:
+        matched_entity = strong_matches[0]
+
+        return EntityResolution(
             status=EntityResolutionStatus.MATCH,
-            matched_entity_id=match.entity_id,
-            confidence=match.score,
-            reasons=match.reasons,
+            matched_entity_id=(
+                matched_entity.entity_id
+            ),
+            confidence=matched_entity.score,
+            reasons=matched_entity.reasons,
         )
+
     if len(strong_matches) > 1:
-        return EntityResolutionResult(
+        return EntityResolution(
             status=EntityResolutionStatus.UNCERTAIN,
             confidence=max(
-                match.score
-                for match in strong_matches
+                assessment.score
+                for assessment in strong_matches
             ),
             reasons=[
                 "multiple entities have strong match evidence",
             ],
         )
 
-    return EntityResolutionResult(
+    return EntityResolution(
         status=EntityResolutionStatus.UNCERTAIN,
         confidence=candidate.confidence,
         reasons=[
@@ -164,32 +200,35 @@ def resolve_entity(
         ],
     )
 
-def resolve_entity_automatically(
-    candidate: EntityIdentificationCandidate,
+
+def resolve_entity_candidate(
+    candidate: EntityCandidate,
     observed_location: str,
-    known_entities: list[HouseholdEntity],
-) -> EntityResolutionResult:
-    compatible_entities = [
+    household_entities: list[HouseholdEntity],
+) -> EntityResolution:
+    """Assess possible matches and resolve a candidate in one call."""
+
+    possible_matches = [
         entity
-        for entity in known_entities
-        if is_entity_compatible(
-            candidate,
-            observed_location,
-            entity,
+        for entity in household_entities
+        if candidate_can_match_entity(
+            candidate=candidate,
+            observed_location=observed_location,
+            entity=entity,
         )
     ]
 
-    match_evidence = [
-        generate_match_evidence(
-            candidate,
-            entity,
+    match_assessments = [
+        assess_entity_match(
+            candidate=candidate,
+            entity=entity,
         )
-        for entity in compatible_entities
+        for entity in possible_matches
     ]
 
     return resolve_entity(
         candidate=candidate,
         observed_location=observed_location,
-        known_entities=known_entities,
-        match_evidence=match_evidence,
+        household_entities=household_entities,
+        match_assessments=match_assessments,
     )

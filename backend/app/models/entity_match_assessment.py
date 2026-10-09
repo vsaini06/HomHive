@@ -1,7 +1,9 @@
 from pydantic import BaseModel, Field
 
 
-class EntityMatchEvidence(BaseModel):
+class EntityMatchAssessment(BaseModel):
+    """How strongly a recognized candidate appears to match one known entity."""
+
     entity_id: str
 
     score: float = Field(

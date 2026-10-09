@@ -1,7 +1,7 @@
-from app.api.graphql.mappers import (
-    household_entity_to_graphql,
+from app.api.graphql.household_entity_mapping import (
+    to_household_entity_view,
 )
-from app.api.graphql.types import EntityTypeEnum
+from app.api.graphql.household_entity_types import HouseholdEntityKind
 from app.models import (
     EntityType,
     HouseholdEntity,
@@ -10,7 +10,7 @@ from app.models import (
 #-tests-
 
 #-1-
-def test_household_entity_to_graphql():
+def test_to_household_entity_view():
     entity = HouseholdEntity(
         id="entity_plant_001",
         entity_type=EntityType.PLANT,
@@ -19,13 +19,13 @@ def test_household_entity_to_graphql():
         identity="Monstera deliciosa",
     )
 
-    graphql_entity = household_entity_to_graphql(
+    graphql_entity = to_household_entity_view(
         entity
     )
 
     assert graphql_entity.id == "entity_plant_001"
     assert graphql_entity.name == "Living Room Plant"
-    assert graphql_entity.entity_type == EntityTypeEnum.PLANT
+    assert graphql_entity.entity_type == HouseholdEntityKind.PLANT
     assert graphql_entity.location == "living_room"
     assert (
         graphql_entity.identity

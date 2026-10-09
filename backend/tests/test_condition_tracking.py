@@ -3,164 +3,170 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.models import (
+    ConditionTrend,
+    ConditionType,
     HouseholdState,
     Observation,
-    ObservationCategory,
     ObservationSource,
-    TrendDirection,
 )
 
-from app.services.state_aggregation import (
-    aggregate_household_state,
-    aggregate_observations,
-    calculate_observation_weight,
-    calculate_recency_weight,
-    calculate_trend,
-    build_state_key,
+from app.services.condition_tracking import (
+    build_condition_snapshot,
+    build_household_condition_snapshots,
+    detect_condition_trend,
+    observation_weight,
+    recency_weight,
 )
 
-#-tests-
 
-#-1-
 def test_current_observation_has_full_recency_weight():
     now = datetime.now(timezone.utc)
 
-    weight = calculate_recency_weight(
-        observation_time=now,
-        reference_time=now,
+    weight = recency_weight(
+        observed_at=now,
+        compared_at=now,
     )
+
     assert weight == 1.0
 
-#-2-
+
 def test_older_observation_has_lower_recency_weight():
     now = datetime.now(timezone.utc)
     old_time = now - timedelta(hours=2)
 
-    old_weight = calculate_recency_weight(
-        observation_time=old_time,
-        reference_time=now,
+    old_weight = recency_weight(
+        observed_at=old_time,
+        compared_at=now,
     )
-    new_weight = calculate_recency_weight(
-        observation_time=now,
-        reference_time=now,
+    new_weight = recency_weight(
+        observed_at=now,
+        compared_at=now,
     )
+
     assert old_weight < new_weight
 
-#-3-
-def test_higher_confidence_produces_higher_weight():
+
+def test_higher_confidence_produces_higher_observation_weight():
     now = datetime.now(timezone.utc)
 
-    high_confidence = Observation(
+    high_confidence_observation = Observation(
         id="obs_high",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.90,
         timestamp=now,
     )
-    low_confidence = Observation(
+
+    low_confidence_observation = Observation(
         id="obs_low",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.30,
         confidence=0.20,
         timestamp=now,
     )
 
-    high_weight = calculate_observation_weight(
-        high_confidence,
-        now,
+    high_weight = observation_weight(
+        observation=high_confidence_observation,
+        compared_at=now,
     )
-    low_weight = calculate_observation_weight(
-        low_confidence,
-        now,
+    low_weight = observation_weight(
+        observation=low_confidence_observation,
+        compared_at=now,
     )
+
     assert high_weight > low_weight
 
-#-4-
-def test_low_confidence_new_observation_does_not_dominate_state():
+
+def test_low_confidence_new_observation_does_not_dominate_snapshot():
     now = datetime.now(timezone.utc)
 
     strong_old_observation = Observation(
         id="obs_strong",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.95,
         timestamp=now - timedelta(minutes=5),
     )
+
     weak_new_observation = Observation(
         id="obs_weak",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.30,
         confidence=0.20,
         timestamp=now,
     )
 
-    result = aggregate_observations(
+    snapshot = build_condition_snapshot(
         [
             strong_old_observation,
             weak_new_observation,
         ]
     )
-    assert result.current_value > 0.60
-    assert result.latest_observation.id == "obs_weak"
-    assert result.observation_count == 2
 
-#-5-
-def test_strong_new_observation_can_shift_state():
+    assert snapshot.current_value > 0.60
+    assert snapshot.latest_observation.id == "obs_weak"
+    assert snapshot.observation_count == 2
+
+
+def test_strong_new_observation_can_shift_snapshot():
     now = datetime.now(timezone.utc)
 
     old_observation = Observation(
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.90,
         timestamp=now - timedelta(hours=2),
     )
+
     new_observation = Observation(
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.20,
         confidence=0.95,
         timestamp=now,
     )
 
-    result = aggregate_observations(
+    snapshot = build_condition_snapshot(
         [
             old_observation,
             new_observation,
         ]
     )
-    assert result.current_value < 0.50
 
-#-6-
-def test_cannot_aggregate_different_locations():
+    assert snapshot.current_value < 0.50
+
+
+def test_snapshot_rejects_observations_from_different_locations():
     now = datetime.now(timezone.utc)
 
-    kitchen = Observation(
+    kitchen_observation = Observation(
         id="obs_kitchen",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.90,
         timestamp=now,
     )
-    dining_room = Observation(
+
+    dining_room_observation = Observation(
         id="obs_dining",
         source=ObservationSource.PHOTO,
         location="dining_room",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.70,
         confidence=0.90,
         timestamp=now,
@@ -170,28 +176,32 @@ def test_cannot_aggregate_different_locations():
         ValueError,
         match="same location",
     ):
-        aggregate_observations(
-            [kitchen, dining_room]
+        build_condition_snapshot(
+            [
+                kitchen_observation,
+                dining_room_observation,
+            ]
         )
 
-#-7-
-def test_cannot_aggregate_different_categories():
+
+def test_snapshot_rejects_observations_from_different_condition_types():
     now = datetime.now(timezone.utc)
 
-    dishes = Observation(
+    dish_observation = Observation(
         id="obs_dishes",
         source=ObservationSource.PHOTO,
         location="utility_room",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.90,
         timestamp=now,
     )
-    laundry = Observation(
+
+    laundry_observation = Observation(
         id="obs_laundry",
         source=ObservationSource.PHOTO,
         location="utility_room",
-        category=ObservationCategory.LAUNDRY_LOAD,
+        category=ConditionType.LAUNDRY_LOAD,
         value=0.80,
         confidence=0.90,
         timestamp=now,
@@ -201,32 +211,32 @@ def test_cannot_aggregate_different_categories():
         ValueError,
         match="same category",
     ):
-        aggregate_observations(
-            [dishes, laundry]
+        build_condition_snapshot(
+            [
+                dish_observation,
+                laundry_observation,
+            ]
         )
 
-#-8-
-def test_cannot_aggregate_empty_observation_list():
+
+def test_snapshot_rejects_empty_observation_list():
     with pytest.raises(
         ValueError,
         match="empty observation list",
     ):
-        aggregate_observations([])
+        build_condition_snapshot([])
 
-#-9-
-def test_aggregate_household_state_groups_observations():
+
+def test_household_snapshot_builder_groups_related_observations():
     now = datetime.now(timezone.utc)
-
-    state = HouseholdState(
-        id="home_001"
-    )
+    state = HouseholdState(id="home_001")
 
     observations = [
         Observation(
             id="dish_1",
             source=ObservationSource.PHOTO,
             location="kitchen",
-            category=ObservationCategory.DISH_LOAD,
+            category=ConditionType.DISH_LOAD,
             value=0.80,
             confidence=0.90,
             timestamp=now - timedelta(minutes=10),
@@ -235,7 +245,7 @@ def test_aggregate_household_state_groups_observations():
             id="dish_2",
             source=ObservationSource.PHOTO,
             location="kitchen",
-            category=ObservationCategory.DISH_LOAD,
+            category=ConditionType.DISH_LOAD,
             value=0.70,
             confidence=0.95,
             timestamp=now,
@@ -244,7 +254,7 @@ def test_aggregate_household_state_groups_observations():
             id="laundry_1",
             source=ObservationSource.PHOTO,
             location="laundry_room",
-            category=ObservationCategory.LAUNDRY_LOAD,
+            category=ConditionType.LAUNDRY_LOAD,
             value=0.85,
             confidence=0.90,
             timestamp=now,
@@ -254,131 +264,103 @@ def test_aggregate_household_state_groups_observations():
     for observation in observations:
         state.add_observation(observation)
 
-    aggregated_states = aggregate_household_state(
+    snapshots = build_household_condition_snapshots(
         state
     )
 
-    assert len(aggregated_states) == 2
-    assert (
-        "kitchen:dish_load"
-        in aggregated_states
-    )
-    assert (
-        "laundry_room:laundry_load"
-        in aggregated_states
-    )
-    assert (
-        aggregated_states[
-            "kitchen:dish_load"
-        ].observation_count
-        == 2
-    )
-    assert (
-        aggregated_states[
-            "laundry_room:laundry_load"
-        ].observation_count
-        == 1
-    )
+    assert len(snapshots) == 2
+    assert "kitchen:dish_load" in snapshots
+    assert "laundry_room:laundry_load" in snapshots
+    assert snapshots["kitchen:dish_load"].observation_count == 2
+    assert snapshots["laundry_room:laundry_load"].observation_count == 1
 
-#-10-
-def test_same_category_in_different_locations_stays_separate():
+
+def test_same_condition_in_different_locations_stays_separate():
     now = datetime.now(timezone.utc)
+    state = HouseholdState(id="home_001")
 
-    state = HouseholdState(
-        id="home_001"
-    )
-    kitchen = Observation(
+    kitchen_observation = Observation(
         id="kitchen_dishes",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.90,
         timestamp=now,
     )
-    dining_room = Observation(
+
+    dining_room_observation = Observation(
         id="dining_dishes",
         source=ObservationSource.PHOTO,
         location="dining_room",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.40,
         confidence=0.90,
         timestamp=now,
     )
 
-    state.add_observation(kitchen)
-    state.add_observation(dining_room)
+    state.add_observation(kitchen_observation)
+    state.add_observation(dining_room_observation)
 
-    aggregated_states = aggregate_household_state(
+    snapshots = build_household_condition_snapshots(
         state
     )
 
-    assert len(aggregated_states) == 2
-    assert (
-        "kitchen:dish_load"
-        in aggregated_states
-    )
-    assert (
-        "dining_room:dish_load"
-        in aggregated_states
-    )
+    assert len(snapshots) == 2
+    assert "kitchen:dish_load" in snapshots
+    assert "dining_room:dish_load" in snapshots
 
-#-11-
-def test_empty_household_state_returns_empty_aggregation():
-    state = HouseholdState(
-        id="home_001"
-    )
 
-    aggregated_states = aggregate_household_state(
+def test_empty_household_state_returns_no_condition_snapshots():
+    state = HouseholdState(id="home_001")
+
+    snapshots = build_household_condition_snapshots(
         state
     )
 
-    assert aggregated_states == {}
+    assert snapshots == {}
 
-#-12-
-def test_household_aggregation_uses_temporal_aggregation():
+
+def test_household_snapshot_builder_uses_weighted_history():
     now = datetime.now(timezone.utc)
+    state = HouseholdState(id="home_001")
 
-    state = HouseholdState(
-        id="home_001"
-    )
-
-    strong_old = Observation(
+    strong_old_observation = Observation(
         id="strong_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.95,
         timestamp=now - timedelta(minutes=5),
     )
 
-    weak_new = Observation(
+    weak_new_observation = Observation(
         id="weak_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.30,
         confidence=0.20,
         timestamp=now,
     )
 
-    state.add_observation(strong_old)
-    state.add_observation(weak_new)
+    state.add_observation(strong_old_observation)
+    state.add_observation(weak_new_observation)
 
-    aggregated_states = aggregate_household_state(
+    snapshots = build_household_condition_snapshots(
         state
     )
 
-    kitchen_state = aggregated_states[
+    kitchen_snapshot = snapshots[
         "kitchen:dish_load"
     ]
 
-    assert kitchen_state.observation_count == 2
-    assert kitchen_state.latest_observation.id == "weak_new"
-    assert kitchen_state.current_value > 0.60
+    assert kitchen_snapshot.observation_count == 2
+    assert kitchen_snapshot.latest_observation.id == "weak_new"
+    assert kitchen_snapshot.current_value > 0.60
 
-#-13-
+
 def test_trend_is_unknown_with_one_observation():
     now = datetime.now(timezone.utc)
 
@@ -386,19 +368,19 @@ def test_trend_is_unknown_with_one_observation():
         id="obs_1",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.60,
         confidence=0.90,
         timestamp=now,
     )
 
-    trend = calculate_trend(
+    trend = detect_condition_trend(
         [observation]
     )
 
-    assert trend == TrendDirection.UNKNOWN
+    assert trend == ConditionTrend.UNKNOWN
 
-#-14-
+
 def test_trend_is_rising():
     now = datetime.now(timezone.utc)
 
@@ -406,31 +388,32 @@ def test_trend_is_rising():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.30,
         confidence=0.90,
         timestamp=now - timedelta(hours=1),
     )
+
     new_observation = Observation(
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.70,
         confidence=0.90,
         timestamp=now,
     )
 
-    trend = calculate_trend(
+    trend = detect_condition_trend(
         [
             old_observation,
             new_observation,
         ]
     )
 
-    assert trend == TrendDirection.RISING
+    assert trend == ConditionTrend.RISING
 
-#-15-
+
 def test_trend_is_falling():
     now = datetime.now(timezone.utc)
 
@@ -438,31 +421,32 @@ def test_trend_is_falling():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.90,
         timestamp=now - timedelta(hours=1),
     )
+
     new_observation = Observation(
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.30,
         confidence=0.90,
         timestamp=now,
     )
 
-    trend = calculate_trend(
+    trend = detect_condition_trend(
         [
             old_observation,
             new_observation,
         ]
     )
 
-    assert trend == TrendDirection.FALLING
+    assert trend == ConditionTrend.FALLING
 
-#-16-
+
 def test_small_change_is_stable():
     now = datetime.now(timezone.utc)
 
@@ -470,31 +454,32 @@ def test_small_change_is_stable():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.50,
         confidence=0.90,
         timestamp=now - timedelta(hours=1),
     )
+
     new_observation = Observation(
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.53,
         confidence=0.90,
         timestamp=now,
     )
 
-    trend = calculate_trend(
+    trend = detect_condition_trend(
         [
             old_observation,
             new_observation,
         ]
     )
 
-    assert trend == TrendDirection.STABLE
+    assert trend == ConditionTrend.STABLE
 
-#-17-
+
 def test_trend_uses_timestamps_not_input_order():
     now = datetime.now(timezone.utc)
 
@@ -502,31 +487,32 @@ def test_trend_uses_timestamps_not_input_order():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.20,
         confidence=0.90,
         timestamp=now - timedelta(hours=2),
     )
+
     new_observation = Observation(
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.80,
         confidence=0.90,
         timestamp=now,
     )
 
-    trend = calculate_trend(
+    trend = detect_condition_trend(
         [
             new_observation,
             old_observation,
         ]
     )
 
-    assert trend == TrendDirection.RISING
+    assert trend == ConditionTrend.RISING
 
-#-18-
+
 def test_change_at_stable_threshold_is_stable():
     now = datetime.now(timezone.utc)
 
@@ -534,109 +520,105 @@ def test_change_at_stable_threshold_is_stable():
         id="obs_old",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.50,
         confidence=0.90,
         timestamp=now - timedelta(hours=1),
     )
+
     new_observation = Observation(
         id="obs_new",
         source=ObservationSource.PHOTO,
         location="kitchen",
-        category=ObservationCategory.DISH_LOAD,
+        category=ConditionType.DISH_LOAD,
         value=0.55,
         confidence=0.90,
         timestamp=now,
     )
 
-    trend = calculate_trend(
+    trend = detect_condition_trend(
         [
             old_observation,
             new_observation,
         ]
     )
 
-    assert trend == TrendDirection.STABLE
+    assert trend == ConditionTrend.STABLE
 
-#-19-
+
 def test_state_key_uses_entity_when_available():
     observation = Observation(
         id="obs_001",
         source=ObservationSource.PHOTO,
         location="living_room",
         entity_id="entity_plant_001",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.40,
         confidence=0.90,
     )
 
-    state_key = build_state_key(
-        observation
-    )
+    condition_key = observation.state_key()
 
     assert (
-        state_key
+        condition_key
         == "entity_plant_001:plant_condition"
     )
 
-#-20-
+
 def test_state_key_uses_location_without_entity():
     observation = Observation(
         id="obs_001",
         source=ObservationSource.PHOTO,
         location="living_room",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.40,
         confidence=0.90,
     )
 
-    state_key = build_state_key(
-        observation
-    )
+    condition_key = observation.state_key()
 
     assert (
-        state_key
+        condition_key
         == "living_room:plant_condition"
     )
 
-#-21-
-def test_different_entities_in_same_location_stay_separate():
-    state = HouseholdState(
-        id="home_001"
-    )
 
-    plant_one = Observation(
+def test_different_entities_in_same_location_stay_separate():
+    state = HouseholdState(id="home_001")
+
+    first_plant_observation = Observation(
         id="obs_plant_001",
         source=ObservationSource.PHOTO,
         location="living_room",
         entity_id="entity_plant_001",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.30,
         confidence=0.90,
     )
-    plant_two = Observation(
+
+    second_plant_observation = Observation(
         id="obs_plant_002",
         source=ObservationSource.PHOTO,
         location="living_room",
         entity_id="entity_plant_002",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.80,
         confidence=0.90,
     )
 
-    state.add_observation(plant_one)
-    state.add_observation(plant_two)
-    aggregated_states = aggregate_household_state(
+    state.add_observation(first_plant_observation)
+    state.add_observation(second_plant_observation)
+
+    snapshots = build_household_condition_snapshots(
         state
     )
 
-    assert len(aggregated_states) == 2
+    assert len(snapshots) == 2
     assert (
         "entity_plant_001:plant_condition"
-        in aggregated_states
+        in snapshots
     )
     assert (
         "entity_plant_002:plant_condition"
-        in aggregated_states
+        in snapshots
     )
-

@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from app.models import (
     Observation,
-    ObservationCategory,
+    ConditionType,
     ObservationSource,
     HouseholdState,
 )
@@ -57,7 +57,7 @@ def test_observation_can_reference_entity():
         source=ObservationSource.PHOTO,
         location="living_room",
         entity_id="entity_plant_001",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.42,
         confidence=0.91,
     )
@@ -70,7 +70,7 @@ def test_observation_does_not_require_entity():
         id="obs_001",
         source=ObservationSource.PHOTO,
         location="living_room",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.42,
         confidence=0.91,
     )
@@ -84,7 +84,7 @@ def test_observation_state_key_uses_entity():
         source=ObservationSource.PHOTO,
         location="living_room",
         entity_id="entity_plant_001",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.40,
         confidence=0.90,
     )
@@ -105,7 +105,7 @@ def test_current_observations_use_entity_state_key():
         source=ObservationSource.PHOTO,
         location="living_room",
         entity_id="entity_plant_001",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.40,
         confidence=0.90,
     )
@@ -130,7 +130,7 @@ def test_current_observations_keep_entities_separate():
         source=ObservationSource.PHOTO,
         location="living_room",
         entity_id="entity_plant_001",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.30,
         confidence=0.90,
     )
@@ -139,7 +139,7 @@ def test_current_observations_keep_entities_separate():
         source=ObservationSource.PHOTO,
         location="living_room",
         entity_id="entity_plant_002",
-        category=ObservationCategory.PLANT_CONDITION,
+        category=ConditionType.PLANT_CONDITION,
         value=0.80,
         confidence=0.90,
     )

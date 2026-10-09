@@ -1,6 +1,8 @@
-from .entity_repository import EntityRepository
+from .household_entity_repository import (
+    HouseholdEntityRepository,
+)
 
 
 __all__ = [
-    "EntityRepository",
+    "HouseholdEntityRepository",
 ]
