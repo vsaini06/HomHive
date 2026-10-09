@@ -12,7 +12,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from app.db import household_entity_record  # noqa: F401; register ORM metadata
+from app.db import household_entity_record, observation_record, task_record  # noqa: F401
 target_metadata = Base.metadata
 
 

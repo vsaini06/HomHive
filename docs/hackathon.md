@@ -112,7 +112,7 @@ Backend deterministic foundation: strong
 
 External runtime integrations: pending
 
-Durable persistence: pending
+Durable entity, observation, and task storage: implemented; automated application-wide orchestration and full audit history: pending
 
 Perception: pending
 

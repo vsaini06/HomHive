@@ -58,7 +58,11 @@ Implemented:
 - deterministic task scoring and ranking
 - persistent household-entity domain models
 - deterministic entity compatibility, match assessment, and resolution
-- in-memory household-entity repository and application service
+- in-memory and SQL-backed household-entity repositories with application-service integration
+- household-scoped observation and task storage using in-memory and SQLAlchemy repositories
+- Alembic migrations for entities, observations, and tasks
+- household-state reconstruction from persisted observation history
+- committed task status updates and storage-level household isolation
 - GraphQL household-entity boundary
 - condition forecasting
 - threshold-crossing prediction
@@ -70,7 +74,7 @@ Implemented:
 Current test baseline:
 
 ```text
-194 passed
+256 passed
 ```
 
 Not implemented yet:
@@ -79,7 +83,7 @@ Not implemented yet:
 - video frame extraction workflow
 - Tavily runtime research
 - NVIDIA Nemotron calls through Nebius
-- PostgreSQL or Supabase persistence
+- observation/task persistence orchestration inside the running API
 - production frontend integration
 - calendar, email, presence, or quiet-hour context
 - durable audit history
@@ -154,9 +158,12 @@ homhive/
 ├── backend/
 │   ├── app/
 │   │   ├── api/
+│   │   ├── db/
 │   │   ├── models/
 │   │   ├── repositories/
 │   │   └── services/
+│   ├── alembic/
+│   ├── alembic.ini
 │   ├── tests/
 │   └── requirements.txt
 ├── docs/
@@ -188,7 +195,7 @@ pytest
 The current expected result is:
 
 ```text
-194 passed
+256 passed
 ```
 
 To run the FastAPI application from the `backend` directory:
@@ -196,6 +203,19 @@ To run the FastAPI application from the `backend` directory:
 ```powershell
 uvicorn app.api.app:create_app --factory --reload
 ```
+
+## Database storage
+
+PostgreSQL persistence uses SQLAlchemy 2.x and Alembic. ORM records and mapping functions remain separate from Pydantic domain models. In-memory repositories provide isolated deterministic tests. Observations and tasks are scoped by household ID at the storage boundary.
+
+From `backend/`, with `DATABASE_URL` pointing to the intended database:
+
+```powershell
+python -m alembic upgrade head
+python -m alembic current
+```
+
+Set `HOMHIVE_ENTITY_STORAGE=sql` to use SQL-backed entity storage through the API; the default is in-memory. Observation and task storage are available through their repositories, but are not yet connected to a top-level ingestion/task API workflow. Database credentials belong in ignored local environment settings.
 
 ## Engineering principles
 
@@ -230,7 +250,7 @@ The target architecture includes:
 - Tavily for selective external research
 - NVIDIA Nemotron through Nebius for cross-domain reasoning
 - LangSmith for tracing and evaluation support
-- PostgreSQL / Supabase for durable state
+- PostgreSQL with SQLAlchemy and Alembic for durable entity, observation, and task storage (implemented); additional orchestration and history capabilities remain planned
 - Next.js for the mobile-first PWA
 
 These are target integrations, not all current implementation claims.

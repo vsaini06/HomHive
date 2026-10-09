@@ -17,7 +17,7 @@ The evaluation strategy is split into:
 The current backend suite passes:
 
 ```text
-194 tests
+256 tests
 ```
 
 These tests currently cover the deterministic foundation, including:
@@ -37,6 +37,11 @@ These tests currently cover the deterministic foundation, including:
 - threshold crossing
 - action policy
 - predictive task lifecycle
+- SQLAlchemy and in-memory repository contracts for entities, observations, and tasks
+- database transaction and lifecycle behavior
+- household-scoped storage isolation
+- reconstruction of household state from persisted observation history
+- persistence and GraphQL storage-configuration behavior
 
 This number is a regression baseline, not a claim of product-level accuracy.
 
@@ -63,6 +68,10 @@ Tests should protect architecture boundaries such as:
 - forecast vs current state
 - entity identity vs observed condition
 - task identity vs priority
+
+## Persistence evaluation
+
+Storage tests verify committed reads and updates across independent sessions, chronological household histories, metadata round trips, and duplicate IDs. Live PostgreSQL checks have also exercised state reconstruction and sequential prevention of duplicate active tasks across independent processes. These checks do not establish atomicity or concurrent duplicate protection for the entire processing pipeline, and the system does not yet maintain full task-transition audit events.
 
 ## Planned golden scenarios
 

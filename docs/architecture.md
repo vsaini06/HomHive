@@ -61,6 +61,20 @@ Cross-domain Nemotron planning                  [planned]
 Mobile plan / executor interface                [planned]
 ```
 
+## Persistence boundaries
+
+```text
+PostgreSQL
+  -> SQLAlchemy ORM records
+  -> explicit record/domain mapping
+  -> repository contracts
+  -> Pydantic domain models and application services
+```
+
+Entity, observation, and task tables are managed through Alembic. Observation and task repositories accept `household_id` at the storage boundary, without requiring household ownership fields in the corresponding domain models. Historical observations can be replayed through `reconstruct_household_state()` to restore `HouseholdState`. Derived snapshots and forecasts are recomputed, not stored as authoritative records.
+
+The entity API can use SQL storage through `HOMHIVE_ENTITY_STORAGE=sql`. Observation-to-task persistence has been verified with the repositories in independent Python processes, but is not wired into an automatic API orchestration workflow. Task status is stored; transition-by-transition audit history is not implemented.
+
 ## 3. Domain model
 
 ### Observation
@@ -284,27 +298,15 @@ Application layer between the API boundary and repository.
 
 ## 5. Repository layer
 
-The current entity repository is in memory.
+The repository layer offers in-memory and SQLAlchemy implementations behind explicit storage contracts.
 
-This is a development-stage boundary, not the final storage architecture.
+Persisted PostgreSQL data includes:
 
-Planned persistence:
+- household entities
+- household-scoped raw observations and their timestamps/metadata
+- household-scoped tasks and their current lifecycle status
 
-```text
-PostgreSQL / Supabase
-```
-
-The storage layer should eventually preserve:
-
-- observations
-- derived state
-- entities
-- tasks
-- task lifecycle
-- forecasts
-- decisions
-- external evidence
-- trace metadata
+Household state is reconstructed from ordered observation history, rather than persisted as an independent authoritative snapshot. Full status-change audit events, derived forecasts, decisions, external evidence, and traces are not yet persisted.
 
 ## 6. API boundary
 
@@ -382,12 +384,12 @@ It should reason over structured facts, forecasts, constraints, and selected evi
 7. Missing evidence is not contradictory evidence.
 8. Low confidence can block action without deleting evidence.
 9. External providers should not leak into core models.
-10. Durable persistence is not claimed until it exists.
+10. Durable storage and complete audit history are different capabilities.
 
 ## 9. Open architecture work
 
 - reactive/predictive task identity unification
-- durable persistence
+- persistent workflow orchestration and full audit history
 - media ingestion contract
 - vision adapter
 - external evidence model and cache

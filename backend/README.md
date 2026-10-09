@@ -11,11 +11,11 @@ Current backend:
 - Strawberry GraphQL
 - Pydantic
 - pytest
-- in-memory repository implementations
+- in-memory and SQLAlchemy repository implementations
+- PostgreSQL persistence and Alembic migrations for entities, observations, and tasks
 
 Planned:
 
-- PostgreSQL / Supabase persistence
 - Tavily
 - NVIDIA Nemotron through Nebius
 - LangSmith
@@ -40,7 +40,7 @@ pytest
 Expected baseline:
 
 ```text
-194 passed
+256 passed
 ```
 
 Run the API from `backend/`:
@@ -49,12 +49,24 @@ Run the API from `backend/`:
 uvicorn app.api.app:create_app --factory --reload
 ```
 
+## PostgreSQL configuration
+
+From `backend/`, configure `DATABASE_URL` for the intended PostgreSQL database, then run:
+
+```powershell
+python -m alembic upgrade head
+python -m alembic current
+```
+
+`HOMHIVE_ENTITY_STORAGE=sql` selects SQL storage for the household-entity API; omitting the setting retains in-memory storage. The database and local secrets are not committed to Git. Tests should use isolated storage and should not depend on a developer's active SQL environment setting.
+
 ## Package structure
 
 ```text
 backend/app/
 ├── api/
 │   └── graphql/
+├── db/
 ├── models/
 ├── repositories/
 └── services/
@@ -94,12 +106,15 @@ Current service modules include:
 - `state_forecasting.py`
 - `action_policy.py`
 - `predictive_tasks.py`
+- `household_state_reconstruction.py`
 
 ### Repositories
 
 Repositories isolate storage behavior.
 
-The current household-entity repository is in memory. Durable persistence is still planned.
+`HouseholdEntityStorage`, `ObservationStorage`, and `TaskStorage` define storage behavior. In-memory implementations support isolated tests, while SQLAlchemy implementations persist entities, household-scoped observations, and household-scoped tasks. ORM models and mapping functions live under `app/db/`; application services consume Pydantic domain models.
+
+`reconstruct_household_state()` rebuilds `HouseholdState` from household observation history. Task persistence includes current lifecycle status, not a separate audit event log.
 
 ## Main deterministic workflows
 
@@ -221,6 +236,4 @@ EntityResolution
 
 ## Current limitations
 
-The backend does not yet perform real image understanding, external web research, model reasoning, or durable database persistence.
-
-The in-memory implementation is deliberate while the core contracts and workflows remain under active development.
+The backend does not yet perform real image understanding, external web research, or model reasoning. Persistent entities are available through configurable API storage. Observation and task persistence are implemented at the repository layer; the application does not yet run a fully integrated persistent ingestion-to-planning pipeline.

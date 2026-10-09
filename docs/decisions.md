@@ -1,8 +1,6 @@
 # HomHive Architecture Decisions
 
-This is the active decision register after the backend vocabulary refactor.
-
-It intentionally focuses on decisions that still matter to current and future code. Historical implementation notes belong in Git history rather than being repeated throughout the documentation.
+This register records active architecture boundaries and unresolved design choices. Implementation chronology belongs in Git history.
 
 ## Domain boundaries
 
@@ -305,11 +303,11 @@ GraphQL should not contain repository or domain-policy logic.
 
 Internal cleanup should not casually break public API contracts.
 
-### ADR-039: Current repository storage is explicitly in memory
+### ADR-039: Storage implementations remain behind repository contracts
 
-**Status:** Accepted as current implementation
+**Status:** Accepted
 
-Do not claim durable persistence until a real persistent store is integrated.
+Household entity, observation, and task storage can use in-memory or SQLAlchemy implementations. ORM records remain separate from Pydantic domain models. The entity API supports configurable repository selection; observation and task repositories are not yet part of an automatic end-to-end API workflow.
 
 ## AI integration
 
@@ -371,11 +369,11 @@ The system still needs an explicit policy for deciding whether a reactive observ
 
 Do not silently unify these identities during unrelated changes.
 
-### ADR-046: Durable persistence model
+### ADR-046: Durable evidence and work storage
 
-**Status:** Open
+**Status:** Partially resolved
 
-The database schema, migrations, repository interfaces, and event/history retention policy remain to be finalized.
+PostgreSQL tables, Alembic migrations, and repository contracts exist for entities, household-scoped observations, and household-scoped tasks. `HouseholdState` is reconstructed from persisted observations; derived snapshots are not authoritative database records. Full audit events, retention policy, and atomic concurrency-safe workflow processing remain open.
 
 ### ADR-047: User context and executability
 

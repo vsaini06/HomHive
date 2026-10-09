@@ -1,177 +1,53 @@
 # HomHive Current State
 
-Last updated: October 8, 2026
-
-## Status
-
-The deterministic backend foundation is stable after the naming and architecture refactor.
-
-Current test baseline:
-
-```text
-194 passed
-```
-
-The current codebase has clean canonical naming and no targeted legacy aliases from the completed refactor.
-
 ## Implemented
 
-### Core evidence and state
+The backend uses typed Pydantic domain models with deterministic services for:
 
-- `Observation`
-- `ObservationSource`
-- `ConditionType`
-- `HouseholdState`
-- optional observation-to-entity references
-- observation history
-- current observation tracking
-- stable state-key policy
+- timestamped `Observation` evidence, `HouseholdState`, `ConditionSnapshot`, and `ConditionTrend`
+- reactive dish/laundry task discovery with confidence thresholds and active-task deduplication
+- `Task` lifecycle, deterministic `ScoredTask` ranking, and explainable decisions
+- household entity candidates, conservative matching, resolution, and entity application services
+- condition forecasting, `ThresholdCrossing`, `ActionDecision`, and predictive task reconciliation
+- FastAPI and Strawberry GraphQL household-entity operations
 
-### Condition tracking
+## Persistent storage
 
-- `ConditionSnapshot`
-- `ConditionTrend`
-- confidence and recency weighting
-- deterministic trend detection
-- grouped household condition snapshots
+SQLAlchemy 2.x and Alembic support PostgreSQL storage for household entities, observations, and tasks.
 
-### Reactive task discovery
+- `HouseholdEntityStorage`, `ObservationStorage`, and `TaskStorage` define repository behavior.
+- In-memory implementations remain available for deterministic tests.
+- SQLAlchemy implementations map ORM records to and from Pydantic domain models.
+- Observation and task repositories isolate records by household ID.
+- Observation history is loaded chronologically and replayed by `reconstruct_household_state()`.
+- Tasks retain IDs, task keys, status, urgency, deadlines, source observation references, and metadata across database sessions.
+- The entity API selects in-memory or SQL-backed storage using `HOMHIVE_ENTITY_STORAGE`.
+- Alembic migration head is `0003_tasks`.
 
-- `TaskTrigger`
-- `TaskDecision`
-- `TaskDecisionReason`
-- dish-load trigger
-- laundry-load trigger
-- confidence gates
-- duplicate active-task prevention
-- task traceability to source observations
+A live PostgreSQL database has been used to verify entity access through GraphQL after application restart, observation history reconstruction, task status transitions, and sequential prevention of duplicate active tasks across Python processes. These checks exercise existing components, not a single atomic ingestion pipeline.
 
-### Task lifecycle and ranking
+## Automated tests
 
-- `Task`
-- `TaskStatus`
-- `TaskUrgency`
-- `ScoredTask`
-- deterministic scoring
-- deterministic tie ordering
-
-### Household entities
-
-- `HouseholdEntity`
-- `EntityCandidate`
-- `EntityMatchAssessment`
-- `EntityResolution`
-- deterministic compatibility checks
-- deterministic match assessment
-- conservative entity resolution
-- in-memory household-entity repository
-- household-entity application service
-
-### API
-
-- FastAPI application boundary
-- Strawberry GraphQL household-entity boundary
-- service/repository separation
-- explicit domain-to-GraphQL mapping
-
-### Forecasting
-
-- `ConditionForecast`
-- hourly-change estimation
-- condition projection
-- forecast-confidence estimation
-- time-to-threshold estimation
-- `ThresholdCrossing`
-
-### Predictive action
-
-- `ActionState`
-- `ActionDecision`
-- confidence-aware action policy
-- predictive task creation
-- predictive task update/reuse
-- dismissal when no longer actionable
-- reactivation when actionable again
-
-## Canonical workflows
-
-### Reactive
+The latest locally reported backend regression result is:
 
 ```text
-Observation
-  -> TaskTrigger
-  -> TaskDecision
-  -> Task
+256 passed
 ```
 
-### State and forecast
+The suite covers domain rules, forecasting, GraphQL behavior, repository boundaries, persisted record mappings, household isolation, lifecycle updates, and history reconstruction. This is a test baseline, not a product-quality score.
 
-```text
-Observation history
-  -> ConditionSnapshot
-  -> ConditionForecast
-  -> ThresholdCrossing
-```
+## Current limitations
 
-### Predictive work
+- No real photo or video ingestion, frame sampling, or multimodal vision adapter.
+- No Tavily runtime integration, research cache, or external-evidence persistence.
+- No Nemotron/Nebius runtime integration or LangSmith/Toloka evaluation integration.
+- No production Next.js PWA or full ingestion-to-planning API orchestration.
+- Observation and task repositories are not yet wired into a complete application-managed persistent workflow.
+- No durable record of each historical task-status transition or full audit log.
+- No concurrency-safe atomic deduplication across the observation-to-task workflow.
+- Reactive and predictive task keys are not unified.
+- No availability engine, quiet hours, calendar/email context, execution windows, or full cross-domain planning.
 
-```text
-ThresholdCrossing
-  -> ActionDecision
-  -> Task
-```
+## System boundaries
 
-### Ranking
-
-```text
-Task
-  -> ScoredTask
-  -> ranked task list
-```
-
-### Entity resolution
-
-```text
-EntityCandidate
-  -> EntityMatchAssessment
-  -> EntityResolution
-  -> HouseholdEntity
-```
-
-## Current storage
-
-The current repository implementation is in memory.
-
-Do not describe HomHive as having durable persistence yet.
-
-## Not implemented yet
-
-- real image analysis
-- real video analysis
-- FFmpeg frame extraction
-- Tavily runtime calls
-- Nemotron runtime calls
-- Nebius runtime integration
-- LangSmith tracing
-- PostgreSQL / Supabase persistence
-- production Next.js workflow
-- calendar/email integration
-- user availability or presence
-- quiet hours
-- execution-window planning
-- durable audit history
-- external evidence cache
-- full cross-domain reasoning
-- top-level end-to-end orchestration
-- unified task identity across reactive and predictive sources
-
-## Next engineering milestone
-
-The refactor is complete. The next feature work should return to the execution roadmap rather than continuing to rename stable domain concepts.
-
-Recommended next sequence:
-
-1. reconcile the roadmap after forecasting displaced the original persistence day
-2. add durable persistence or media ingestion as the next concrete platform capability
-3. preserve the 194-test baseline during that work
-4. integrate external services only behind stable adapters
+Raw observations, reconstructed household state, derived condition beliefs, forecasts, action decisions, and tasks are separate concepts. Persisted observations remain the evidence source; derived beliefs can be recalculated. API/service/repository and domain/ORM boundaries remain explicit.
