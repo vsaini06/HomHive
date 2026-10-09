@@ -4,7 +4,7 @@ from app.models import (
 )
 
 from app.repositories import (
-    HouseholdEntityRepository,
+    HouseholdEntityStorage,
 )
 
 
@@ -13,7 +13,7 @@ class HouseholdEntityService:
 
     def __init__(
         self,
-        repository: HouseholdEntityRepository,
+        repository: HouseholdEntityStorage,
     ) -> None:
         self._repository = repository
 

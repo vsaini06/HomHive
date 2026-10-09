@@ -242,3 +242,13 @@ frontend/node_modules/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local database files
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# Local configuration
+.env.*
+!.env.example

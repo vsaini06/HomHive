@@ -5,4 +5,6 @@ from .household_entity_repository import (
 
 __all__ = [
     "HouseholdEntityRepository",
+    "HouseholdEntityStorage",
 ]
+from .household_entity_storage import HouseholdEntityStorage
