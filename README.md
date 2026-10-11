@@ -60,10 +60,12 @@ Implemented:
 - deterministic entity compatibility, match assessment, and resolution
 - in-memory and SQL-backed household-entity repositories with application-service integration
 - household-scoped observation and task storage using in-memory and SQLAlchemy repositories
-- Alembic migrations for entities, observations, and tasks
+- Alembic migrations for entities, observations, tasks, and media metadata
 - household-state reconstruction from persisted observation history
 - committed task status updates and storage-level household isolation
 - GraphQL household-entity boundary
+- authenticated, household-scoped JPEG, PNG, and WebP upload and retrieval over FastAPI
+- private filesystem media bytes with PostgreSQL metadata
 - condition forecasting
 - threshold-crossing prediction
 - confidence-aware action policy
@@ -74,12 +76,12 @@ Implemented:
 Current test baseline:
 
 ```text
-256 passed
+262 passed
 ```
 
 Not implemented yet:
 
-- real photo/video perception
+- image-to-observation perception and video ingestion
 - video frame extraction workflow
 - Tavily runtime research
 - NVIDIA Nemotron calls through Nebius
@@ -159,6 +161,7 @@ homhive/
 │   ├── app/
 │   │   ├── api/
 │   │   ├── db/
+│   │   ├── media/
 │   │   ├── models/
 │   │   ├── repositories/
 │   │   └── services/
@@ -195,7 +198,7 @@ pytest
 The current expected result is:
 
 ```text
-256 passed
+262 passed
 ```
 
 To run the FastAPI application from the `backend` directory:
@@ -216,6 +219,8 @@ python -m alembic current
 ```
 
 Set `HOMHIVE_ENTITY_STORAGE=sql` to use SQL-backed entity storage through the API; the default is in-memory. Observation and task storage are available through their repositories, but are not yet connected to a top-level ingestion/task API workflow. Database credentials belong in ignored local environment settings.
+
+Image upload and retrieval use a separate, opt-in media service. When both `HOMHIVE_MEDIA_ROOT` and `HOMHIVE_HOUSEHOLD_TOKENS` are set, the running API exposes `POST /households/{household_id}/media` and `GET /households/{household_id}/media/{media_id}`. The former setting selects a private filesystem root; the latter is a JSON mapping of household IDs to development bearer tokens. Both must be set together, and the media service needs a valid `DATABASE_URL`. Media files are stored under the configured root, while the `media` PostgreSQL table stores household-scoped metadata. These variables must be configured in the shell that starts Uvicorn; otherwise, the media endpoints are not registered. Token-based household authentication is a development mechanism, not production user authentication.
 
 ## Engineering principles
 
@@ -250,7 +255,7 @@ The target architecture includes:
 - Tavily for selective external research
 - NVIDIA Nemotron through Nebius for cross-domain reasoning
 - LangSmith for tracing and evaluation support
-- PostgreSQL with SQLAlchemy and Alembic for durable entity, observation, and task storage (implemented); additional orchestration and history capabilities remain planned
+- PostgreSQL with SQLAlchemy and Alembic for durable entity, observation, task, and media-metadata storage (implemented); additional orchestration and history capabilities remain planned
 - Next.js for the mobile-first PWA
 
 These are target integrations, not all current implementation claims.

@@ -386,3 +386,17 @@ importance != executability != fit
 ```
 
 Being at home does not automatically mean being available, and free time does not automatically mean a household task fits that window.
+
+## Media storage and access
+
+### ADR-048: Media bytes and metadata are stored separately
+
+**Status:** Accepted
+
+`LocalMediaStorage` stores uploaded image bytes beneath a private, configurable filesystem root using a household ID and media ID. PostgreSQL persists `MediaRecord` metadata keyed by `(household_id, id)`. The media service coordinates both writes and removes a newly stored file when metadata persistence fails. Images are not stored in the observation domain model, and this storage separation alone does not guarantee production security.
+
+### ADR-049: Media reads and writes require household-scoped authorization
+
+**Status:** Accepted for local development
+
+Media HTTP endpoints require a bearer token matching the requested household. The record lookup is also scoped to the household ID, so possession of a valid token for another household does not return media owned by the first. The current JSON token mapping is a development mechanism, not a final user identity or household membership system. The API does not expose stored images as public static files.

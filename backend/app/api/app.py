@@ -1,12 +1,19 @@
 """HomHive API application factory."""
 
 from contextlib import asynccontextmanager
+import json
+import os
+from pathlib import Path
 
 from fastapi import FastAPI
 from sqlalchemy.orm import Session, sessionmaker
 from strawberry.fastapi import GraphQLRouter
 
 from app.services import HouseholdEntityService
+from app.db.session import build_engine, build_session_factory
+from app.media.api import build_media_router
+from app.media.service import MediaService
+from app.media.storage import LocalMediaStorage
 
 from .entity_storage import build_entity_storage
 from .graphql.schema import create_schema
@@ -23,6 +30,20 @@ def create_app(
         session_factory=entity_session_factory,
     )
     household_entity_service = HouseholdEntityService(repository=repository)
+    media_engine = None
+    media_root = os.environ.get('HOMHIVE_MEDIA_ROOT')
+    household_tokens_json = os.environ.get('HOMHIVE_HOUSEHOLD_TOKENS')
+    if media_root or household_tokens_json:
+        if not (media_root and household_tokens_json):
+            raise ValueError('Media storage and household tokens must both be configured')
+        tokens = json.loads(household_tokens_json)
+        if not isinstance(tokens, dict) or not tokens or not all(
+            isinstance(key, str) and key and isinstance(value, str) and value
+            for key, value in tokens.items()
+        ):
+            raise ValueError('Invalid household token configuration')
+        media_engine = build_engine()
+        media_service = MediaService(build_session_factory(media_engine), LocalMediaStorage(Path(media_root)))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -31,6 +52,8 @@ def create_app(
         finally:
             if owned_engine is not None:
                 owned_engine.dispose()
+            if media_engine is not None:
+                media_engine.dispose()
 
     app = FastAPI(title="HomHive API", version="0.1.0", lifespan=lifespan)
 
@@ -42,6 +65,9 @@ def create_app(
         GraphQLRouter(create_schema(), context_getter=graphql_context),
         prefix="/graphql",
     )
+
+    if media_engine is not None:
+        app.include_router(build_media_router(media_service, tokens))
 
     @app.get("/health")
     def health_check() -> dict[str, str]:

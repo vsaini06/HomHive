@@ -112,9 +112,9 @@ Backend deterministic foundation: strong
 
 External runtime integrations: pending
 
-Durable entity, observation, and task storage: implemented; automated application-wide orchestration and full audit history: pending
+Durable entity, observation, task, and media-metadata storage: implemented; automated application-wide orchestration and full audit history: pending
 
-Perception: pending
+Image upload and private storage: implemented; perception and video processing: pending
 
 Frontend product flow: pending
 

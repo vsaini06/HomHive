@@ -17,7 +17,7 @@ The evaluation strategy is split into:
 The current backend suite passes:
 
 ```text
-256 tests
+262 tests
 ```
 
 These tests currently cover the deterministic foundation, including:
@@ -42,6 +42,10 @@ These tests currently cover the deterministic foundation, including:
 - household-scoped storage isolation
 - reconstruction of household state from persisted observation history
 - persistence and GraphQL storage-configuration behavior
+- image MIME/signature and size validation
+- HTTP bearer authorization and household-scoped media lookup
+- persisted media retrieval across new service instances and cleanup on failed metadata transactions
+- OpenAPI bearer security declarations
 
 This number is a regression baseline, not a claim of product-level accuracy.
 
@@ -72,6 +76,12 @@ Tests should protect architecture boundaries such as:
 ## Persistence evaluation
 
 Storage tests verify committed reads and updates across independent sessions, chronological household histories, metadata round trips, and duplicate IDs. Live PostgreSQL checks have also exercised state reconstruction and sequential prevention of duplicate active tasks across independent processes. These checks do not establish atomicity or concurrent duplicate protection for the entire processing pipeline, and the system does not yet maintain full task-transition audit events.
+
+## Media evaluation
+
+Media tests exercise accepted image types, rejection of mismatched file signatures and oversize uploads, authorization failures, household-scoped lookups, persistent retrieval, and file cleanup if metadata persistence fails. The service returns image bytes with a private no-store cache directive.
+
+A live HTTP retrieval of an uploaded JPEG was compared to its original file using SHA-256 and matched. Separate valid household tokens were used to verify that a media record saved under one household was not returned from another household's lookup (`404`), and that tokens could not authorize requests against the other household's path (`403`). These checks provide evidence for the tested local environment, not a complete production security assessment.
 
 ## Planned golden scenarios
 

@@ -15,12 +15,15 @@ External AI providers are adapters around these contracts rather than the contra
 ## 2. Target end-to-end flow
 
 ```text
-Phone photo / short video
-        |
-        v
-Media validation and frame sampling             [planned]
-        |
-        v
+Phone image (JPEG / PNG / WebP)       Short video
+            |                            |
+            v                            v
+Image authentication, validation,      Video ingestion and
+and private storage [implemented]      frame sampling [planned]
+            |                            |
+            +-------------+--------------+
+                          |
+                          v
 Vision adapter                                  [planned]
         |
         v
@@ -71,9 +74,33 @@ PostgreSQL
   -> Pydantic domain models and application services
 ```
 
-Entity, observation, and task tables are managed through Alembic. Observation and task repositories accept `household_id` at the storage boundary, without requiring household ownership fields in the corresponding domain models. Historical observations can be replayed through `reconstruct_household_state()` to restore `HouseholdState`. Derived snapshots and forecasts are recomputed, not stored as authoritative records.
+Entity, observation, task, and media-metadata tables are managed through Alembic. Observation and task repositories accept `household_id` at the storage boundary, without requiring household ownership fields in the corresponding domain models. Historical observations can be replayed through `reconstruct_household_state()` to restore `HouseholdState`. Derived snapshots and forecasts are recomputed, not stored as authoritative records.
 
 The entity API can use SQL storage through `HOMHIVE_ENTITY_STORAGE=sql`. Observation-to-task persistence has been verified with the repositories in independent Python processes, but is not wired into an automatic API orchestration workflow. Task status is stored; transition-by-transition audit history is not implemented.
+
+Media uses a separate persistence boundary: image bytes live in a configurable private filesystem root, while the `media` table stores a composite `(household_id, id)` key with content type, byte size, and creation time. `MediaService` coordinates the file and metadata write and removes the file if the metadata transaction fails. Stored media does not automatically become a domain `Observation`.
+
+## Media HTTP boundary
+
+The optional media router exposes:
+
+```text
+POST /households/{household_id}/media
+  -> HTTP bearer authorization
+  -> size, MIME, and file-signature validation
+  -> MediaService.save_image()
+  -> LocalMediaStorage + PostgreSQL MediaRecord
+
+GET /households/{household_id}/media/{media_id}
+  -> HTTP bearer authorization
+  -> household-scoped MediaRecord lookup
+  -> LocalMediaStorage.read()
+  -> image bytes, Cache-Control: private, no-store
+```
+
+The router is registered only when `HOMHIVE_MEDIA_ROOT` and `HOMHIVE_HOUSEHOLD_TOKENS` are both configured. Either missing setting while the other is present causes startup to fail; when both are absent, media routes are disabled. A valid `DATABASE_URL` is required for SQL-backed media metadata. Household tokens are a temporary development mechanism rather than a complete user identity and membership model. Missing or mismatched tokens return `403`; a media record not present under the authorized household returns `404`.
+
+The implementation accepts JPEG, PNG, and WebP images up to 10 MiB. Video ingestion, vision extraction, and media-to-observation orchestration remain unimplemented.
 
 ## 3. Domain model
 
@@ -305,12 +332,13 @@ Persisted PostgreSQL data includes:
 - household entities
 - household-scoped raw observations and their timestamps/metadata
 - household-scoped tasks and their current lifecycle status
+- household-scoped media metadata (image bytes are stored separately)
 
 Household state is reconstructed from ordered observation history, rather than persisted as an independent authoritative snapshot. Full status-change audit events, derived forecasts, decisions, external evidence, and traces are not yet persisted.
 
 ## 6. API boundary
 
-HomHive currently uses FastAPI and Strawberry GraphQL.
+HomHive currently uses FastAPI and Strawberry GraphQL, with HTTP REST endpoints for media transfer.
 
 The GraphQL entity boundary uses Python-facing names that describe the domain cleanly while preserving deliberate public schema names where compatibility matters.
 
@@ -385,12 +413,14 @@ It should reason over structured facts, forecasts, constraints, and selected evi
 8. Low confidence can block action without deleting evidence.
 9. External providers should not leak into core models.
 10. Durable storage and complete audit history are different capabilities.
+11. Household media access is enforced at the HTTP boundary and data lookup.
+12. Media bytes and domain observations are separate resources.
 
 ## 9. Open architecture work
 
 - reactive/predictive task identity unification
 - persistent workflow orchestration and full audit history
-- media ingestion contract
+- video ingestion and frame sampling
 - vision adapter
 - external evidence model and cache
 - research routing
