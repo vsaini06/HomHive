@@ -89,7 +89,7 @@ def test_missing_visible_evidence_is_rejected():
 
 def test_blank_visible_evidence_is_rejected():
     client = FakeClient('{"candidates": [{"category": "dish_load", "value": 0, "location": "kitchen", "visible_evidence": "  "}], "needs_review": false}')
-    with pytest.raises(ValueError, match='unsupported conditions'):
+    with pytest.raises(ValueError, match='empty visual evidence'):
         NebiusVisionProvider(client=client).extract(b'\xff\xd8\xffexample', 'image/jpeg', 'kitchen')
 
 

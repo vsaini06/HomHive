@@ -39,14 +39,14 @@ A live PostgreSQL database has been used to verify entity access through GraphQL
 The latest locally reported backend regression result is:
 
 ```text
-282 passed
+314 passed
 ```
 
 The suite covers domain rules, forecasting, GraphQL behavior, repository boundaries, persisted record mappings, household isolation, lifecycle updates, history reconstruction, and media upload/retrieval, validation, authorization, and storage behavior. This is a test baseline, not a product-quality score.
 
 ## Current limitations
 
-- Single-image vision extraction and persistence are implemented; video ingestion, frame sampling, and broad accuracy evaluation remain unimplemented.
+- Single-image vision extraction and persistence are implemented, and a small kitchen vision evaluation exists. Video ingestion, frame sampling, independent large-scale accuracy evaluation, and reliable multi-entity completeness remain unimplemented.
 - No Tavily runtime integration, research cache, or external-evidence persistence.
 - MiniCPM vision inference through Nebius is integrated; NVIDIA Nemotron planning and LangSmith/Toloka evaluation integration remain unimplemented.
 - No production Next.js PWA or complete media-to-observation-to-planning API orchestration.
@@ -60,3 +60,13 @@ The suite covers domain rules, forecasting, GraphQL behavior, repository boundar
 ## System boundaries
 
 Raw observations, reconstructed household state, derived condition beliefs, forecasts, action decisions, and tasks are separate concepts. Persisted observations remain the evidence source; derived beliefs can be recalculated. API/service/repository and domain/ORM boundaries remain explicit.
+
+## Local Day 15 verification
+
+- Centralized `.env` loading was verified locally without manual PowerShell variable setup; Alembic remained at `0005_unknown_confidence`.
+- The full backend suite was reported as **314 passed** after scene-inventory validation and parser corrections.
+- The fault-tolerant evaluation runner preserves successful results and records failed cases separately without fabricating predictions.
+- A five-image kitchen benchmark had category precision/recall 1.0, matched severity MAE 0.33, and 5/5 completed cases. The revised workload rubric evaluation completed 4/5, had conditional severity MAE 0.2025, and included an unexpected plant-condition finding. These conditional metrics are not directly comparable.
+- A real `evaluation.run_scene` call completed and wrote a structurally valid local scene JSON, but returned **only one entity (`drain`)** for an image with several visible items. This is a documented completeness failure, not a scene-accuracy success.
+
+**Next work:** establish manually labeled object-inventory ground truth and measure completeness before adopting a detection-first or multi-pass approach. Do not automatically persist experimental scene entities or promote their conditions into tasks.

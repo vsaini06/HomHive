@@ -426,3 +426,23 @@ The normalized `dish_load` value refers to visible accumulated dishwashing work,
 **Status:** Accepted
 
 The vision API is enabled only when media storage, household token configuration, database access, and `NEBIUS_API_KEY` are configured. It requires matching household bearer authorization and resolves stored media within that household before using an external inference provider. The development bearer-token mechanism is not production user authentication.
+
+## Scene understanding and evaluation
+
+### ADR-054: Separate visible object inventory from condition-derived observations
+
+**Status:** Accepted for experimental read-only evaluation
+
+A scene may contain many visible household objects regardless of whether they need attention. Scene inventory records visible labels, placements, and evidence independently of household `Observation` and task generation. The existing observation persistence path stays unchanged while completeness and condition accuracy are unverified. Physical entity identity across images is not inferred or stored at this stage.
+
+### ADR-055: Invalid condition evidence must not erase otherwise valid object detections
+
+**Status:** Accepted
+
+An assessed condition must have explicit evidence. If a structurally valid detected object has an assessed condition with missing evidence, retain the object as `unknown`, record the claimed condition under `rejected_assessments`, and set `needs_review`. Trusted location comes from the application request. Unknown/unassessed condition evidence may narrowly normalize literal `"null"` to JSON null. Invalid objects, unsupported attributes, or mismatched locations remain rejected. This is not model-confidence calibration.
+
+### ADR-056: Treat schema-valid vision output separately from measured completeness
+
+**Status:** Accepted
+
+Unit-test success and valid JSON do not establish visual recall. Retain development evaluation reports and failures, measure completion independently of accuracy, and use manually labeled unseen images to assess scene object recall and false positives. The first live read-only inventory returned only a drain and therefore does not support a completeness claim.

@@ -193,3 +193,11 @@ Only report a metric after:
 - the evaluation set exists
 - the procedure is reproducible
 - the result has actually been measured
+
+## Day 15 vision measurements (development set)
+
+The initial five-image kitchen test used provisional human `dish_load` labels `0.0`, `0.2`, `0.45`, `0.7`, `1.0`. MiniCPM predicted `0.0` for the clean sink and `1.0` for every nonempty sink: five category true positives, no false positives or negatives, matched severity MAE **0.33**, and **40%** within configured tolerance.
+
+The revised prompt completed four of five evaluations (80% completion) and yielded matched-only severity MAE **0.2025** and tolerance agreement **50%** among completed cases. It also produced one unexpected `plant_condition`, gave the clean sink a nonzero workload, and failed on the heavy case. Never present 0.2025 as directly comparable to the five-case 0.33 baseline without qualifying selection bias. Local evaluation reports and images may reveal household details and should remain ignored by Git.
+
+An experimental scene-inventory run successfully produced valid output but listed only a drain in a visibly multi-object kitchen. The measurable next target is scene *completeness*, with a human-annotated set of expected visible entities, label normalization rules, object recall and false-detection counts, and separate unsupported-condition rates. Structural tests (314 locally passed across the backend) are not model-quality metrics. Scene analysis does not write to PostgreSQL.

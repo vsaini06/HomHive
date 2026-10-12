@@ -1,0 +1,18 @@
+[
+  {
+    "id": "kitchen_clean_01",
+    "image": "kitchen_clean_01.jpg",
+    "location": "kitchen",
+    "expected": {"dish_load": 0.0},
+    "tolerance": 0.2,
+    "note": "Replace with a manually inspected clean-sink photograph"
+  },
+  {
+    "id": "kitchen_heavy_01",
+    "image": "kitchen_heavy_01.png",
+    "location": "kitchen",
+    "expected": {"dish_load": 0.85},
+    "tolerance": 0.2,
+    "note": "Illustrative label only; calibrate the workload scale with a written rubric"
+  }
+]

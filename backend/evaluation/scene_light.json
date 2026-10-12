@@ -1,0 +1,14 @@
+{
+  "location": "kitchen",
+  "entities": [
+    {
+      "label": "drain",
+      "evidence": "round opening at bottom",
+      "area": "sink",
+      "condition": "visibly_clean",
+      "condition_evidence": "no visible blockage or debris"
+    }
+  ],
+  "needs_review": false,
+  "rejected_assessments": []
+}

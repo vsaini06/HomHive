@@ -114,14 +114,18 @@ External runtime integrations: pending
 
 Durable entity, observation, task, and media-metadata storage: implemented; automated application-wide orchestration and full audit history: pending
 
-Image upload and private storage: implemented; perception and video processing: pending
+Image upload and private storage: implemented; single-image MiniCPM perception available; scene completeness and video processing pending
 
 Frontend product flow: pending
 
 End-to-end demo: pending
 
-Evaluation beyond unit/integration tests: pending
+Evaluation: small real MiniCPM kitchen benchmark performed; representative coverage and calibration still pending
 
 ## Verified perception foundation
 
 Nebius Token Factory MiniCPM vision inference is integrated into the authenticated media-to-observation API and has been exercised with actual stored images. Accepted output is stored as household-scoped evidence with unknown confidence preserved, rather than promoted directly into a household action. This is progress toward the demonstration, not proof that the required NVIDIA Nemotron runtime planning path or Tavily research integration is complete. Both remain separate implementation requirements for the intended hackathon submission.
+
+## Current vision evidence and constraints
+
+The local Day 15 regression suite reached 314 tests. Local `.env` support and a standalone vision-evaluation runner are available. The first five-image kitchen development benchmark exposed saturation in dish-load predictions; a revised rubric produced four completed cases and one failed case. Read-only multi-object scene inventory is implemented, but a successful live call detected only one drain in a multi-object kitchen. This is an unresolved quality limitation, not a demo-ready scene-understanding capability. NVIDIA Nemotron runtime integration and Tavily runtime research remain separate unfinished goals.

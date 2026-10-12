@@ -74,17 +74,20 @@ Implemented:
 - confidence-aware action policy
 - predictive task creation and lifecycle reconciliation
 - FastAPI application boundary
+- evaluation framework with saved predictions, failure reporting, and an initial five-image kitchen benchmark
+- experimental read-only multi-object scene inventory with evidence validation and review flags
+- local `.env` loading for FastAPI, Alembic, and standalone vision scripts
 - automated backend test suite
 
 Current test baseline:
 
 ```text
-282 passed
+314 passed
 ```
 
 Not implemented yet:
 
-- video ingestion and frame sampling; broader vision calibration and benchmark evaluation
+- video ingestion and frame sampling; broad, independently validated scene-completeness and calibration benchmarks
 - video frame extraction workflow
 - Tavily runtime research
 - NVIDIA Nemotron calls through Nebius
@@ -202,7 +205,7 @@ pytest
 The current expected result is:
 
 ```text
-282 passed
+314 passed
 ```
 
 To run the FastAPI application from the `backend` directory:
@@ -280,3 +283,11 @@ Key files:
 ## License
 
 MIT
+
+## Vision evaluation and experimental scene inventory
+
+Run evaluation tools from `backend` using `python -m evaluation.run_vision` or `python -m evaluation.run_scene`. They operate outside the household database. Human-reviewed evaluation images and reports stay local and must not be committed. The initial five-image kitchen benchmark scored category detection at 5/5, but workload MAE was 0.33. A rubric follow-up completed 4/5 cases, with MAE 0.2025 **among completed cases only**, one unexpected plant-health observation, and a failed case. These are small development results, not generalization claims.
+
+The read-only scene inventory distinguishes detected entities, visible evidence, assessed versus unknown condition, and `rejected_assessments`. The locally reported full suite reached **314 passed**. One completed live scene-inventory call returned only a drain for a kitchen image with multiple visible objects; completeness remains a known limitation. See `docs/scene-inventory.md` and `docs/evaluation.md`.
+
+Local secrets belong in `backend/.env` (not Git). Copy `backend/.env.example`, fill in local values, and avoid printing or committing tokens. Existing process environment variables take precedence.

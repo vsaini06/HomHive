@@ -441,3 +441,19 @@ Authenticated stored image (household-scoped media lookup)
 ```
 
 The endpoint is `POST /households/{household_id}/media/{media_id}/observations` and requires the household bearer token and a JSON location. Inference is opt-in and uses the external `NEBIUS_API_KEY`; credentials and local media bytes are not committed. Absent or unassessable domains must not be represented as zero-valued observations. A review-needed extraction does not create observations. Unknown confidence remains `NULL` in persistence; reactive task triggers do not treat unknown confidence as passing a confidence threshold, and confidence-weighted derived computations must handle it explicitly. The endpoint persists observations only: it does not automatically create tasks or complete a planning pipeline.
+
+## Experimental multi-entity scene path
+
+```text
+Private image / local evaluation image
+    -> Nebius MiniCPM scene-inventory adapter
+    -> JSON parsing and strict Pydantic validation
+    -> visible SceneEntity records (label, area, evidence)
+    -> optional directly evidenced condition
+    -> rejected_assessments + needs_review when condition evidence is missing
+    -> local, read-only JSON evaluation report
+```
+
+This is a separate experimental path, **not** a replacement for the existing authorized media-to-observation persistence endpoint. Trusted scene location originates in HomHive, not the model. The parser permits one complete fenced JSON object and narrowly normalizes the literal string `"null"` to null for unassessed/unknown condition evidence. Missing evidence for a claimed assessed condition is not treated as a verified condition: the entity can be retained with unknown condition and an explicit rejection record. Structurally valid evidence strings are still unverified model statements. Scene inventory creates no stable entity IDs, domain observations, or tasks.
+
+Local settings are loaded from `backend/.env` in application, migration, and standalone vision entry points, with explicit process environment settings taking precedence. The real `.env` is excluded from source control; `.env.example` contains placeholders.
