@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from sqlalchemy.orm import Session, sessionmaker
 from strawberry.fastapi import GraphQLRouter
 
+from app.config import load_local_environment
 from app.services import HouseholdEntityService
 from app.db.session import build_engine, build_session_factory
 from app.media.api import build_media_router
@@ -29,6 +30,7 @@ def create_app(
     entity_session_factory: sessionmaker[Session] | None = None,
 ) -> FastAPI:
     """Build an API instance with an isolated storage configuration."""
+    load_local_environment()
     repository, owned_engine = build_entity_storage(
         storage_backend=entity_storage_backend,
         session_factory=entity_session_factory,
