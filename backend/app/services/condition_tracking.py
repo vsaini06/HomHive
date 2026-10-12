@@ -34,7 +34,7 @@ def observation_weight(
         compared_at=compared_at,
     )
 
-    return observation.confidence * age_weight
+    return (observation.confidence or 0.0) * age_weight
 
 
 def detect_condition_trend(
@@ -43,6 +43,7 @@ def detect_condition_trend(
 ) -> ConditionTrend:
     """Describe whether a condition is rising, falling, or staying roughly stable."""
 
+    observations = [observation for observation in observations if observation.confidence is not None]
     if len(observations) < 2:
         return ConditionTrend.UNKNOWN
 
@@ -78,6 +79,11 @@ def build_condition_snapshot(
         raise ValueError(
             "Cannot build a condition snapshot from an empty observation list."
         )
+
+    if max(observations, key=lambda observation: observation.timestamp).confidence is None:
+        raise ValueError("Latest observation has unknown confidence")
+    if not any(observation.confidence is not None for observation in observations):
+        raise ValueError("No confidence-qualified observations")
 
     reference_observation = observations[0]
 
@@ -135,6 +141,7 @@ def build_condition_snapshot(
     snapshot_confidence = max(
         observation.confidence
         for observation in observations
+        if observation.confidence is not None
     )
 
     return ConditionSnapshot(
@@ -181,10 +188,7 @@ def build_household_condition_snapshots(
         condition_key,
         observations,
     ) in observations_by_condition.items():
-        snapshots[condition_key] = (
-            build_condition_snapshot(
-                observations
-            )
-        )
+        if max(observations, key=lambda observation: observation.timestamp).confidence is not None:
+            snapshots[condition_key] = build_condition_snapshot(observations)
 
     return snapshots

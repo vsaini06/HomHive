@@ -17,7 +17,7 @@ The evaluation strategy is split into:
 The current backend suite passes:
 
 ```text
-262 tests
+282 tests
 ```
 
 These tests currently cover the deterministic foundation, including:
@@ -46,6 +46,9 @@ These tests currently cover the deterministic foundation, including:
 - HTTP bearer authorization and household-scoped media lookup
 - persisted media retrieval across new service instances and cleanup on failed metadata transactions
 - OpenAPI bearer security declarations
+- unknown-confidence domain and decision guards
+- validated vision-candidate handling and persistence service behavior
+- SQLite-compatible observation-nullability migration
 
 This number is a regression baseline, not a claim of product-level accuracy.
 
@@ -82,6 +85,12 @@ Storage tests verify committed reads and updates across independent sessions, ch
 Media tests exercise accepted image types, rejection of mismatched file signatures and oversize uploads, authorization failures, household-scoped lookups, persistent retrieval, and file cleanup if metadata persistence fails. The service returns image bytes with a private no-store cache directive.
 
 A live HTTP retrieval of an uploaded JPEG was compared to its original file using SHA-256 and matched. Separate valid household tokens were used to verify that a media record saved under one household was not returned from another household's lookup (`404`), and that tokens could not authorize requests against the other household's path (`403`). These checks provide evidence for the tested local environment, not a complete production security assessment.
+
+## Vision inference and persistence verification
+
+A live Nebius MiniCPM check on a clean-sink image produced a single `dish_load = 0.0` candidate with visible evidence and omitted unrelated laundry, plant, and lawn conditions. A cluttered-sink image produced `dish_load = 1.0` with supporting visual evidence; that numeric output is not yet calibrated against a gold standard. The backend accepted and stored a clean-sink observation with `confidence = NULL`. An independent PostgreSQL query returned the persisted row, confirming storage beyond the HTTP response. The authorized endpoint was visible in the OpenAPI/Swagger UI of the freshly started server.
+
+These checks verify a narrow working integration, not general vision reliability. A reproducible image evaluation set should cover empty, light, moderate, and heavy workloads; absent conditions versus true zero; mixed scenes; ambiguous framing; visual evidence quality; review-needed behavior; repeatability; provider errors; and invalid or unsupported outputs. Report category precision/recall, value error under a defined workload rubric, false-positive omissions, and human-review rates only after executing that evaluation.
 
 ## Planned golden scenarios
 

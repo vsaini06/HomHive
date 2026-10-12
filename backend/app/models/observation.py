@@ -30,7 +30,7 @@ class Observation(BaseModel):
     entity_id: str | None = None
     category: ConditionType
     value: float = Field(ge=0.0, le=1.0)
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     timestamp: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )

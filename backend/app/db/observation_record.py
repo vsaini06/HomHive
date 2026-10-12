@@ -17,6 +17,6 @@ class ObservationRecord(Base):
     entity_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     category: Mapped[str] = mapped_column(String(48), nullable=False)
     value: Mapped[float] = mapped_column(Float, nullable=False)
-    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     observation_metadata: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, nullable=False)

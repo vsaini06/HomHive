@@ -14,13 +14,14 @@ Current backend:
 - in-memory and SQLAlchemy repository implementations
 - PostgreSQL persistence and Alembic migrations for entities, observations, tasks, and media metadata
 - opt-in authenticated HTTP image upload and retrieval with private local media storage
+- Nebius MiniCPM vision extraction, explicit evidence validation, and persistent observations with unknown confidence
 
 Planned:
 
 - Tavily
 - NVIDIA Nemotron through Nebius
 - LangSmith
-- vision and video-processing adapters
+- video-processing adapters and additional vision providers
 
 ## Setup
 
@@ -41,7 +42,7 @@ pytest
 Expected baseline:
 
 ```text
-262 passed
+282 passed
 ```
 
 Run the API from `backend/`:
@@ -73,6 +74,8 @@ The HTTP endpoints are:
 | --- | --- | --- |
 | `POST` | `/households/{household_id}/media` | Accepts a `multipart/form-data` image and returns its ID, media type, and size (`201`) |
 | `GET` | `/households/{household_id}/media/{media_id}` | Returns image bytes with `Cache-Control: private, no-store` (`200`) |
+
+The vision endpoint, `POST /households/{household_id}/media/{media_id}/observations`, becomes available when `NEBIUS_API_KEY` is additionally set. Send JSON `{"location":"kitchen"}` with household bearer authorization. Accepted visible candidates are persisted in the observations repository with `confidence: null`, `source: photo`, and metadata containing the source media ID and visible evidence. `needs_review: true` produces no persisted observations. Extraction invokes Nebius Token Factory and can consume paid credits. Apply migration `0005_unknown_confidence` before using this route.
 
 Both endpoints require `Authorization: Bearer <token>` with a token mapped to the requested household. Unauthorized requests receive `403`; a media ID that does not belong to the authorized household returns `404` with `Media not found`. Image uploads support JPEG, PNG, and WebP up to 10 MiB; the declared MIME type must match the file signature. The files are not served as public static assets.
 

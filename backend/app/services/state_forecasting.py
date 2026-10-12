@@ -13,6 +13,8 @@ def estimate_hourly_change(
 ) -> float:
     """Estimate how quickly a condition changed between the first and latest reading."""
 
+    if any(observation.confidence is None for observation in observations):
+        raise ValueError("Cannot forecast from observations with unknown confidence")
     if len(observations) < 2:
         return 0.0
 
@@ -80,6 +82,8 @@ def estimate_forecast_confidence(
             "Forecast hours cannot be negative."
         )
 
+    if any(observation.confidence is None for observation in observations):
+        raise ValueError("Cannot estimate confidence from unknown-confidence observations")
     if not observations:
         return 0.0
 

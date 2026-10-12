@@ -400,3 +400,29 @@ Being at home does not automatically mean being available, and free time does no
 **Status:** Accepted for local development
 
 Media HTTP endpoints require a bearer token matching the requested household. The record lookup is also scoped to the household ID, so possession of a valid token for another household does not return media owned by the first. The current JSON token mapping is a development mechanism, not a final user identity or household membership system. The API does not expose stored images as public static files.
+
+## Vision and evidence uncertainty
+
+### ADR-050: Unknown observation confidence is explicit
+
+**Status:** Accepted
+
+An observation may have `confidence=None` when no calibrated confidence estimate exists. PostgreSQL stores this as `NULL`; schema migration `0005_unknown_confidence` changes the column to nullable. Unknown must not be replaced with an arbitrary default, conflated with `0.0`, or interpreted as permission to trigger tasks. Derived confidence calculations and action gates handle unknown input explicitly. The implementation uses an Alembic batch operation compatible with SQLite-backed migration tests.
+
+### ADR-051: Vision output is evidence, not authority
+
+**Status:** Accepted
+
+Vision providers produce structured candidates and directly visible evidence. Provider output is validated before mapping into HomHive's domain model. Nonvisible household domains are omitted rather than recorded as zero conditions; review-needed results are not persisted. Each persisted photo observation records its household-scoped source media ID and visible evidence. This stage does not automatically create tasks.
+
+### ADR-052: Dish-load measures visible dishwashing workload
+
+**Status:** Accepted as a working semantic definition; calibration pending
+
+The normalized `dish_load` value refers to visible accumulated dishwashing work, not simply the percentage of sink area occupied. A model output of `1.0` represents the top of its proposed workload scale, not a verified physical capacity measurement. Thresholds and numeric calibration require a reproducible evaluation set before claiming model accuracy.
+
+### ADR-053: Vision inference is household-authorized and opt-in
+
+**Status:** Accepted
+
+The vision API is enabled only when media storage, household token configuration, database access, and `NEBIUS_API_KEY` are configured. It requires matching household bearer authorization and resolves stored media within that household before using an external inference provider. The development bearer-token mechanism is not production user authentication.

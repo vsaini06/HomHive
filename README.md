@@ -45,7 +45,7 @@ HomHive focuses on the orchestration and reasoning layer. The MVP does not requi
 
 ## Current implementation
 
-The backend currently implements and tests the deterministic foundation needed before external AI integrations are added.
+The backend implements a deterministic foundation alongside an opt-in, provider-adapted image-to-observation workflow.
 
 Implemented:
 
@@ -66,6 +66,9 @@ Implemented:
 - GraphQL household-entity boundary
 - authenticated, household-scoped JPEG, PNG, and WebP upload and retrieval over FastAPI
 - private filesystem media bytes with PostgreSQL metadata
+- Nebius Token Factory MiniCPM vision adapter producing validated, evidence-backed candidates
+- household-authorized image-to-observation API persistence, preserving unknown confidence as `null`
+- Alembic `0005_unknown_confidence` with PostgreSQL and SQLite-compatible column migration
 - condition forecasting
 - threshold-crossing prediction
 - confidence-aware action policy
@@ -76,16 +79,16 @@ Implemented:
 Current test baseline:
 
 ```text
-262 passed
+282 passed
 ```
 
 Not implemented yet:
 
-- image-to-observation perception and video ingestion
+- video ingestion and frame sampling; broader vision calibration and benchmark evaluation
 - video frame extraction workflow
 - Tavily runtime research
 - NVIDIA Nemotron calls through Nebius
-- observation/task persistence orchestration inside the running API
+- end-to-end observation-to-state-to-task processing inside the running API
 - production frontend integration
 - calendar, email, presence, or quiet-hour context
 - durable audit history
@@ -164,7 +167,8 @@ homhive/
 │   │   ├── media/
 │   │   ├── models/
 │   │   ├── repositories/
-│   │   └── services/
+│   │   ├── services/
+│   │   └── vision/
 │   ├── alembic/
 │   ├── alembic.ini
 │   ├── tests/
@@ -198,7 +202,7 @@ pytest
 The current expected result is:
 
 ```text
-262 passed
+282 passed
 ```
 
 To run the FastAPI application from the `backend` directory:
@@ -220,7 +224,7 @@ python -m alembic current
 
 Set `HOMHIVE_ENTITY_STORAGE=sql` to use SQL-backed entity storage through the API; the default is in-memory. Observation and task storage are available through their repositories, but are not yet connected to a top-level ingestion/task API workflow. Database credentials belong in ignored local environment settings.
 
-Image upload and retrieval use a separate, opt-in media service. When both `HOMHIVE_MEDIA_ROOT` and `HOMHIVE_HOUSEHOLD_TOKENS` are set, the running API exposes `POST /households/{household_id}/media` and `GET /households/{household_id}/media/{media_id}`. The former setting selects a private filesystem root; the latter is a JSON mapping of household IDs to development bearer tokens. Both must be set together, and the media service needs a valid `DATABASE_URL`. Media files are stored under the configured root, while the `media` PostgreSQL table stores household-scoped metadata. These variables must be configured in the shell that starts Uvicorn; otherwise, the media endpoints are not registered. Token-based household authentication is a development mechanism, not production user authentication.
+Image upload, retrieval, and vision observation extraction use opt-in media and vision services. When both `HOMHIVE_MEDIA_ROOT` and `HOMHIVE_HOUSEHOLD_TOKENS` are set, the running API exposes `POST /households/{household_id}/media` and `GET /households/{household_id}/media/{media_id}`. The former setting selects a private filesystem root; the latter is a JSON mapping of household IDs to development bearer tokens. Both must be set together, and the media service needs a valid `DATABASE_URL`. Media files are stored under the configured root, while the `media` PostgreSQL table stores household-scoped metadata. These variables must be configured in the shell that starts Uvicorn; otherwise, the media endpoints are not registered. Token-based household authentication is a development mechanism, not production user authentication. When `NEBIUS_API_KEY` is also configured, the API exposes `POST /households/{household_id}/media/{media_id}/observations` with JSON body `{"location":"kitchen"}`. The request requires the same household bearer token, performs paid external inference, validates candidate observations, and stores accepted observations with `confidence: null`. A response requiring review stores no observations. The vision route is registered only when media configuration and the Nebius key are present. Run from the `backend` directory with `python -m uvicorn app.api.app:app --host 127.0.0.1 --port 8001` or another available port; API documentation is served on that same port.
 
 ## Engineering principles
 

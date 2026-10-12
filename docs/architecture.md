@@ -24,7 +24,7 @@ and private storage [implemented]      frame sampling [planned]
             +-------------+--------------+
                           |
                           v
-Vision adapter                                  [planned]
+Vision adapter                                  [implemented for images]
         |
         v
 Observation                                     [implemented]
@@ -100,7 +100,7 @@ GET /households/{household_id}/media/{media_id}
 
 The router is registered only when `HOMHIVE_MEDIA_ROOT` and `HOMHIVE_HOUSEHOLD_TOKENS` are both configured. Either missing setting while the other is present causes startup to fail; when both are absent, media routes are disabled. A valid `DATABASE_URL` is required for SQL-backed media metadata. Household tokens are a temporary development mechanism rather than a complete user identity and membership model. Missing or mismatched tokens return `403`; a media record not present under the authorized household returns `404`.
 
-The implementation accepts JPEG, PNG, and WebP images up to 10 MiB. Video ingestion, vision extraction, and media-to-observation orchestration remain unimplemented.
+The implementation accepts JPEG, PNG, and WebP images up to 10 MiB. Authenticated stored images can be analyzed by a Nebius MiniCPM vision adapter. The extraction service validates directly visible candidates, attaches visual evidence and media provenance, then persists accepted observations under the authorized household. Video ingestion and frame sampling remain unimplemented.
 
 ## 3. Domain model
 
@@ -115,7 +115,7 @@ Important fields include:
 - optional entity reference
 - condition type
 - normalized value
-- confidence
+- confidence (`float` in `[0, 1]` or `None` when unknown)
 - timestamp
 - metadata
 
@@ -146,7 +146,7 @@ Current weighting:
 recency_weight = 1 / (1 + age_hours)
 
 observation_weight =
-    confidence * recency_weight
+    confidence * recency_weight  # only when confidence is known
 ```
 
 The snapshot also includes a deterministic `ConditionTrend`.
@@ -421,10 +421,23 @@ It should reason over structured facts, forecasts, constraints, and selected evi
 - reactive/predictive task identity unification
 - persistent workflow orchestration and full audit history
 - video ingestion and frame sampling
-- vision adapter
+- vision benchmark and workload calibration
 - external evidence model and cache
 - research routing
 - cross-domain planning contract
 - user-context model
 - executor capability model
 - top-level orchestration service
+
+## Implemented image-to-observation path
+
+```text
+Authenticated stored image (household-scoped media lookup)
+  -> Nebius Token Factory MiniCPM vision provider
+  -> structured candidate with category, value, location, visible evidence
+  -> conservative validation / review decision
+  -> Observation(source=photo, confidence=None, metadata={media_id, visible_evidence})
+  -> household-scoped ObservationStorage / PostgreSQL
+```
+
+The endpoint is `POST /households/{household_id}/media/{media_id}/observations` and requires the household bearer token and a JSON location. Inference is opt-in and uses the external `NEBIUS_API_KEY`; credentials and local media bytes are not committed. Absent or unassessable domains must not be represented as zero-valued observations. A review-needed extraction does not create observations. Unknown confidence remains `NULL` in persistence; reactive task triggers do not treat unknown confidence as passing a confidence threshold, and confidence-weighted derived computations must handle it explicitly. The endpoint persists observations only: it does not automatically create tasks or complete a planning pipeline.

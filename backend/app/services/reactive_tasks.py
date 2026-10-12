@@ -86,8 +86,8 @@ def decide_task_from_observation(
 
     # Strong condition values are not enough if the observation itself is weak.
     if (
-        observation.confidence
-        < trigger.min_confidence
+        observation.confidence is None
+        or observation.confidence < trigger.min_confidence
     ):
         return TaskDecision(
             task=None,

@@ -14,6 +14,10 @@ from app.db.session import build_engine, build_session_factory
 from app.media.api import build_media_router
 from app.media.service import MediaService
 from app.media.storage import LocalMediaStorage
+from app.repositories.sqlalchemy_observation_repository import SQLAlchemyObservationRepository
+from app.vision.api import build_vision_router
+from app.vision.provider import NebiusVisionProvider
+from app.vision.service import VisionObservationService
 
 from .entity_storage import build_entity_storage
 from .graphql.schema import create_schema
@@ -68,6 +72,12 @@ def create_app(
 
     if media_engine is not None:
         app.include_router(build_media_router(media_service, tokens))
+        if os.environ.get("NEBIUS_API_KEY"):
+            vision_service = VisionObservationService(
+                media_service, NebiusVisionProvider(),
+                SQLAlchemyObservationRepository(build_session_factory(media_engine)),
+            )
+            app.include_router(build_vision_router(vision_service, tokens))
 
     @app.get("/health")
     def health_check() -> dict[str, str]:

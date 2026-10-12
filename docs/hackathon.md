@@ -121,3 +121,7 @@ Frontend product flow: pending
 End-to-end demo: pending
 
 Evaluation beyond unit/integration tests: pending
+
+## Verified perception foundation
+
+Nebius Token Factory MiniCPM vision inference is integrated into the authenticated media-to-observation API and has been exercised with actual stored images. Accepted output is stored as household-scoped evidence with unknown confidence preserved, rather than promoted directly into a household action. This is progress toward the demonstration, not proof that the required NVIDIA Nemotron runtime planning path or Tavily research integration is complete. Both remain separate implementation requirements for the intended hackathon submission.
