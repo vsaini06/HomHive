@@ -1,0 +1,25 @@
+{
+  "reference_count": 19,
+  "prediction_count": 21,
+  "matched_count": 14,
+  "missed_labels": [
+    "dish rack",
+    "water bottle",
+    "knife",
+    "lid",
+    "food storage container"
+  ],
+  "unsupported_labels": [
+    "trash bin",
+    "spatula",
+    "container lid",
+    "kettle",
+    "blade",
+    "jar lid",
+    "spatula handle"
+  ],
+  "duplicate_labels": [],
+  "recall": 0.7368,
+  "precision": 0.6667,
+  "evidence_rate": 1.0
+}

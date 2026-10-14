@@ -1,0 +1,21 @@
+[
+  {"label":"sink basin","aliases":["sink","kitchen sink","double sink"]},
+  {"label":"faucet","aliases":["tap"]},
+  {"label":"sponge","aliases":["dish sponge","scrubber"]},
+  {"label":"soap dispenser","aliases":["soap bottle","dish soap","soap pump"]},
+  {"label":"dish brush","aliases":["brush","scrub brush","cleaning brush"]},
+  {"label":"potted plant","aliases":["plant","houseplant"]},
+  {"label":"cutting board","aliases":["chopping board"]},
+  {"label":"dish rack","aliases":["drying rack","dish drying rack"]},
+  {"label":"water bottle","aliases":["bottle","thermos","flask","reusable bottle"]},
+  {"label":"bowl","aliases":["bowls","dish bowl"]},
+  {"label":"plate","aliases":["plates","dish plate"]},
+  {"label":"spoon","aliases":["spoons"]},
+  {"label":"knife","aliases":["knives","kitchen knife"]},
+  {"label":"drinking glass","aliases":["glass","tumbler","jar"]},
+  {"label":"mug","aliases":["mugs","cup","coffee mug"]},
+  {"label":"pot","aliases":["cooking pot","saucepan"]},
+  {"label":"frying pan","aliases":["pan","skillet"]},
+  {"label":"lid","aliases":["pot lid","pan lid","lids"]},
+  {"label":"food storage container","aliases":["food container","plastic container","storage container"]}
+]

@@ -1,0 +1,84 @@
+{
+  "location": "kitchen",
+  "entities": [
+    {
+      "label": "sink",
+      "evidence": "large不锈钢水槽",
+      "area": "kitchen_countertop",
+      "condition": "visibly_clean",
+      "condition_evidence": "水槽表面无明显污渍，反射光线"
+    },
+    {
+      "label": "faucet",
+      "evidence": "不锈钢龙头",
+      "area": "kitchen_countertop",
+      "condition": "visibly_clean",
+      "condition_evidence": "龙头表面无明显污渍，反射光线"
+    },
+    {
+      "label": "cutting board",
+      "evidence": "木质砧板",
+      "area": "kitchen_countertop",
+      "condition": "visibly_clean",
+      "condition_evidence": "砧板表面无明显污渍"
+    },
+    {
+      "label": "water bottle",
+      "evidence": "绿色保温瓶",
+      "area": "kitchen_countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "metal container",
+      "evidence": "不锈钢水壶",
+      "area": "kitchen_countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "brush",
+      "evidence": "刷子",
+      "area": "kitchen_countertop",
+      "condition": "visibly_clean",
+      "condition_evidence": "刷子表面无明显污渍"
+    },
+    {
+      "label": "sponge",
+      "evidence": "蓝色海绵",
+      "area": "kitchen_countertop",
+      "condition": "visibly_clean",
+      "condition_evidence": "海绵表面无明显污渍"
+    },
+    {
+      "label": "soap dispenser",
+      "evidence": "洗手液瓶",
+      "area": "kitchen_countertop",
+      "condition": "visibly_clean",
+      "condition_evidence": "瓶子表面无明显污渍"
+    },
+    {
+      "label": "plant",
+      "evidence": "绿植",
+      "area": "kitchen_countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "paper towel holder",
+      "evidence": "纸巾架",
+      "area": "kitchen_countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "window",
+      "evidence": "窗户",
+      "area": "kitchen_countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    }
+  ],
+  "needs_review": false,
+  "rejected_assessments": []
+}

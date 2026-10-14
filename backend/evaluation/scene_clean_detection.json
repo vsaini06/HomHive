@@ -1,0 +1,84 @@
+{
+  "location": "kitchen",
+  "entities": [
+    {
+      "label": "sink",
+      "evidence": "metal basin with drain visible",
+      "area": "center",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "faucet",
+      "evidence": "silver pull-down spout with black handle",
+      "area": "center",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "cutting board",
+      "evidence": "wooden board with handle against wall",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "thermos",
+      "evidence": "green bottle with black lid",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "kettle",
+      "evidence": "silver cylindrical object in dish rack",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "spatula",
+      "evidence": "black plastic tool in dish rack",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "brush",
+      "evidence": "small brush with wooden handle in white container",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "sponge",
+      "evidence": "blue sponge in white container",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "soap dispenser",
+      "evidence": "clear bottle with black pump",
+      "area": "right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "plant",
+      "evidence": "green leafy plant in white pot",
+      "area": "right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "paper towel holder",
+      "evidence": "white roll with metal base",
+      "area": "far right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    }
+  ],
+  "needs_review": false,
+  "rejected_assessments": []
+}

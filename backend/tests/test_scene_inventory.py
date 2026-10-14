@@ -120,3 +120,24 @@ def test_fenced_json_is_accepted():
     content = f'```json\n{payload}\n```'
     result = NebiusSceneProvider(client=FakeClient(content)).inventory(b'\xff\xd8\xffsample', 'image/jpeg', 'kitchen')
     assert result.entities[0].label == 'sink'
+
+
+def test_detection_only_path_keeps_conditions_unassessed():
+    client = FakeClient(json.dumps({
+        'entities': [
+            {'label': 'faucet', 'area': 'sink', 'evidence': 'curved metal faucet visible'},
+            {'label': 'bowl', 'area': 'sink', 'evidence': 'white bowl visible in basin'},
+        ],
+        'needs_review': False,
+    }))
+
+    result = NebiusSceneProvider(client=client).detect(
+        b'\xff\xd8\xffsample',
+        'image/jpeg',
+        'kitchen',
+    )
+
+    assert [item.label for item in result.entities] == ['faucet', 'bowl']
+    assert all(item.condition == 'not_assessed' for item in result.entities)
+    assert all(item.condition_evidence is None for item in result.entities)
+    assert 'Do not assess cleanliness' in client.calls[0]['messages'][0]['content']

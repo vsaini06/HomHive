@@ -1,0 +1,19 @@
+{
+  "reference_count": 11,
+  "prediction_count": 11,
+  "matched_count": 8,
+  "missed_labels": [
+    "drain",
+    "water bottle",
+    "dish rack"
+  ],
+  "unsupported_labels": [
+    "thermos",
+    "kettle",
+    "spatula"
+  ],
+  "duplicate_labels": [],
+  "recall": 0.7273,
+  "precision": 0.7273,
+  "evidence_rate": 1.0
+}

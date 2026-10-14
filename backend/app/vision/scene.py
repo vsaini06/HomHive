@@ -1,6 +1,3 @@
-
-"""Read-only visible-entity inventory with explicit condition-assessment rejection."""
-
 import base64
 import json
 import os
@@ -41,25 +38,14 @@ class SceneEntity(BaseModel):
 
     @model_validator(mode="after")
     def check_evidence(self):
-        if (
-            not self.label.strip()
-            or not self.area.strip()
-            or not self.evidence.strip()
-        ):
+        if not self.label.strip() or not self.area.strip() or not self.evidence.strip():
             raise ValueError("Scene entity requires visible evidence")
 
         if self.condition in ("not_assessed", "unknown"):
             if self.condition_evidence is not None:
-                raise ValueError(
-                    "Unknown entity condition cannot claim evidence"
-                )
-        elif (
-            not self.condition_evidence
-            or not self.condition_evidence.strip()
-        ):
-            raise ValueError(
-                "Assessed condition requires explicit visible evidence"
-            )
+                raise ValueError("Unknown entity condition cannot claim evidence")
+        elif not self.condition_evidence or not self.condition_evidence.strip():
+            raise ValueError("Assessed condition requires explicit visible evidence")
 
         return self
 
@@ -79,9 +65,7 @@ class SceneInventory(BaseModel):
     location: str = Field(min_length=1, max_length=255)
     entities: list[SceneEntity] = Field(max_length=100)
     needs_review: bool
-    rejected_assessments: list[RejectedAssessment] = Field(
-        default_factory=list
-    )
+    rejected_assessments: list[RejectedAssessment] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check_scene(self):
@@ -97,123 +81,110 @@ class SceneInventory(BaseModel):
         return self
 
 
+class DetectedSceneEntity(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=80)
+    evidence: str = Field(min_length=1, max_length=300)
+    area: str = Field(min_length=1, max_length=100)
+
+
+class DetectedScene(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entities: list[DetectedSceneEntity] = Field(max_length=100)
+    needs_review: bool
+
+
 SCENE_PROMPT = (
-    "Inventory distinct visible household objects and areas, "
-    "not just objects with problems. "
+    "Inventory distinct visible household objects and areas, not just objects with problems. "
     "Return a single JSON object with keys entities and needs_review. "
     "Do not include location: the application supplies it. "
-    "For each entity include exactly label, area, evidence, "
-    "condition, condition_evidence. "
-    "Provide a short common label and evidence describing the visible "
-    "object; area describes visible placement. "
-    "Condition must be one of not_assessed, unknown, visibly_clean, "
-    "visibly_dirty, visibly_damaged, visibly_stressed. "
-    "Use not_assessed for objects with no meaningful assessment, "
-    "and unknown if the condition cannot be judged. "
-    "For visibly_* conditions, condition_evidence must describe "
-    "the direct visual indication. "
-    "For not_assessed and unknown, condition_evidence must be JSON null, "
-    "not the string \"null\". "
-    "A plant being present does not mean it is stressed; "
-    "a sponge does not imply dirty dishes. "
-    "Do not estimate household workload, confidence, tasks, "
-    "or identity across photos. "
-    "Do not invent hidden objects. "
-    "Include up to 100 directly visible entities. "
-    "If important objects are obscured or ambiguity remains, "
-    "set needs_review true. "
-    "If no objects are identifiable, return entities [] "
-    "and needs_review true. "
+    "For each entity include exactly label, area, evidence, condition, condition_evidence. "
+    "Provide a short common label and evidence describing the visible object; area describes visible placement. "
+    "Condition must be one of not_assessed, unknown, visibly_clean, visibly_dirty, visibly_damaged, visibly_stressed. "
+    "Use not_assessed for objects with no meaningful assessment, and unknown if the condition cannot be judged. "
+    "For visibly_* conditions, condition_evidence must describe the direct visual indication. "
+    "For not_assessed and unknown, condition_evidence must be JSON null, not the string \"null\". "
+    "A plant being present does not mean it is stressed; a sponge does not imply dirty dishes. "
+    "Do not estimate household workload, confidence, tasks, or identity across photos. "
+    "Do not invent hidden objects. Include up to 100 directly visible entities. "
+    "If important objects are obscured or ambiguity remains, set needs_review true. "
+    "If no objects are identifiable, return entities [] and needs_review true. "
+    "Return valid JSON only, without Markdown fences or commentary."
+)
+
+DETECTION_PROMPT = (
+    "Inventory distinct physical household objects and fixtures that are directly visible in the image. "
+    "Focus only on object discovery and visible evidence. Do not assess cleanliness, damage, health, urgency, workload, or tasks. "
+    "Return one JSON object with exactly entities and needs_review. "
+    "Each entity must contain exactly label, area, evidence. "
+    "Use short common labels, describe where the object appears, and give concrete visible evidence that supports the detection. "
+    "Count fixed fixtures such as sinks and faucets as entities when they are visibly distinct. "
+    "Do not list abstract regions, shadows, reflections, textures, or the same physical object twice. "
+    "Do not guess hidden or off-frame objects. Do not use confidence scores. "
+    "Include all clearly visible household entities up to 100 items. "
+    "Set needs_review true when important portions of the scene are obscured or object identity is materially ambiguous. "
+    "If no object is identifiable, return entities [] and needs_review true. "
     "Return valid JSON only, without Markdown fences or commentary."
 )
 
 
 def parse_scene_response(content: str) -> dict:
     if not isinstance(content, str) or not content.strip():
-        raise ValueError(
-            "Invalid scene provider response: empty text"
-        )
+        raise ValueError("Invalid scene provider response: empty text")
 
     raw = content.strip()
-
     fenced = re.fullmatch(
         r"```(?:json)?[ \t]*\n(.*?)\n```",
         raw,
         re.DOTALL | re.IGNORECASE,
     )
-
     if fenced:
         raw = fenced.group(1).strip()
 
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ValueError(
-            "Invalid scene provider response: malformed JSON"
-        ) from exc
+        raise ValueError("Invalid scene provider response: malformed JSON") from exc
 
     if not isinstance(payload, dict):
-        raise ValueError(
-            "Invalid scene provider response: expected object"
-        )
+        raise ValueError("Invalid scene provider response: expected object")
 
     return payload
 
 
-def validate_scene_payload(
-    payload: dict,
-    location: str,
-) -> SceneInventory:
+def validate_scene_payload(payload: dict, location: str) -> SceneInventory:
     if set(payload) - {"location", "entities", "needs_review"}:
-        raise ValueError(
-            "Invalid scene provider response: unexpected scene fields"
-        )
+        raise ValueError("Invalid scene provider response: unexpected scene fields")
 
     if "location" in payload and payload["location"] != location:
         raise ValueError("Scene location mismatch")
 
     items = payload.get("entities")
-
     if (
         not isinstance(items, list)
         or len(items) > 100
         or not isinstance(payload.get("needs_review"), bool)
     ):
-        raise ValueError(
-            "Invalid scene provider response: invalid scene structure"
-        )
+        raise ValueError("Invalid scene provider response: invalid scene structure")
 
     validated = []
     rejected = []
 
     for index, item in enumerate(items):
         if not isinstance(item, dict):
-            raise ValueError(
-                "Invalid scene provider response: invalid entity structure"
-            )
+            raise ValueError("Invalid scene provider response: invalid entity structure")
 
         condition = item.get("condition")
         evidence = item.get("condition_evidence")
 
-        if (
-            condition in ("unknown", "not_assessed")
-            and evidence == "null"
-        ):
-            item = {
-                **item,
-                "condition_evidence": None,
-            }
+        if condition in ("unknown", "not_assessed") and evidence == "null":
+            item = {**item, "condition_evidence": None}
             evidence = None
 
-        if (
-            condition in ASSESSMENTS
-            and (
-                evidence is None
-                or (
-                    isinstance(evidence, str)
-                    and not evidence.strip()
-                )
-            )
+        if condition in ASSESSMENTS and (
+            evidence is None or (isinstance(evidence, str) and not evidence.strip())
         ):
             amended = dict(item)
             amended["condition"] = "unknown"
@@ -222,10 +193,7 @@ def validate_scene_payload(
             try:
                 entity = SceneEntity.model_validate(amended)
             except ValidationError as exc:
-                raise ValueError(
-                    "Invalid scene provider response: "
-                    "invalid entity structure"
-                ) from exc
+                raise ValueError("Invalid scene provider response: invalid entity structure") from exc
 
             rejected.append(
                 RejectedAssessment(
@@ -235,15 +203,11 @@ def validate_scene_payload(
                     reason="missing_condition_evidence",
                 )
             )
-
         else:
             try:
                 entity = SceneEntity.model_validate(item)
             except ValidationError as exc:
-                raise ValueError(
-                    "Invalid scene provider response: "
-                    "invalid entity structure"
-                ) from exc
+                raise ValueError("Invalid scene provider response: invalid entity structure") from exc
 
         validated.append(entity)
 
@@ -255,24 +219,46 @@ def validate_scene_payload(
             rejected_assessments=rejected,
         )
     except ValidationError as exc:
-        raise ValueError(
-            "Invalid scene provider response: invalid scene structure"
-        ) from exc
+        raise ValueError("Invalid scene provider response: invalid scene structure") from exc
+
+
+def validate_detection_payload(payload: dict, location: str) -> SceneInventory:
+    if set(payload) - {"entities", "needs_review"}:
+        raise ValueError("Invalid scene provider response: unexpected detection fields")
+
+    try:
+        detected = DetectedScene.model_validate(payload)
+    except ValidationError as exc:
+        raise ValueError("Invalid scene provider response: invalid detection structure") from exc
+
+    entities = [
+        SceneEntity(
+            label=item.label,
+            area=item.area,
+            evidence=item.evidence,
+            condition="not_assessed",
+            condition_evidence=None,
+        )
+        for item in detected.entities
+    ]
+
+    try:
+        return SceneInventory(
+            location=location,
+            entities=entities,
+            needs_review=detected.needs_review,
+        )
+    except ValidationError as exc:
+        raise ValueError("Invalid scene provider response: invalid detection structure") from exc
 
 
 class NebiusSceneProvider:
-    def __init__(
-        self,
-        client=None,
-        model: str = "openbmb/MiniCPM-V-4_5",
-    ):
+    def __init__(self, client=None, model: str = "openbmb/MiniCPM-V-4_5"):
         if client is None:
             load_local_environment()
-
             from openai import OpenAI
 
             key = os.environ.get("NEBIUS_API_KEY")
-
             if not key:
                 raise ValueError("NEBIUS_API_KEY is required")
 
@@ -286,68 +272,40 @@ class NebiusSceneProvider:
         self._client = client
         self._model = model
 
-    def inventory(
-        self,
-        image: bytes,
-        content_type: str,
-        location: str,
-    ) -> SceneInventory:
-        if (
-            not image
-            or len(image) > MAX_IMAGE_BYTES
-            or detected_image_type(image) != content_type
-        ):
+    def _request(self, image: bytes, content_type: str, location: str, prompt: str) -> dict:
+        if not image or len(image) > MAX_IMAGE_BYTES or detected_image_type(image) != content_type:
             raise ValueError("Unsupported image content")
 
-        if (
-            not location
-            or not location.strip()
-            or len(location) > 255
-        ):
+        if not location or not location.strip() or len(location) > 255:
             raise ValueError("Invalid scene location")
 
         encoded = base64.b64encode(image).decode("ascii")
-
         response = self._client.chat.completions.create(
             model=self._model,
             messages=[
-                {
-                    "role": "system",
-                    "content": SCENE_PROMPT,
-                },
+                {"role": "system", "content": prompt},
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "text",
-                            "text": f"Location: {location}",
-                        },
+                        {"type": "text", "text": f"Location: {location}"},
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": (
-                                    f"data:{content_type};base64,{encoded}"
-                                ),
-                            },
+                            "image_url": {"url": f"data:{content_type};base64,{encoded}"},
                         },
                     ],
                 },
             ],
         )
 
-        if (
-            not response.choices
-            or not isinstance(
-                response.choices[0].message.content,
-                str,
-            )
-        ):
-            raise ValueError(
-                "Invalid scene provider response: no text"
-            )
+        if not response.choices or not isinstance(response.choices[0].message.content, str):
+            raise ValueError("Invalid scene provider response: no text")
 
-        payload = parse_scene_response(
-            response.choices[0].message.content
-        )
+        return parse_scene_response(response.choices[0].message.content)
 
+    def inventory(self, image: bytes, content_type: str, location: str) -> SceneInventory:
+        payload = self._request(image, content_type, location, SCENE_PROMPT)
         return validate_scene_payload(payload, location)
+
+    def detect(self, image: bytes, content_type: str, location: str) -> SceneInventory:
+        payload = self._request(image, content_type, location, DETECTION_PROMPT)
+        return validate_detection_payload(payload, location)

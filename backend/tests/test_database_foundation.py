@@ -1,5 +1,3 @@
-"""Checkpoint 11.1 tests: no PostgreSQL instance required."""
-
 import pytest
 from sqlalchemy import text
 

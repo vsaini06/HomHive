@@ -1,0 +1,70 @@
+[
+  {
+    "label": "sink basin",
+    "aliases": ["sink", "double sink", "kitchen sink"]
+  },
+  {
+    "label": "faucet",
+    "aliases": ["tap"]
+  },
+  {
+    "label": "soap dispenser",
+    "aliases": ["soap bottle", "soap pump"]
+  },
+  {
+    "label": "sponge",
+    "aliases": ["dish sponge", "scrubber"]
+  },
+  {
+    "label": "dish brush",
+    "aliases": ["brush", "scrub brush", "cleaning brush"]
+  },
+  {
+    "label": "potted plant",
+    "aliases": ["plant", "houseplant"]
+  },
+  {
+    "label": "paper towel roll",
+    "aliases": ["paper towels", "paper towel holder"]
+  },
+  {
+    "label": "water bottle",
+    "aliases": ["bottle", "thermos", "flask", "reusable bottle"]
+  },
+  {
+    "label": "cutting board",
+    "aliases": ["chopping board"]
+  },
+  {
+    "label": "dish towel",
+    "aliases": ["kitchen towel", "tea towel", "hand towel", "towel"]
+  },
+  {
+    "label": "dish rack",
+    "aliases": ["drying rack", "dish drying rack"]
+  },
+  {
+    "label": "bowl",
+    "aliases": ["dish bowl"]
+  },
+  {
+    "label": "fork",
+    "aliases": ["dining fork"]
+  },
+  {
+    "label": "plate",
+    "aliases": ["plates", "dinner plate", "plate stack"]
+  },
+  {
+    "label": "drinking glass",
+    "aliases": ["glass", "tumbler"]
+  },
+  {
+    "label": "mug",
+    "aliases": ["cup", "coffee mug"]
+  },
+  {
+    "label": "frying pan",
+    "aliases": ["pan", "skillet", "frying pans"]
+  }
+]

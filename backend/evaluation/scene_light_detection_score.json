@@ -1,0 +1,18 @@
+{
+  "reference_count": 12,
+  "prediction_count": 11,
+  "matched_count": 9,
+  "missed_labels": [
+    "drain",
+    "dark container",
+    "drying mat"
+  ],
+  "unsupported_labels": [
+    "tray",
+    "towel"
+  ],
+  "duplicate_labels": [],
+  "recall": 0.75,
+  "precision": 0.8182,
+  "evidence_rate": 1.0
+}

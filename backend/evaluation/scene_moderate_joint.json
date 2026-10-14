@@ -1,0 +1,91 @@
+{
+  "location": "kitchen",
+  "entities": [
+    {
+      "label": "plant",
+      "evidence": "green leafy plant in white pot",
+      "area": "window sill",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "sink",
+      "evidence": "stainless steel double basin with dishes",
+      "area": "countertop",
+      "condition": "visibly_damaged",
+      "condition_evidence": "water stains and food debris in pans"
+    },
+    {
+      "label": "faucet",
+      "evidence": "stainless steel pull-down faucet",
+      "area": "sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "dish soap",
+      "evidence": "blue pump bottle",
+      "area": "countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "sponge",
+      "evidence": "blue rectangular sponge",
+      "area": "countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "paper towels",
+      "evidence": "roll on paper towel holder",
+      "area": "countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "water bottle",
+      "evidence": "green bottle with black lid",
+      "area": "countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "cutting board",
+      "evidence": "wooden board leaning against wall",
+      "area": "countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "dish rack",
+      "evidence": "metal rack with plates",
+      "area": "countertop",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "dishes",
+      "evidence": "stacked bowls and cups",
+      "area": "sink",
+      "condition": "visibly_dirty",
+      "condition_evidence": "food residue and liquid on surfaces"
+    },
+    {
+      "label": "pans",
+      "evidence": "frying pans with food residue",
+      "area": "sink",
+      "condition": "visibly_dirty",
+      "condition_evidence": "brown food particles and grease"
+    },
+    {
+      "label": "towel",
+      "evidence": "striped cloth hanging over edge",
+      "area": "sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    }
+  ],
+  "needs_review": true,
+  "rejected_assessments": []
+}

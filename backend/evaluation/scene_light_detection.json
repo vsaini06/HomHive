@@ -1,0 +1,84 @@
+{
+  "location": "kitchen",
+  "entities": [
+    {
+      "label": "paper towel roll",
+      "evidence": "cylindrical object with white paper towels in a wooden holder",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "plant",
+      "evidence": "potted green leafy plant in white pot",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "soap dispenser",
+      "evidence": "clear plastic bottle with blue liquid and silver pump",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "faucet",
+      "evidence": "tall silver curved spout with handle",
+      "area": "center",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "sink",
+      "evidence": "stainless steel basin with drain hole",
+      "area": "center",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "bowl",
+      "evidence": "white ceramic bowl with food residue and spoon inside",
+      "area": "sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "spoon",
+      "evidence": "metal utensil in the bowl",
+      "area": "sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "glass",
+      "evidence": "clear glass cup in the sink",
+      "area": "sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "brush",
+      "evidence": "wooden handled brush on small black tray",
+      "area": "right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "tray",
+      "evidence": "small black rectangular tray holding the brush",
+      "area": "right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "towel",
+      "evidence": "dark blue woven mat on the counter",
+      "area": "far right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    }
+  ],
+  "needs_review": false,
+  "rejected_assessments": []
+}

@@ -1,0 +1,23 @@
+{
+  "reference_count": 17,
+  "prediction_count": 15,
+  "matched_count": 11,
+  "missed_labels": [
+    "soap dispenser",
+    "bowl",
+    "fork",
+    "plate",
+    "mug",
+    "frying pan"
+  ],
+  "unsupported_labels": [
+    "window",
+    "dishes",
+    "utensils",
+    "cups"
+  ],
+  "duplicate_labels": [],
+  "recall": 0.6471,
+  "precision": 0.7333,
+  "evidence_rate": 1.0
+}

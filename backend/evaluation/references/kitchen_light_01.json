@@ -1,0 +1,50 @@
+[
+  {
+    "label": "sink basin",
+    "aliases": ["sink"]
+  },
+  {
+    "label": "faucet",
+    "aliases": ["tap"]
+  },
+  {
+    "label": "drain",
+    "aliases": ["sink drain"]
+  },
+  {
+    "label": "bowl",
+    "aliases": ["dish bowl"]
+  },
+  {
+    "label": "spoon",
+    "aliases": ["utensil"]
+  },
+  {
+    "label": "drinking glass",
+    "aliases": ["glass", "cup"]
+  },
+  {
+    "label": "potted plant",
+    "aliases": ["plant", "houseplant"]
+  },
+  {
+    "label": "paper towel roll",
+    "aliases": ["paper towels"]
+  },
+  {
+    "label": "soap dispenser",
+    "aliases": ["soap bottle"]
+  },
+  {
+    "label": "dish brush",
+    "aliases": ["brush", "cleaning brush"]
+  },
+  {
+    "label": "dark container",
+    "aliases": ["container", "canister"]
+  },
+  {
+    "label": "drying mat",
+    "aliases": ["dish drying mat", "dish mat"]
+  }
+]

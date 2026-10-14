@@ -1,13 +1,13 @@
 # HomHive
 
-HomHive is an intelligence layer for household operations.
+**The intelligence layer for the autonomous home.**
 
-It is designed to understand changing household conditions, discover work without requiring a person to manually create every task, forecast when conditions may become problematic, research unfamiliar situations when needed, and produce a prioritized action plan for humans or future autonomous executors.
+HomHive turns household evidence into remembered state, discovered work, forecasts, selective external research, and a context-aware action plan. The goal is not another task list. The goal is a household intelligence layer that can understand what is changing, decide what matters, determine what is executable now, and preserve work that should wait.
 
-## Product direction
+## Product loop
 
 ```text
-Phone photos / short video
+Phone photo / short video
         |
         v
 Environmental perception
@@ -16,148 +16,135 @@ Environmental perception
 Structured observations
         |
         v
-Household state + history
+Household state + temporal history
         |
-        +------------------+
-        |                  |
-        v                  v
+        +--------------------+
+        |                    |
+        v                    v
 Reactive task discovery   Forecasting
-        |                  |
-        +---------+--------+
-                  |
-                  v
-           Action decisions
-                  |
-                  v
+        |                    |
+        +----------+---------+
+                   |
+                   v
              Task ranking
-                  |
-                  v
-      Research when knowledge is missing
-                  |
-                  v
-      Cross-domain reasoning and planning
-                  |
-                  v
-       Human or future robot executor
+                   |
+                   v
+      Selective Tavily research
+                   |
+                   v
+ Deterministic feasibility constraints
+                   |
+                   v
+ NVIDIA Nemotron cross-domain planning
+                   |
+                   v
+      Human / future executor plan
 ```
 
-HomHive focuses on the orchestration and reasoning layer. The MVP does not require custom sensors, permanent cameras, a custom vision model, or a physical robot.
+HomHive keeps perception, state, forecasting, work discovery, executability, and planning as separate responsibilities. External AI providers sit behind adapters and never become the source of truth for durable household state.
 
-## Current implementation
+## Verified current capabilities
 
-The backend implements a deterministic foundation alongside an opt-in, provider-adapted image-to-observation workflow.
-
-Implemented:
-
-- typed household observations and condition categories
-- observation history and current household state
-- confidence- and recency-aware condition snapshots
-- deterministic trend detection
-- reactive task discovery
-- duplicate active-task prevention
+- typed Pydantic domain models for observations, state, entities, forecasts, tasks, decisions, and plans
+- confidence- and recency-aware household-state reconstruction from persisted observation history
+- deterministic reactive task discovery and duplicate active-task prevention
+- condition forecasting, threshold-crossing prediction, and predictive task lifecycle handling
 - deterministic task scoring and ranking
-- persistent household-entity domain models
-- deterministic entity compatibility, match assessment, and resolution
-- in-memory and SQL-backed household-entity repositories with application-service integration
-- household-scoped observation and task storage using in-memory and SQLAlchemy repositories
-- Alembic migrations for entities, observations, tasks, and media metadata
-- household-state reconstruction from persisted observation history
-- committed task status updates and storage-level household isolation
-- GraphQL household-entity boundary
-- authenticated, household-scoped JPEG, PNG, and WebP upload and retrieval over FastAPI
-- private filesystem media bytes with PostgreSQL metadata
-- Nebius Token Factory MiniCPM vision adapter producing validated, evidence-backed candidates
-- household-authorized image-to-observation API persistence, preserving unknown confidence as `null`
-- Alembic `0005_unknown_confidence` with PostgreSQL and SQLite-compatible column migration
-- condition forecasting
-- threshold-crossing prediction
-- confidence-aware action policy
-- predictive task creation and lifecycle reconciliation
-- FastAPI application boundary
-- evaluation framework with saved predictions, failure reporting, and an initial five-image kitchen benchmark
-- experimental read-only multi-object scene inventory with evidence validation and review flags
-- local `.env` loading for FastAPI, Alembic, and standalone vision scripts
-- automated backend test suite
+- household-scoped PostgreSQL persistence through SQLAlchemy and Alembic
+- authenticated private image upload and retrieval with media metadata stored separately from media bytes
+- Nebius Token Factory multimodal perception using `openbmb/MiniCPM-V-4_5`
+- explicit unknown model confidence using `None` / SQL `NULL`
+- user confirmation that creates separate user evidence instead of rewriting AI evidence
+- detection-first scene inventory with human-reviewed completeness scoring
+- Tavily research with normalized source evidence and household-scoped research caching
+- deterministic feasibility filtering for active time, passive time, at-home requirements, and quiet hours
+- NVIDIA Nemotron planning through Nebius using `nvidia/Nemotron-3_5-Lightning`
+- strict planner validation that rejects unknown task IDs and infeasible selections
+- deterministic planning fallback when model output is unavailable or invalid
+- mobile-first Next.js client for upload, evidence review, intelligence refresh, research-aware planning, and replanning
+- Docker Compose runtime with Next.js, FastAPI, PostgreSQL 17, Alembic startup migrations, and persistent database/media volumes
 
-Current test baseline:
+## Verified end-to-end behavior
+
+The browser flow has been exercised through the real API stack:
 
 ```text
-314 passed
+private image upload
+-> Nebius perception
+-> structured household observation
+-> explicit user confirmation when required
+-> persisted household state
+-> reactive + predictive work
+-> ranking
+-> NVIDIA Nemotron plan
+-> context change
+-> replanned result
 ```
 
-Not implemented yet:
+A live kitchen run produced a `dish_load` observation, required user confirmation, refreshed persistent household intelligence, and generated a Nemotron plan. With 20 available active minutes, one 15-minute task was selected and the remaining work was deferred. With the same household state and only 5 available active minutes, no 15-minute task was selected and both tasks were preserved as deferred work.
 
-- video ingestion and frame sampling; broad, independently validated scene-completeness and calibration benchmarks
-- video frame extraction workflow
-- Tavily runtime research
-- NVIDIA Nemotron calls through Nebius
-- end-to-end observation-to-state-to-task processing inside the running API
-- production frontend integration
-- calendar, email, presence, or quiet-hour context
-- durable audit history
-- cross-source reactive/predictive task identity unification
-
-## Canonical backend vocabulary
+This demonstrates a central HomHive invariant:
 
 ```text
-Observation
-ConditionType
-HouseholdState
-ConditionSnapshot
-ConditionTrend
-Task
-TaskUrgency
-TaskDecision
-TaskDecisionReason
-ScoredTask
-HouseholdEntity
-EntityCandidate
-EntityMatchAssessment
-EntityResolution
-ConditionForecast
-ThresholdCrossing
-ActionDecision
-ActionState
+importance != executability != fit
 ```
 
-The core planning path is:
+## Evaluation snapshot
 
-```text
-Observation
-    |
-    v
-ConditionSnapshot
-    |
-    v
-ConditionForecast
-    |
-    v
-ThresholdCrossing
-    |
-    v
-ActionDecision
-    |
-    v
-Task
-    |
-    v
-ScoredTask
-```
+Scene completeness is evaluated separately from schema validity and household-condition extraction.
 
-Reactive work follows a shorter path:
+A human-reviewed kitchen development set contains **59 reference entities across four scenes**.
 
-```text
-Observation
-    |
-    v
-TaskTrigger
-    |
-    v
-TaskDecision
-    |
-    v
-Task
-```
+| Pipeline | Matched | Predictions | Micro recall | Micro precision | Micro F1 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Joint object + condition prompt | 28 | 37 | 47.46% | 75.68% | 58.33% |
+| Detection-first object discovery | 42 | 58 | 71.19% | 72.41% | 71.79% |
+
+Detection-first inference improved scene-entity recall by **23.73 percentage points**, a **50.0% relative improvement**, while micro-F1 improved by **13.46 percentage points**. Precision decreased by 3.27 percentage points.
+
+These are development-set measurements, not production accuracy claims. The scorer also has known vocabulary/granularity limitations, and one heavy-scene joint request required a retry after strict output validation rejected the first response.
+
+## Verification status
+
+- backend regression suite: **348 passed**
+- frontend typecheck: passed
+- frontend production build: passed
+- npm audit during installation: 0 vulnerabilities
+- live Nebius MiniCPM perception: verified
+- live Tavily research: verified
+- live NVIDIA Nemotron planning: verified
+- live 20-minute to 5-minute context replan: verified
+- Docker backend image build: verified
+- Docker frontend image build: verified
+- PostgreSQL container health: verified
+- Alembic migration on container startup: verified
+- FastAPI `/health`: HTTP 200
+- Next.js production container: HTTP 200
+
+## Architecture principles
+
+1. Observation is not state.
+2. State is not forecast.
+3. Forecast is not action.
+4. Task existence is not priority.
+5. Importance is not executability.
+6. Entity identity is not condition.
+7. Unknown confidence remains unknown.
+8. Raw evidence is preserved even when it cannot trigger action.
+9. Deterministic rules handle obvious constraints before model reasoning.
+10. AI output is parsed and validated before it can influence domain state or a plan.
+11. Web content is evidence, not trusted authority.
+12. Provider-specific objects stay outside stable domain contracts.
+
+## Technology stack
+
+**Backend:** Python, FastAPI, Pydantic, SQLAlchemy 2.x, Alembic, Strawberry GraphQL, PostgreSQL
+
+**Frontend:** Next.js, React, TypeScript
+
+**AI and research:** Nebius Token Factory, MiniCPM-V-4_5, NVIDIA Nemotron, Tavily
+
+**Runtime:** Docker, Docker Compose, PostgreSQL 17
 
 ## Repository layout
 
@@ -167,127 +154,109 @@ homhive/
 │   ├── app/
 │   │   ├── api/
 │   │   ├── db/
+│   │   ├── evaluation/
 │   │   ├── media/
 │   │   ├── models/
+│   │   ├── planning/
 │   │   ├── repositories/
+│   │   ├── research/
 │   │   ├── services/
 │   │   └── vision/
 │   ├── alembic/
-│   ├── alembic.ini
-│   ├── tests/
-│   └── requirements.txt
+│   ├── evaluation/
+│   └── tests/
 ├── docs/
-│   ├── README.md
-│   ├── architecture.md
-│   ├── current-state.md
-│   ├── decisions.md
-│   ├── evaluation.md
-│   ├── hackathon.md
-│   └── product-spec.md
-├── evaluation/
 ├── frontend/
-├── sample-data/
+├── docker-compose.yml
 ├── LICENSE
 └── README.md
 ```
 
-## Backend setup
+## Local backend setup
 
-From the repository root:
+From `backend`:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r backend\requirements.txt
-pytest
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+python -m alembic upgrade head
+python -m pytest -q
+python -m uvicorn app.api.app:app --reload
 ```
 
-The current expected result is:
+Real credentials belong only in ignored local environment files or deployment-provided secrets.
+
+## Local frontend setup
+
+From `frontend`:
+
+```powershell
+npm install
+$env:NEXT_PUBLIC_HOMHIVE_API_URL="http://127.0.0.1:8000"
+npm run typecheck
+npm run dev -- -H 127.0.0.1 -p 3001
+```
+
+The backend must allow the frontend origin through `HOMHIVE_ALLOWED_ORIGINS`.
+
+## Docker Compose
+
+Create a root `.env` from the example and provide local values for the database password, household token mapping, Nebius credentials/model, and Tavily key. Do not commit the real `.env`.
+
+```powershell
+docker compose config --quiet
+docker compose build
+docker compose up -d
+docker compose ps
+```
+
+Verified local endpoints:
 
 ```text
-314 passed
+Frontend: http://localhost:3001
+Backend:  http://localhost:8000
+Health:   http://localhost:8000/health
 ```
 
-To run the FastAPI application from the `backend` directory:
+The Compose stack uses persistent volumes for PostgreSQL data and private media files.
 
-```powershell
-uvicorn app.api.app:create_app --factory --reload
+## Main household API flow
+
+```text
+POST /households/{household_id}/media
+POST /households/{household_id}/media/{media_id}/observations
+POST /households/{household_id}/observations/{observation_id}/confirm
+POST /households/{household_id}/intelligence/refresh
+POST /households/{household_id}/research
+POST /households/{household_id}/plan
 ```
 
-## Database storage
+The development bearer-token mapping is a local authentication mechanism, not a production identity system.
 
-PostgreSQL persistence uses SQLAlchemy 2.x and Alembic. ORM records and mapping functions remain separate from Pydantic domain models. In-memory repositories provide isolated deterministic tests. Observations and tasks are scoped by household ID at the storage boundary.
+## Current limitations
 
-From `backend/`, with `DATABASE_URL` pointing to the intended database:
-
-```powershell
-python -m alembic upgrade head
-python -m alembic current
-```
-
-Set `HOMHIVE_ENTITY_STORAGE=sql` to use SQL-backed entity storage through the API; the default is in-memory. Observation and task storage are available through their repositories, but are not yet connected to a top-level ingestion/task API workflow. Database credentials belong in ignored local environment settings.
-
-Image upload, retrieval, and vision observation extraction use opt-in media and vision services. When both `HOMHIVE_MEDIA_ROOT` and `HOMHIVE_HOUSEHOLD_TOKENS` are set, the running API exposes `POST /households/{household_id}/media` and `GET /households/{household_id}/media/{media_id}`. The former setting selects a private filesystem root; the latter is a JSON mapping of household IDs to development bearer tokens. Both must be set together, and the media service needs a valid `DATABASE_URL`. Media files are stored under the configured root, while the `media` PostgreSQL table stores household-scoped metadata. These variables must be configured in the shell that starts Uvicorn; otherwise, the media endpoints are not registered. Token-based household authentication is a development mechanism, not production user authentication. When `NEBIUS_API_KEY` is also configured, the API exposes `POST /households/{household_id}/media/{media_id}/observations` with JSON body `{"location":"kitchen"}`. The request requires the same household bearer token, performs paid external inference, validates candidate observations, and stores accepted observations with `confidence: null`. A response requiring review stores no observations. The vision route is registered only when media configuration and the Nebius key are present. Run from the `backend` directory with `python -m uvicorn app.api.app:app --host 127.0.0.1 --port 8001` or another available port; API documentation is served on that same port.
-
-## Engineering principles
-
-1. Observations describe evidence. Tasks describe work.
-2. Raw observations remain separate from derived state.
-3. Current state and history serve different purposes.
-4. Simple decisions should be deterministic before using an LLM.
-5. Task discovery and task ranking are separate concerns.
-6. Confidence gates action but uncertain evidence is still preserved.
-7. Household identity is separate from observed condition.
-8. Forecasts are separate from current state.
-9. External providers should sit outside stable internal domain contracts.
-10. Stored or public API contracts should not be renamed casually during internal refactors.
-
-## MVP domains
-
-The current product plan uses four representative household domains:
-
-- dishes
-- laundry
-- plant care
-- lawn / outdoor care
-
-These domains exercise different temporal, uncertainty, research, and prioritization behaviors without requiring HomHive to support every household task.
-
-## Planned external integrations
-
-The target architecture includes:
-
-- multimodal vision for structured observations
-- FFmpeg for representative video frames
-- Tavily for selective external research
-- NVIDIA Nemotron through Nebius for cross-domain reasoning
-- LangSmith for tracing and evaluation support
-- PostgreSQL with SQLAlchemy and Alembic for durable entity, observation, task, and media-metadata storage (implemented); additional orchestration and history capabilities remain planned
-- Next.js for the mobile-first PWA
-
-These are target integrations, not all current implementation claims.
+- video ingestion and frame sampling are not yet implemented
+- scene completeness has improved but is still evaluated on a small kitchen development set
+- persistent cross-image physical-entity identity is not production-ready
+- reactive and predictive tasks can still represent the same underlying household work with different task keys
+- historical plan/audit events are not fully persisted
+- the full observation-to-task workflow is not transactionally atomic under concurrent processing
+- calendar, email, richer presence, and work-status integrations are not implemented
+- background execution for long-running provider calls is not implemented
+- production user accounts, household membership, and production-grade media authorization are not implemented
+- local Docker runtime is verified, but public production deployment is not claimed
 
 ## Documentation
 
-Start with [`docs/README.md`](docs/README.md) for the documentation map.
-
-Key files:
-
-- [`docs/architecture.md`](docs/architecture.md) - system structure and data flow
-- [`docs/current-state.md`](docs/current-state.md) - what actually exists today
-- [`docs/product-spec.md`](docs/product-spec.md) - product scope and MVP behavior
-- [`docs/evaluation.md`](docs/evaluation.md) - test and evaluation strategy
-- [`docs/decisions.md`](docs/decisions.md) - active architecture decisions
-- [`docs/hackathon.md`](docs/hackathon.md) - submission-oriented constraints and integration goals
+- [`docs/architecture.md`](docs/architecture.md) - system boundaries and data flow
+- [`docs/current-state.md`](docs/current-state.md) - verified implementation state
+- [`docs/evaluation.md`](docs/evaluation.md) - measured evaluation and testing strategy
+- [`docs/decisions.md`](docs/decisions.md) - architecture decisions and open design questions
+- [`docs/hackathon.md`](docs/hackathon.md) - submission-oriented integration status
+- [`docs/product-spec.md`](docs/product-spec.md) - product scope and behavior
 
 ## License
 
 MIT
-
-## Vision evaluation and experimental scene inventory
-
-Run evaluation tools from `backend` using `python -m evaluation.run_vision` or `python -m evaluation.run_scene`. They operate outside the household database. Human-reviewed evaluation images and reports stay local and must not be committed. The initial five-image kitchen benchmark scored category detection at 5/5, but workload MAE was 0.33. A rubric follow-up completed 4/5 cases, with MAE 0.2025 **among completed cases only**, one unexpected plant-health observation, and a failed case. These are small development results, not generalization claims.
-
-The read-only scene inventory distinguishes detected entities, visible evidence, assessed versus unknown condition, and `rejected_assessments`. The locally reported full suite reached **314 passed**. One completed live scene-inventory call returned only a drain for a kitchen image with multiple visible objects; completeness remains a known limitation. See `docs/scene-inventory.md` and `docs/evaluation.md`.
-
-Local secrets belong in `backend/.env` (not Git). Copy `backend/.env.example`, fill in local values, and avoid printing or committing tokens. Existing process environment variables take precedence.

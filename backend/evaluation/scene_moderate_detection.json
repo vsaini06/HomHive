@@ -1,0 +1,112 @@
+{
+  "location": "kitchen",
+  "entities": [
+    {
+      "label": "sink",
+      "evidence": "metal basin with dishes and utensils",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "faucet",
+      "evidence": "silver pull-down spout above sink",
+      "area": "center",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "window",
+      "evidence": "glass with white frame",
+      "area": "top",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "plant",
+      "evidence": "green leaves in white pot on windowsill",
+      "area": "top left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "dishes",
+      "evidence": "stacked plates, bowls, and cups with food residue",
+      "area": "left sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "utensils",
+      "evidence": "fork and spoon in bowl",
+      "area": "left sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "glass",
+      "evidence": "blue cylindrical container on windowsill",
+      "area": "left sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "sponge",
+      "evidence": "blue rectangular sponge on windowsill",
+      "area": "left sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "dish rack",
+      "evidence": "metal rack with plates partially visible on left edge",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "paper towels",
+      "evidence": "roll on metal holder",
+      "area": "right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "brush",
+      "evidence": "wooden handle with metal bristles on counter",
+      "area": "right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "water bottle",
+      "evidence": "green bottle with black cap on counter",
+      "area": "right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "cutting board",
+      "evidence": "wooden board leaning against wall",
+      "area": "right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "towel",
+      "evidence": "striped cloth hanging over sink edge",
+      "area": "right sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "cups",
+      "evidence": "green cups in pan in right sink",
+      "area": "right sink",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    }
+  ],
+  "needs_review": false,
+  "rejected_assessments": []
+}

@@ -62,6 +62,10 @@ from .action_decision import (
     ActionState,
 )
 
+from .intelligence import (
+    HouseholdIntelligence,
+)
+
 
 __all__ = [
     # Household evidence
@@ -97,4 +101,5 @@ __all__ = [
     # Predictive action
     "ActionState",
     "ActionDecision",
+    "HouseholdIntelligence",
 ]

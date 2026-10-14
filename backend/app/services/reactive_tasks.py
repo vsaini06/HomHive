@@ -127,6 +127,21 @@ def decide_task_from_observation(
             trigger.effort_minutes
         ),
         confidence=observation.confidence,
+        metadata=(
+            {
+                "active_minutes": 5,
+                "passive_minutes": max(0, trigger.effort_minutes - 5),
+                "noise_level": "normal",
+                "requires_home": True,
+            }
+            if observation.category == ConditionType.LAUNDRY_LOAD
+            else {
+                "active_minutes": trigger.effort_minutes,
+                "passive_minutes": 0,
+                "noise_level": "quiet",
+                "requires_home": True,
+            }
+        ),
     )
 
     return TaskDecision(

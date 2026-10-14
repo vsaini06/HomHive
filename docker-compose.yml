@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: homhive
+      POSTGRES_USER: homhive
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - homhive_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homhive -d homhive"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://homhive:${POSTGRES_PASSWORD}@postgres:5432/homhive
+      HOMHIVE_MEDIA_ROOT: /data/media
+      HOMHIVE_HOUSEHOLD_TOKENS: ${HOMHIVE_HOUSEHOLD_TOKENS}
+      HOMHIVE_ALLOWED_ORIGINS: ${HOMHIVE_ALLOWED_ORIGINS:-http://localhost:3001}
+      HOMHIVE_ENTITY_STORAGE: sql
+      NEBIUS_API_KEY: ${NEBIUS_API_KEY}
+      NEBIUS_REASONING_MODEL: ${NEBIUS_REASONING_MODEL}
+      TAVILY_API_KEY: ${TAVILY_API_KEY}
+    volumes:
+      - homhive_media:/data/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sh", "-c", "python -m alembic upgrade head && python -m uvicorn app.api.app:app --host 0.0.0.0 --port 8000"]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_HOMHIVE_API_URL: ${NEXT_PUBLIC_HOMHIVE_API_URL:-http://localhost:8000}
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+
+volumes:
+  homhive_postgres:
+  homhive_media:

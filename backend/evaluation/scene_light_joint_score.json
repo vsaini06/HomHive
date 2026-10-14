@@ -1,0 +1,23 @@
+{
+  "reference_count": 12,
+  "prediction_count": 1,
+  "matched_count": 1,
+  "missed_labels": [
+    "sink basin",
+    "faucet",
+    "bowl",
+    "spoon",
+    "drinking glass",
+    "potted plant",
+    "paper towel roll",
+    "soap dispenser",
+    "dish brush",
+    "dark container",
+    "drying mat"
+  ],
+  "unsupported_labels": [],
+  "duplicate_labels": [],
+  "recall": 0.0833,
+  "precision": 1.0,
+  "evidence_rate": 1.0
+}

@@ -307,7 +307,7 @@ Internal cleanup should not casually break public API contracts.
 
 **Status:** Accepted
 
-Household entity, observation, and task storage can use in-memory or SQLAlchemy implementations. ORM records remain separate from Pydantic domain models. The entity API supports configurable repository selection; observation and task repositories are not yet part of an automatic end-to-end API workflow.
+Household entity, observation, and task storage can use in-memory or SQLAlchemy implementations. ORM records remain separate from Pydantic domain models. Household-scoped evidence review and intelligence refresh use observation and task repositories without exposing ORM records to application services.
 
 ## AI integration
 
@@ -319,7 +319,7 @@ The perception layer should produce structured observations and identity clues.
 
 ### ADR-041: Tavily is conditional
 
-**Status:** Accepted as target design
+**Status:** Accepted and implemented
 
 Do not search the web for every routine observation.
 
@@ -331,7 +331,7 @@ Repeated identification/research should be avoided where trustworthy cached know
 
 ### ADR-043: Nemotron reasons over structured facts
 
-**Status:** Accepted as target design
+**Status:** Accepted and implemented behind configuration
 
 The reasoning model should not act as the database or invent raw household state.
 
@@ -377,7 +377,7 @@ PostgreSQL tables, Alembic migrations, and repository contracts exist for entiti
 
 ### ADR-047: User context and executability
 
-**Status:** Open
+**Status:** Partially implemented
 
 Future planning should distinguish:
 
@@ -446,3 +446,28 @@ An assessed condition must have explicit evidence. If a structurally valid detec
 **Status:** Accepted
 
 Unit-test success and valid JSON do not establish visual recall. Retain development evaluation reports and failures, measure completion independently of accuracy, and use manually labeled unseen images to assess scene object recall and false positives. The first live read-only inventory returned only a drain and therefore does not support a completeness claim.
+
+
+### ADR-057: Separate scene discovery from condition assessment when measuring completeness
+
+**Status:** Accepted
+
+Object discovery and condition assessment are distinct perception responsibilities. A detection-first scene mode can enumerate visible entities without forcing the model to assign a condition. Completeness is measured against a human-reviewed reference inventory before condition accuracy is considered.
+
+### ADR-058: User confirmation adds evidence instead of rewriting AI evidence
+
+**Status:** Accepted
+
+When an AI observation has unknown confidence and requires confirmation, the original provider observation remains unchanged. Confirmation creates separate user-sourced evidence. This preserves provenance and avoids manufacturing confidence that the provider did not supply.
+
+### ADR-059: Deterministic feasibility constrains model planning
+
+**Status:** Accepted
+
+Available active time, passive time, at-home requirements, quiet hours, and explicit task limits are deterministic constraints. NVIDIA Nemotron can reason over the remaining feasible work, but returned task IDs and selections are validated before acceptance. Model output cannot override a hard feasibility block.
+
+### ADR-060: External research is untrusted, normalized, and household-scoped
+
+**Status:** Accepted
+
+Tavily results are external evidence, not household truth. Provider-specific responses are normalized into HomHive research models, source metadata is retained, and durable cache entries are scoped by household. Research is conditional and should not be invoked for routine facts already represented by deterministic household logic.

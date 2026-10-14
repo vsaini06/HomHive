@@ -2,202 +2,154 @@
 
 ## Purpose
 
-HomHive should be evaluated as a decision system, not only as a collection of API endpoints.
+HomHive is evaluated as a household decision system, not only as a collection of endpoints.
 
-The evaluation strategy is split into:
+Evaluation is separated into:
 
-1. deterministic unit and flow tests
-2. scenario-based system evaluation
-3. external research evaluation
-4. model-planning evaluation
-5. end-to-end product evaluation
+1. deterministic regression testing
+2. perception and scene-completeness measurement
+3. research-provider behavior
+4. planning and constraint behavior
+5. end-to-end product verification
 
-## Current automated baseline
+## Automated regression baseline
 
-The current backend suite passes:
-
-```text
-282 tests
-```
-
-These tests currently cover the deterministic foundation, including:
-
-- observation validation
-- household state behavior
-- condition tracking
-- trend detection
-- reactive task discovery
-- duplicate prevention
-- task ranking
-- entity models
-- entity matching and resolution
-- repository/service behavior
-- GraphQL mapping and API behavior
-- condition forecasting
-- threshold crossing
-- action policy
-- predictive task lifecycle
-- SQLAlchemy and in-memory repository contracts for entities, observations, and tasks
-- database transaction and lifecycle behavior
-- household-scoped storage isolation
-- reconstruction of household state from persisted observation history
-- persistence and GraphQL storage-configuration behavior
-- image MIME/signature and size validation
-- HTTP bearer authorization and household-scoped media lookup
-- persisted media retrieval across new service instances and cleanup on failed metadata transactions
-- OpenAPI bearer security declarations
-- unknown-confidence domain and decision guards
-- validated vision-candidate handling and persistence service behavior
-- SQLite-compatible observation-nullability migration
-
-This number is a regression baseline, not a claim of product-level accuracy.
-
-## Deterministic evaluation principles
-
-### Exact behavior
-
-Rules should have tests for:
-
-- normal cases
-- threshold boundaries
-- invalid inputs
-- low confidence
-- duplicate work
-- lifecycle changes
-- deterministic ordering
-
-### Separation tests
-
-Tests should protect architecture boundaries such as:
-
-- observation vs task
-- raw evidence vs derived state
-- forecast vs current state
-- entity identity vs observed condition
-- task identity vs priority
-
-## Persistence evaluation
-
-Storage tests verify committed reads and updates across independent sessions, chronological household histories, metadata round trips, and duplicate IDs. Live PostgreSQL checks have also exercised state reconstruction and sequential prevention of duplicate active tasks across independent processes. These checks do not establish atomicity or concurrent duplicate protection for the entire processing pipeline, and the system does not yet maintain full task-transition audit events.
-
-## Media evaluation
-
-Media tests exercise accepted image types, rejection of mismatched file signatures and oversize uploads, authorization failures, household-scoped lookups, persistent retrieval, and file cleanup if metadata persistence fails. The service returns image bytes with a private no-store cache directive.
-
-A live HTTP retrieval of an uploaded JPEG was compared to its original file using SHA-256 and matched. Separate valid household tokens were used to verify that a media record saved under one household was not returned from another household's lookup (`404`), and that tokens could not authorize requests against the other household's path (`403`). These checks provide evidence for the tested local environment, not a complete production security assessment.
-
-## Vision inference and persistence verification
-
-A live Nebius MiniCPM check on a clean-sink image produced a single `dish_load = 0.0` candidate with visible evidence and omitted unrelated laundry, plant, and lawn conditions. A cluttered-sink image produced `dish_load = 1.0` with supporting visual evidence; that numeric output is not yet calibrated against a gold standard. The backend accepted and stored a clean-sink observation with `confidence = NULL`. An independent PostgreSQL query returned the persisted row, confirming storage beyond the HTTP response. The authorized endpoint was visible in the OpenAPI/Swagger UI of the freshly started server.
-
-These checks verify a narrow working integration, not general vision reliability. A reproducible image evaluation set should cover empty, light, moderate, and heavy workloads; absent conditions versus true zero; mixed scenes; ambiguous framing; visual evidence quality; review-needed behavior; repeatability; provider errors; and invalid or unsupported outputs. Report category precision/recall, value error under a defined workload rubric, false-positive omissions, and human-review rates only after executing that evaluation.
-
-## Planned golden scenarios
-
-A future golden scenario set should cover complete household situations rather than isolated functions.
-
-Suggested scenario categories:
-
-### Dishes
-
-- low load, no task
-- high confident load, create reactive task
-- repeated scan, do not duplicate active work
-- rising load, forecast near threshold
-- task completed, later condition can create work again
-
-### Laundry
-
-- moderate load, monitor
-- rising load, plan ahead
-- already above threshold, act now
-- user unavailable, defer in later planning layer
-
-### Plant
-
-- uncertain condition
-- unknown species
-- candidate identity requires verification
-- Tavily research materially changes guidance
-- conflicting entity evidence stays uncertain
-
-### Lawn / outdoor
-
-- slowly changing condition
-- longer threshold horizon
-- external seasonal context affects plan
-
-## Forecast evaluation
-
-Forecast tests should measure separately:
-
-- direction accuracy
-- projected value error
-- time-to-threshold error
-- confidence calibration
-
-The current implementation is deterministic and intentionally simple. Future learned or model-based forecasting should be compared against this baseline rather than replacing it without evidence.
-
-## Research evaluation
-
-When Tavily is integrated, evaluate:
-
-- whether a search was actually necessary
-- query relevance
-- source quality
-- evidence freshness
-- duplicate search avoidance
-- whether the returned evidence changed the decision appropriately
-
-A good research router should receive credit for correctly *not* searching routine situations.
-
-## Reasoning evaluation
-
-When Nemotron is integrated, evaluate:
-
-- schema-valid output rate
-- ranking consistency
-- constraint adherence
-- evidence use
-- unsupported-claim rate
-- fallback behavior
-- latency
-- token usage
-- stability across repeated runs
-
-The model should be compared against the deterministic ranking baseline.
-
-## End-to-end evaluation
-
-The final product should be tested from user input to visible action plan.
-
-A judge-ready scenario should record:
+The current complete backend suite passes:
 
 ```text
-input media
--> extracted observations
--> state update
--> discovered / forecast tasks
--> research decision
--> external evidence, if any
--> final plan
--> explanation
+348 tests
 ```
+
+Coverage includes:
+
+- observation validation and household state behavior
+- confidence/recency aggregation and trend detection
+- reactive task discovery and duplicate prevention
+- task ranking and lifecycle behavior
+- entity models, matching, resolution, repositories, and GraphQL boundaries
+- condition forecasting, threshold crossing, action decisions, and predictive task lifecycle
+- SQLAlchemy and in-memory repository contracts
+- household-scoped observation/task/media isolation
+- authenticated media validation and retrieval
+- nullable unknown-confidence behavior
+- vision parsing and validation
+- scene-inventory parsing and completeness scoring
+- explicit observation review/confirmation
+- household intelligence refresh
+- Tavily provider, API, and cache behavior
+- planning feasibility and planning APIs
+
+Test count is a regression measure, not a claim of perception or planning quality.
+
+## Perception evaluation principles
+
+Schema-valid output is not the same as correct or complete perception.
+
+HomHive therefore measures separate properties:
+
+- whether a provider response is structurally valid
+- whether visible entities are discovered
+- whether unsupported condition claims are rejected
+- whether household-condition extraction is calibrated
+- whether provider failures are surfaced rather than converted into fabricated results
+
+## Scene-completeness development set
+
+The current human-reviewed kitchen set contains four scenes and 59 reference entities.
+
+| Scene | References | Joint matched / predicted | Joint recall | Joint precision | Detection matched / predicted | Detection recall | Detection precision |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Light | 12 | 1 / 1 | 8.33% | 100.00% | 9 / 11 | 75.00% | 81.82% |
+| Clean | 11 | 9 / 11 | 81.82% | 81.82% | 8 / 11 | 72.73% | 72.73% |
+| Moderate | 17 | 9 / 12 | 52.94% | 75.00% | 11 / 15 | 64.71% | 73.33% |
+| Heavy | 19 | 9 / 13 | 47.37% | 69.23% | 14 / 21 | 73.68% | 66.67% |
+
+Aggregate micro metrics:
+
+| Pipeline | References | Matched | Predictions | Recall | Precision | Micro F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Joint object + condition prompt | 59 | 28 | 37 | 47.46% | 75.68% | 58.33% |
+| Detection-first object discovery | 59 | 42 | 58 | 71.19% | 72.41% | 71.79% |
+
+Measured improvement from separating object discovery from condition assessment:
+
+```text
+Recall:   +23.73 percentage points
+          +50.0% relative
+Micro-F1: +13.46 percentage points
+Precision:-3.27 percentage points
+```
+
+### Interpretation limits
+
+These numbers are development-set results, not production benchmarks.
+
+The current scorer uses normalized category/label matching, so granularity mismatches can affect counts. For example, a model may predict a broader concept such as `dishes` or a semantically related label where the reference inventory uses individual object categories. Reference labels are frozen before inference and are not retroactively changed to improve a result.
+
+The heavy joint scene also exposed a reliability failure: the first provider response failed strict scene-structure validation. One retry produced the valid 13-entity result shown above. Provider completion and schema validity therefore remain separate from accuracy metrics.
+
+Detection-first inference also increased latency in some scenes, including a 46.4-second heavy-scene call. Latency is not currently presented as a resume or production-performance metric.
+
+## Condition-extraction development evidence
+
+Earlier dish-load evaluation exposed numeric saturation and incomplete calibration. Those results remain useful diagnostic evidence but are not directly comparable to the scene-completeness benchmark because they evaluate a different target.
+
+A live clean-sink integration previously persisted `dish_load = 0.0` with `confidence = NULL`. A later browser scenario on a moderate kitchen produced `dish_load = 0.76`, required explicit confirmation, and successfully drove household intelligence after user evidence was created.
+
+## Research verification
+
+Live Tavily search through HomHive has been verified and returned normalized source evidence. Automated tests cover research routing, API behavior, and cache behavior.
+
+Do not claim that every Tavily call changes a household decision. Routine dishes/laundry should not require web research, and external evidence is treated as untrusted input that must remain separate from household state.
+
+A separate live cache-hit reuse measurement has not been promoted as a runtime metric.
+
+## Planning and replanning verification
+
+Live NVIDIA Nemotron planning through Nebius has been verified with `nvidia/Nemotron-3_5-Lightning`.
+
+A structured planning scenario contained plant, dish, and laundry work with a two-task cap and a 20-minute active-time budget. Nemotron selected the plant and dish tasks while deferring laundry. The selected work fit the active-time budget and contained no invented task IDs.
+
+A second call used the same task state with only 5 available active minutes. Nemotron selected only the 5-minute plant task and deferred the 15-minute and longer tasks.
+
+The browser end-to-end scenario separately verified:
+
+```text
+same persisted household state
++ 20 available active minutes
+-> one 15-minute task selected
+
+same persisted household state
++ 5 available active minutes
+-> no 15-minute task selected
+```
+
+These checks demonstrate context-sensitive replanning, but they are not a statistically meaningful constraint-compliance benchmark.
+
+## Docker runtime verification
+
+The production images build successfully for FastAPI and Next.js. Docker Compose has been exercised with:
+
+- PostgreSQL 17 healthy
+- Alembic migration on backend startup
+- FastAPI running on port 8000
+- `/health` returning HTTP 200
+- Next.js production server returning HTTP 200 on port 3001
+- persistent PostgreSQL and media volumes
+
+This is a local runtime smoke test, not a public deployment claim.
 
 ## Evaluation integrity
 
-Do not publish fabricated accuracy, latency, cost, or reliability metrics.
+Do not publish fabricated accuracy, latency, reliability, cost, or scale metrics.
 
-Only report a metric after:
+A metric is reportable only when:
 
 - the evaluation set exists
 - the procedure is reproducible
-- the result has actually been measured
+- the measurement was actually run
+- important limitations are disclosed
 
-## Day 15 vision measurements (development set)
+The strongest current resume-safe perception statement is:
 
-The initial five-image kitchen test used provisional human `dish_load` labels `0.0`, `0.2`, `0.45`, `0.7`, `1.0`. MiniCPM predicted `0.0` for the clean sink and `1.0` for every nonempty sink: five category true positives, no false positives or negatives, matched severity MAE **0.33**, and **40%** within configured tolerance.
-
-The revised prompt completed four of five evaluations (80% completion) and yielded matched-only severity MAE **0.2025** and tolerance agreement **50%** among completed cases. It also produced one unexpected `plant_condition`, gave the clean sink a nonzero workload, and failed on the heavy case. Never present 0.2025 as directly comparable to the five-case 0.33 baseline without qualifying selection bias. Local evaluation reports and images may reveal household details and should remain ignored by Git.
-
-An experimental scene-inventory run successfully produced valid output but listed only a drain in a visibly multi-object kitchen. The measurable next target is scene *completeness*, with a human-annotated set of expected visible entities, label normalization rules, object recall and false-detection counts, and separate unsupported-condition rates. Structural tests (314 locally passed across the backend) are not model-quality metrics. Scene analysis does not write to PostgreSQL.
+> Improved scene-entity recall from 47.5% to 71.2% (+50% relative) and micro-F1 from 58.3% to 71.8% on a human-labeled 59-entity kitchen development set by separating object discovery from condition assessment.

@@ -1,0 +1,98 @@
+{
+  "location": "kitchen",
+  "entities": [
+    {
+      "label": "sink",
+      "evidence": "large stainless steel basin with dishes, pots, and utensils",
+      "area": "kitchen",
+      "condition": "visibly_dirty",
+      "condition_evidence": "food residue and grime on surfaces"
+    },
+    {
+      "label": "faucet",
+      "evidence": "modern stainless steel pull-down faucet",
+      "area": "kitchen",
+      "condition": "visibly_clean",
+      "condition_evidence": "no visible dirt or stains"
+    },
+    {
+      "label": "cutting board",
+      "evidence": "wooden board leaning against countertop",
+      "area": "kitchen",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "plant",
+      "evidence": "green leafy plant in white pot on windowsill",
+      "area": "kitchen",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "plant",
+      "evidence": "brown potted plant on windowsill",
+      "area": "kitchen",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "dish soap",
+      "evidence": "blue pump bottle on countertop",
+      "area": "kitchen",
+      "condition": "visibly_clean",
+      "condition_evidence": "no visible dirt or stains"
+    },
+    {
+      "label": "brush",
+      "evidence": "white scrub brush in beige holder on countertop",
+      "area": "kitchen",
+      "condition": "visibly_clean",
+      "condition_evidence": "no visible dirt or stains"
+    },
+    {
+      "label": "cutlery",
+      "evidence": "spoons and knives in sink",
+      "area": "kitchen",
+      "condition": "visibly_dirty",
+      "condition_evidence": "food residue on blades"
+    },
+    {
+      "label": "bowl",
+      "evidence": "stacked white bowls with food residue",
+      "area": "kitchen",
+      "condition": "visibly_dirty",
+      "condition_evidence": "food residue inside"
+    },
+    {
+      "label": "pan",
+      "evidence": "black frying pan with food residue",
+      "area": "kitchen",
+      "condition": "visibly_dirty",
+      "condition_evidence": "food residue inside"
+    },
+    {
+      "label": "container",
+      "evidence": "plastic containers with food residue",
+      "area": "kitchen",
+      "condition": "visibly_dirty",
+      "condition_evidence": "food residue inside"
+    },
+    {
+      "label": "mug",
+      "evidence": "white mug with tea inside",
+      "area": "kitchen",
+      "condition": "visibly_clean",
+      "condition_evidence": "no visible dirt or stains"
+    },
+    {
+      "label": "utensil",
+      "evidence": "black handled utensil in sink",
+      "area": "kitchen",
+      "condition": "visibly_clean",
+      "condition_evidence": "no visible dirt or stains"
+    }
+  ],
+  "needs_review": true,
+  "rejected_assessments": []
+}

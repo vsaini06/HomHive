@@ -1,0 +1,46 @@
+[
+  {
+    "label": "sink basin",
+    "aliases": ["sink"]
+  },
+  {
+    "label": "drain",
+    "aliases": ["sink drain"]
+  },
+  {
+    "label": "faucet",
+    "aliases": ["tap"]
+  },
+  {
+    "label": "soap dispenser",
+    "aliases": ["soap bottle", "hand soap dispenser"]
+  },
+  {
+    "label": "potted plant",
+    "aliases": ["plant", "houseplant"]
+  },
+  {
+    "label": "paper towel roll",
+    "aliases": ["paper towels", "paper towel holder"]
+  },
+  {
+    "label": "dish brush",
+    "aliases": ["brush", "scrub brush", "cleaning brush"]
+  },
+  {
+    "label": "sponge",
+    "aliases": ["dish sponge", "scrubbing sponge"]
+  },
+  {
+    "label": "cutting board",
+    "aliases": ["chopping board"]
+  },
+  {
+    "label": "water bottle",
+    "aliases": ["bottle", "reusable bottle"]
+  },
+  {
+    "label": "dish rack",
+    "aliases": ["drying rack", "dish drying rack"]
+  }
+]

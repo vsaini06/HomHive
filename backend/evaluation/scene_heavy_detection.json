@@ -1,0 +1,154 @@
+{
+  "location": "kitchen",
+  "entities": [
+    {
+      "label": "sink",
+      "evidence": "large metal basin with water and dishes",
+      "area": "center",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "faucet",
+      "evidence": "tall curved metal fixture with pull-down spout",
+      "area": "center",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "cutting board",
+      "evidence": "wooden rectangular board leaning against wall",
+      "area": "left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "plant",
+      "evidence": "green leafy plant in white pot",
+      "area": "left window sill",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "pot",
+      "evidence": "brown pot with plant in window",
+      "area": "left window sill",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "dish soap",
+      "evidence": "blue liquid in clear plastic bottle",
+      "area": "right sink edge",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "sponge",
+      "evidence": "blue rectangular sponge",
+      "area": "left sink edge",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "brush",
+      "evidence": "white bristle brush in tan holder",
+      "area": "right sink edge",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "trash bin",
+      "evidence": "black wire basket with white lid",
+      "area": "far right",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "jar",
+      "evidence": "glass jar with black lid",
+      "area": "left sink bottom",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "spatula",
+      "evidence": "metal spatula with black handle",
+      "area": "left sink bottom",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "pan",
+      "evidence": "large black frying pan with food residue",
+      "area": "right sink bottom",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "container lid",
+      "evidence": "clear plastic lid with black handle",
+      "area": "right sink bottom",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "mug",
+      "evidence": "white ceramic mug with liquid",
+      "area": "right sink bottom",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "bowl",
+      "evidence": "stack of white bowls with food residue",
+      "area": "left sink top",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "plate",
+      "evidence": "stack of white plates with food residue",
+      "area": "left sink top",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "spoon",
+      "evidence": "metal spoon in stack of bowls",
+      "area": "left sink top",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "kettle",
+      "evidence": "black kettle with water inside",
+      "area": "left sink left",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "blade",
+      "evidence": "metal blade partially visible under bowl stack",
+      "area": "left sink middle",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "jar lid",
+      "evidence": "black lid on glass jar",
+      "area": "left sink bottom",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    },
+    {
+      "label": "spatula handle",
+      "evidence": "black handle of metal spatula",
+      "area": "left sink bottom",
+      "condition": "not_assessed",
+      "condition_evidence": null
+    }
+  ],
+  "needs_review": false,
+  "rejected_assessments": []
+}

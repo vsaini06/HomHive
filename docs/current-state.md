@@ -1,72 +1,112 @@
 # HomHive Current State
 
-## Implemented
+## Implemented system
 
-The backend uses typed Pydantic domain models with deterministic services for:
+HomHive currently includes:
 
-- timestamped `Observation` evidence, `HouseholdState`, `ConditionSnapshot`, and `ConditionTrend`
-- reactive dish/laundry task discovery with confidence thresholds and active-task deduplication
-- `Task` lifecycle, deterministic `ScoredTask` ranking, and explainable decisions
-- household entity candidates, conservative matching, resolution, and entity application services
-- condition forecasting, `ThresholdCrossing`, `ActionDecision`, and predictive task reconciliation
-- FastAPI and Strawberry GraphQL household-entity operations
-- authenticated, household-scoped image upload and retrieval through FastAPI, with JPEG, PNG, and WebP validation and a 10 MiB limit
-- Nebius MiniCPM image analysis yielding visibly grounded candidates, with human-review handling and household-scoped PostgreSQL observation persistence
-- explicit unknown observation confidence (`None` / SQL `NULL`), with downstream safety guards
+- typed Pydantic domain models for observations, state, entities, tasks, forecasts, decisions, and plans
+- confidence- and recency-aware state aggregation with temporal history
+- deterministic reactive task discovery and active-task deduplication
+- deterministic task scoring and ranking
+- conservative household-entity candidate matching and resolution
+- condition forecasting, threshold crossing, action decisions, and predictive task reconciliation
+- FastAPI application boundaries and Strawberry GraphQL entity operations
+- household-scoped PostgreSQL repositories through SQLAlchemy and Alembic
+- authenticated private media upload/retrieval with JPEG, PNG, and WebP validation
+- Nebius MiniCPM-V-4_5 image-to-observation inference with strict evidence validation
+- explicit unknown AI confidence stored as `None` / SQL `NULL`
+- user confirmation that creates separate user evidence
+- scene-inventory evaluation with detection-only object discovery and completeness scoring
+- household intelligence refresh over persisted observations and tasks
+- Tavily research with normalized evidence and durable household-scoped cache storage
+- deterministic feasibility planning for time, presence, quiet-hours, and task-count constraints
+- NVIDIA Nemotron planning through Nebius with strict structured-output validation and deterministic fallback
+- mobile-first Next.js client for the main product loop
+- Docker Compose runtime with PostgreSQL 17, FastAPI, Next.js, migrations, and persistent database/media volumes
 
 ## Persistent storage
 
-SQLAlchemy 2.x and Alembic support PostgreSQL storage for household entities, observations, tasks, and media metadata.
+SQLAlchemy 2.x and Alembic support PostgreSQL storage for household entities, observations, tasks, media metadata, and research cache records.
 
-- `HouseholdEntityStorage`, `ObservationStorage`, and `TaskStorage` define repository behavior.
-- In-memory implementations remain available for deterministic tests.
-- SQLAlchemy implementations map ORM records to and from Pydantic domain models.
-- Observation and task repositories isolate records by household ID.
-- Observation history is loaded chronologically and replayed by `reconstruct_household_state()`.
-- Tasks retain IDs, task keys, status, urgency, deadlines, source observation references, and metadata across database sessions.
-- The entity API selects in-memory or SQL-backed storage using `HOMHIVE_ENTITY_STORAGE`.
-- Media bytes are stored under a configured private filesystem root; PostgreSQL stores the media ID, household ID, content type, size, and timestamp.
-- Media lookups use `(household_id, media_id)`; bearer authorization is checked before storage access.
-- The media router is enabled only when both `HOMHIVE_MEDIA_ROOT` and `HOMHIVE_HOUSEHOLD_TOKENS` are configured. It also requires `DATABASE_URL`.
-- Alembic migration head is `0005_unknown_confidence`; the nullable-confidence migration uses SQLite-compatible batch alteration for test databases.
+Important storage boundaries:
 
-A live PostgreSQL run verified image extraction to a persisted `dish_load = 0.0` observation with `confidence = NULL`, source media metadata, and independent SQL retrieval. The authenticated vision route returned HTTP 200. The Swagger route was also verified from a fresh server on port 8001.
+- observation and task access is household-scoped
+- observation history remains durable and can reconstruct current household state
+- derived snapshots and forecasts are recomputed rather than treated as authoritative stored truth
+- media bytes live under a private media root while PostgreSQL stores media metadata
+- media lookup uses both household ID and media ID
+- research cache records are household-scoped
+- ORM records remain separate from Pydantic domain models
 
-A live PostgreSQL database has been used to verify entity access through GraphQL after application restart, observation history reconstruction, task status transitions, and sequential prevention of duplicate active tasks across Python processes. Media was also uploaded and retrieved through authenticated HTTP endpoints, with a SHA-256 match against the original image and isolation checks using two separately authenticated households. These checks exercise existing components, not a single atomic ingestion-to-planning pipeline.
+The current migration head is `0006_research_cache`.
 
-## Automated tests
+## Verified runtime behavior
 
-The latest locally reported backend regression result is:
+The following paths have been exercised with real runtime dependencies:
+
+- authenticated media upload and retrieval
+- Nebius MiniCPM perception and observation persistence
+- explicit observation confirmation
+- household intelligence refresh
+- Tavily live research
+- NVIDIA Nemotron live planning through Nebius
+- context replanning from 20 available active minutes to 5 minutes
+- Docker Compose startup with PostgreSQL healthy
+- Alembic migration during backend-container startup
+- FastAPI `/health` returning HTTP 200
+- Next.js production container returning HTTP 200
+
+The browser scenario produced a 76% `dish_load` value, required confirmation, produced reactive and predictive work, and then generated different plans from the same stored household state as the available-time constraint changed.
+
+## Automated verification
+
+The current full backend regression baseline is:
 
 ```text
-314 passed
+348 passed
 ```
 
-The suite covers domain rules, forecasting, GraphQL behavior, repository boundaries, persisted record mappings, household isolation, lifecycle updates, history reconstruction, and media upload/retrieval, validation, authorization, and storage behavior. This is a test baseline, not a product-quality score.
+Frontend verification also passes:
+
+```text
+npm run typecheck
+npm run build
+```
+
+The test suite covers domain rules, forecasting, persistence, repository contracts, household isolation, media validation/authorization, scene evaluation, observation review, household intelligence, Tavily research/cache behavior, planning feasibility, and planning APIs. Test count is a regression metric, not a product-accuracy metric.
+
+## Scene-completeness evaluation
+
+A human-reviewed kitchen development set contains 59 reference entities across four scenes.
+
+```text
+Joint micro recall:       47.46%
+Joint micro precision:    75.68%
+Joint micro F1:           58.33%
+
+Detection micro recall:   71.19%
+Detection micro precision:72.41%
+Detection micro F1:       71.79%
+```
+
+Detection-first inference improved recall by 23.73 percentage points, or 50.0% relative, and improved micro-F1 by 13.46 percentage points.
+
+These results remain development measurements. The scorer has label/granularity limitations, the evaluation covers only four kitchen scenes, and a heavy joint request required one retry after strict output validation rejected the first response.
 
 ## Current limitations
 
-- Single-image vision extraction and persistence are implemented, and a small kitchen vision evaluation exists. Video ingestion, frame sampling, independent large-scale accuracy evaluation, and reliable multi-entity completeness remain unimplemented.
-- No Tavily runtime integration, research cache, or external-evidence persistence.
-- MiniCPM vision inference through Nebius is integrated; NVIDIA Nemotron planning and LangSmith/Toloka evaluation integration remain unimplemented.
-- No production Next.js PWA or complete media-to-observation-to-planning API orchestration.
-- Vision observations can persist through the API, but a complete application-managed observation-to-state-to-task workflow is not yet wired.
-- No durable record of each historical task-status transition or full audit log.
-- No concurrency-safe atomic deduplication across the observation-to-task workflow.
-- Reactive and predictive task keys are not unified.
-- No availability engine, quiet hours, calendar/email context, execution windows, or full cross-domain planning.
-- Household bearer tokens are local-development credentials; user accounts, membership-based authorization, and production media storage controls are not yet implemented.
+- video ingestion and frame sampling are not implemented
+- scene completeness is not yet evaluated across broad household domains
+- persistent cross-image physical-entity identity remains incomplete
+- reactive and predictive work can still represent the same underlying condition with different task keys
+- full task-transition and plan audit history is not persisted
+- concurrency-safe atomic deduplication across the complete observation-to-task workflow is not implemented
+- calendar, email, richer presence, and work-status integrations are not implemented
+- background job execution for long-running model/media work is not implemented
+- development household bearer tokens are not production user authentication
+- public production deployment is not claimed; the current deployment verification is a local Docker runtime smoke test
+- LangSmith, Toloka, and Tandem are not required for the verified core flow and are not currently integrated
 
 ## System boundaries
 
-Raw observations, reconstructed household state, derived condition beliefs, forecasts, action decisions, and tasks are separate concepts. Persisted observations remain the evidence source; derived beliefs can be recalculated. API/service/repository and domain/ORM boundaries remain explicit.
-
-## Local Day 15 verification
-
-- Centralized `.env` loading was verified locally without manual PowerShell variable setup; Alembic remained at `0005_unknown_confidence`.
-- The full backend suite was reported as **314 passed** after scene-inventory validation and parser corrections.
-- The fault-tolerant evaluation runner preserves successful results and records failed cases separately without fabricating predictions.
-- A five-image kitchen benchmark had category precision/recall 1.0, matched severity MAE 0.33, and 5/5 completed cases. The revised workload rubric evaluation completed 4/5, had conditional severity MAE 0.2025, and included an unexpected plant-condition finding. These conditional metrics are not directly comparable.
-- A real `evaluation.run_scene` call completed and wrote a structurally valid local scene JSON, but returned **only one entity (`drain`)** for an image with several visible items. This is a documented completeness failure, not a scene-accuracy success.
-
-**Next work:** establish manually labeled object-inventory ground truth and measure completeness before adopting a detection-first or multi-pass approach. Do not automatically persist experimental scene entities or promote their conditions into tasks.
+Raw observations, derived state, forecasts, action decisions, tasks, ranking, feasibility, research evidence, and final plans remain separate concepts. External provider output is parsed and validated before it can influence stable domain state or executable work.

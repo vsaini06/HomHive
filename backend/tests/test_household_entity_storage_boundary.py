@@ -1,4 +1,3 @@
-"""Day 11 checkpoint 11.2: storage interface and pure mapping tests."""
 
 from datetime import datetime, timezone
 

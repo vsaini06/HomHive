@@ -1,131 +1,152 @@
 # HomHive Hackathon Notes
 
-This file tracks submission-oriented constraints and integration goals separately from the core architecture.
+This file records submission-oriented product and integration status separately from the core architecture.
 
 ## Product strategy
 
-HomHive should demonstrate intelligence orchestration rather than a generic chatbot.
+HomHive should demonstrate household intelligence orchestration rather than a generic chatbot.
 
-The product should show a credible path from household evidence to a dynamic action plan.
-
-## Planned sponsor/runtime roles
-
-### Nebius + NVIDIA Nemotron
-
-Planned role:
-
-- cross-domain reasoning
-- constraint handling
-- plan generation
-- explanation
-- future replanning
-
-Current status:
+The strongest demo is a coherent loop:
 
 ```text
-Not integrated in the current backend.
+household image
+-> structured evidence
+-> remembered state
+-> discovered + forecast work
+-> selective research when knowledge is missing
+-> deterministic feasibility constraints
+-> NVIDIA Nemotron reasoning
+-> plan
+-> context change
+-> replan
 ```
+
+## Sponsor/runtime roles
+
+### Nebius Token Factory
+
+Verified roles:
+
+- multimodal inference with `openbmb/MiniCPM-V-4_5`
+- NVIDIA reasoning model access
+- provider abstraction behind stable HomHive contracts
+
+Live MiniCPM perception has been verified through the authenticated household media path.
+
+### NVIDIA Nemotron
+
+Verified role:
+
+- cross-domain reasoning over ranked household tasks
+- context-sensitive plan generation
+- explanation of selected and deferred work
+
+Live planning has been verified through Nebius using:
+
+```text
+nvidia/Nemotron-3_5-Lightning
+```
+
+HomHive validates returned task IDs and feasibility before accepting model output. Deterministic fallback remains available.
 
 ### Tavily
 
-Planned role:
+Verified role:
 
 - selective research for unfamiliar or context-dependent situations
-- entity verification/enrichment when identity matters
-- grounded maintenance or care guidance
+- normalized external evidence with source metadata
+- household-scoped research API and durable cache support
 
-Current status:
+Live Tavily search through HomHive has been verified. Tavily is intentionally not called for routine household facts such as ordinary dish or laundry load.
 
-```text
-Not integrated in the current backend.
-```
+### Optional integrations
 
-Tavily should not be called for every image or every routine task.
+LangSmith, Toloka, and Tandem are not required for the verified core loop and are not currently integrated into the runtime claim.
 
-### LangSmith
+## Verified submission proof points
 
-Planned role:
+- authenticated household image upload
+- live Nebius multimodal perception
+- explicit evidence review and user confirmation
+- durable PostgreSQL household state
+- reactive and predictive work generation
+- deterministic ranking
+- live Tavily research
+- deterministic feasibility constraints
+- live NVIDIA Nemotron planning
+- dynamic replanning when available time changes
+- mobile-first Next.js UI
+- Dockerized FastAPI + Next.js + PostgreSQL runtime
+- automated backend regression suite
+- measured perception improvement on a human-labeled development set
 
-- traces
-- evaluation support
-- debugging of model/tool workflows
+## Measured perception result
 
-Current status:
-
-```text
-Not integrated.
-```
-
-### Toloka
-
-Potential role:
-
-- evaluation / feedback workflows
-
-Current status:
+On four human-reviewed kitchen scenes containing 59 reference entities:
 
 ```text
-Not integrated.
+Joint prompt micro recall:       47.46%
+Detection-first micro recall:    71.19%
+Relative recall improvement:     50.0%
+
+Joint micro-F1:                  58.33%
+Detection-first micro-F1:        71.79%
 ```
 
-### Tandem
+These are development-set measurements, not general production accuracy claims.
 
-Potential role remains to be finalized.
+## Demo scenario already verified
 
-## MVP proof points
+A browser run successfully executed:
 
-The submission should eventually demonstrate:
+```text
+image upload
+-> observation extraction
+-> confirmation
+-> intelligence refresh
+-> two active household tasks
+-> Nemotron plan at 20 available minutes
+-> replan at 5 available minutes
+```
 
-- phone-based input
-- normalized household state
-- temporal memory
-- automatic task discovery
-- forecasting
-- selective external research
-- NVIDIA/Nebius runtime reasoning
-- structured output
-- mobile-first experience
-- reproducible setup
-- tests and evaluation
+At 20 minutes, one 15-minute task was selected and the other was deferred. At 5 minutes, both 15-minute tasks were deferred. The household state stayed the same while the executable plan changed with user context.
+
+## Runtime verification
+
+The Docker Compose stack has been built and started successfully with:
+
+- PostgreSQL 17 healthy
+- backend migrations applied at startup
+- FastAPI `/health` returning HTTP 200
+- Next.js production frontend returning HTTP 200
+- persistent PostgreSQL and private-media volumes
+
+This establishes reproducible local runtime packaging. It does not claim a public production deployment.
 
 ## Scope control
 
-Do not spend the build window on:
+Do not weaken the core loop by chasing optional sponsor integrations or broad domain coverage.
 
-- custom foundation-model training
-- custom CV training
-- permanent household hardware
-- physical robotics
-- dozens of domains
-- safety-critical autonomous actions
+Still outside the verified MVP:
 
-The four representative domains are enough if the end-to-end behavior is convincing:
+- video/frame ingestion
+- production authentication and household membership
+- broad multi-domain perception benchmark
+- reliable cross-image physical-entity identity
+- background job orchestration
+- full historical plan/audit log
+- calendar/email/work-status integrations
+- physical robot execution
 
-- dishes
-- laundry
-- plant care
-- lawn / outdoor
+## Submission framing
 
-## Current submission readiness
+The submission should emphasize that HomHive separates:
 
-Backend deterministic foundation: strong
+```text
+observation != state != task
+importance != executability != fit
+entity identity != condition
+forecast != current state
+```
 
-External runtime integrations: pending
-
-Durable entity, observation, task, and media-metadata storage: implemented; automated application-wide orchestration and full audit history: pending
-
-Image upload and private storage: implemented; single-image MiniCPM perception available; scene completeness and video processing pending
-
-Frontend product flow: pending
-
-End-to-end demo: pending
-
-Evaluation: small real MiniCPM kitchen benchmark performed; representative coverage and calibration still pending
-
-## Verified perception foundation
-
-Nebius Token Factory MiniCPM vision inference is integrated into the authenticated media-to-observation API and has been exercised with actual stored images. Accepted output is stored as household-scoped evidence with unknown confidence preserved, rather than promoted directly into a household action. This is progress toward the demonstration, not proof that the required NVIDIA Nemotron runtime planning path or Tavily research integration is complete. Both remain separate implementation requirements for the intended hackathon submission.
-
-## Current vision evidence and constraints
-
-The local Day 15 regression suite reached 314 tests. Local `.env` support and a standalone vision-evaluation runner are available. The first five-image kitchen development benchmark exposed saturation in dish-load predictions; a revised rubric produced four completed cases and one failed case. Read-only multi-object scene inventory is implemented, but a successful live call detected only one drain in a multi-object kitchen. This is an unresolved quality limitation, not a demo-ready scene-understanding capability. NVIDIA Nemotron runtime integration and Tavily runtime research remain separate unfinished goals.
+The NVIDIA contribution is meaningful because Nemotron performs the cross-domain plan reasoning after HomHive has created structured household state and deterministic feasibility constraints. Tavily is meaningful because it supplies external evidence only where internal household knowledge is insufficient.
