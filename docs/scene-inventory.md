@@ -37,3 +37,7 @@ A live Nebius response was processed into a valid local JSON scene inventory aft
 The latest live kitchen scene run produced `entities: [{label: "drain", ...}]`, `needs_review: false`, and no rejected assessments. This passes structural validation but misses several visible items; a low entity count cannot be treated as an adequate inventory. Distinguish *format success*, *validated evidence structure*, and *perceptual completeness*.
 
 Future work should create a human-annotated object list per image and compare detection-only versus joint detection/condition prompting on separate images. Track missing objects, extra objects, unsupported condition evidence, latency, and cost. Do not merge the experimental inventory into household observation persistence until there are explicit, evaluated derivation rules.
+
+## Integration note
+
+Scene/category benchmark coverage and successful claim corroboration are distinct evaluations. The October 2026 live example had an unresolved room and a supported absence-of-plant-problem claim. Do not count it as successful room identification or as proof of complete scene understanding. This update does not modify image assets, canonical variant lineage, or dataset annotations.

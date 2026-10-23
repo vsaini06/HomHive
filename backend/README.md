@@ -97,3 +97,9 @@ docker compose ps
 - provider output is never persisted or executed without parsing and validation
 - web research is untrusted evidence
 - development household bearer tokens are not production authentication
+
+## Evidence-to-task safeguards
+
+Independent multimodal reviewers must corroborate a proposed visual claim before the observation is promoted. AI-corroborated visual evidence retains `confidence=None`: model agreement is a provenance fact, not a calibrated numeric confidence. The current numeric-confidence-only aggregator may omit those observations from condition snapshots and forecasts. This remains an explicit limitation, not something to fix by inventing a score.
+
+Refreshing household intelligence now evaluates **overdue** verification obligations against available, trusted follow-up evidence. No follow-up means `awaiting_evidence`, not automatic completion; future-due obligations stay unchanged. Task durations currently use condition-specific defaults; richer evidence-grounded time estimates are not yet implemented. Run `python -m pytest -q` from `backend/` with the project's dependencies installed.

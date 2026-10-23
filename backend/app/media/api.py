@@ -23,7 +23,7 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
             raise HTTPException(status_code=403, detail='Access denied')
 
     @router.post('', status_code=201)
-    async def upload_image(household_id: str, file: UploadFile, credentials: HTTPAuthorizationCredentials | None = Depends(bearer), location: str | None = Form(default=None), event_id: str | None = Form(default=None)):
+    async def upload_image(household_id: str, file: UploadFile, credentials: HTTPAuthorizationCredentials | None = Depends(bearer), location: str | None = Form(default=None), event_id: str | None = Form(default=None), defer_analysis: bool = Form(default=False)):
         authorize(household_id, credentials)
         if file.content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
             raise HTTPException(status_code=415, detail='Unsupported image type')
@@ -38,14 +38,14 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
                     source_id='phone-upload', source_type='phone',
                     event_id=event_id or str(uuid4()), content=data,
                     content_type=file.content_type, location_hint=location,
-                ))
+                ), defer_processing=defer_analysis)
             except ValueError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
             response['size_bytes'] = len(data)
             return response
         info = service.save_image(household_id, data)
         response = {'id': info.id, 'content_type': info.content_type, 'size_bytes': info.size_bytes}
-        if observation_processor is not None:
+        if observation_processor is not None and not defer_analysis:
             # A room label supplied by the user is context, not inferred identity.
             # Unknown is explicit when no location has been verified.
             resolved_location = (location or '').strip() or 'unknown'
@@ -61,6 +61,8 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
                 # The uploaded evidence remains persisted and can be retried by
                 # the existing extraction endpoint. Never expose provider errors.
                 response['processing'] = 'retry_required'
+        if defer_analysis:
+            response['processing'] = 'received'
         return response
 
     @router.get('/{media_id}')

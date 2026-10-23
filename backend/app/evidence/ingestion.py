@@ -40,7 +40,7 @@ class EvidenceIngestion:
         self._media = media
         self._processor = processor
 
-    def ingest(self, household_id: str, evidence: EvidenceInput) -> dict:
+    def ingest(self, household_id: str, evidence: EvidenceInput, *, defer_processing: bool = False) -> dict:
         if (not household_id or not evidence.source_id or not evidence.event_id
                 or len(evidence.source_id) > 128 or len(evidence.event_id) > 128):
             raise ValueError('Household, source and event identifiers are required')
@@ -84,6 +84,10 @@ class EvidenceIngestion:
                 if existing is None or existing.content_sha256 != digest:
                     raise ValueError('Conflicting event identifiers')
                 return self._result(existing, duplicate=True)
+        if defer_processing:
+            response = self._result(record, duplicate=False)
+            response["observations"] = []
+            return response
         return self._process(household_id, identity)
 
     def retry(self, household_id: str, source_id: str, event_id: str) -> dict:

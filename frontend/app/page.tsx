@@ -29,6 +29,8 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [scanProgress, setScanProgress] = useState<{ phase: "uploading" | "analyzing" | "done" | "error"; percent: number | null; mediaId: string | null; detail: string } | null>(null);
+
 
   const api = useMemo(
     () => new HomHiveApi(apiUrl.replace(/\/$/, ""), householdId, token),
@@ -77,7 +79,9 @@ export default function Home() {
       .map(item => item.metadata?.confirmed_observation_id)
       .filter((id): id is string => typeof id === "string" && id.length > 0),
   ), [history]);
-  const needsReview = (item: Observation) => item.confidence === null && !confirmedSourceIds.has(item.id);
+  const isAiCorroborated = (item: Observation) => item.metadata?.ai_verification === "multi_model_corroborated" || item.metadata?.ai_verification === "independently_corroborated";
+  const needsReview = (item: Observation) => item.confidence === null && !isAiCorroborated(item) && !confirmedSourceIds.has(item.id);
+  const evidenceStatus = (item: Observation) => isAiCorroborated(item) ? "AI corroborated" : needsReview(item) ? "Unverified evidence" : item.source === "user_input" ? "Human confirmed" : "Confidence recorded";
 
   const roomSummaries = useMemo(() => {
     const grouped = new Map<string, Observation[]>();
@@ -114,38 +118,50 @@ export default function Home() {
   }, [activeRoom, report]);
 
   async function upload() {
-    if (!file || !token) return;
-    const result = await run<MediaRecord>("Uploading and inspecting household photo...", () => api.upload(file, location));
-    if (result) {
-      setMedia(result);
-      setObservations(result.observations ?? []);
-      setPlan(null);
-      if (result.processing === "retry_required") {
-        setStatus("Photo saved, but analysis could not finish. You can retry below.");
-      } else if (result.processing === "needs_review") {
-        setStatus("Photo saved. HomHive needs more information to interpret it.");
-      } else if (result.processing === "processed") {
-        setStatus(result.observations?.length ? "Photo analyzed. Review the observations below." : "Photo analyzed. No supported conditions were found.");
-      } else {
-        setStatus("Photo saved. Analysis is pending or unavailable.");
-      }
-      if (result.processing === "processed" && result.observations?.length) {
-        await loadHousehold();
-        const detectedRoom = result.observations[0]?.location;
-        if (detectedRoom && detectedRoom !== "unknown") setSelectedRoom(detectedRoom);
-        setScanOpen(false);
-        setView("spaces");
-        setStatus(detectedRoom && detectedRoom !== "unknown"
-          ? `Photo analyzed · ${capitalizeFirst(display(detectedRoom))} detected. Review the observation.`
-          : "Photo analyzed. Review the observation in Spaces.");
-      } else if (result.observations?.length) await loadHousehold();
+    if (!file || !token || busy) return;
+    setBusy(true);
+    setStatus("Uploading your photo…");
+    setScanProgress({ phase: "uploading", percent: 0, mediaId: null, detail: "Securely saving your photo" });
+    try {
+      const stored = await api.upload(file, location, (percent) => {
+        setScanProgress(current => current?.phase === "uploading" ? { ...current, percent } : current);
+      });
+      setMedia(stored);
+      setScanOpen(false);
+      setView("home");
+      await analyzeSaved(stored.id, location || "unknown");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Upload failed";
+      setStatus(message);
+      setScanProgress(current => ({ phase: "error", percent: null, mediaId: current?.mediaId ?? null, detail: message }));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function analyzeSaved(mediaId: string, submittedLocation: string) {
+    setScanProgress({ phase: "analyzing", percent: null, mediaId, detail: "Examining your photo and corroborating visible conditions with independent AI reviewers" });
+    setStatus("Analyzing saved photo…");
+    try {
+      const result = await api.analyze(mediaId, submittedLocation);
+      setObservations(result.observations);
+      setScanProgress({ phase: "done", percent: 100, mediaId, detail: result.observations.length ? `${result.observations.length} verified observation(s) saved` : "Analysis completed; no supported observations were saved" });
+      setStatus("Analysis complete");
+      try { await loadHousehold(); }
+      catch { setStatus("Analysis complete. Refresh household to view updates."); }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Analysis could not be completed";
+      setScanProgress({ phase: "error", percent: null, mediaId, detail: message });
+      setStatus("Photo saved, but analysis needs another attempt");
     }
   }
 
   async function analyze() {
-    if (!media) return;
-    const result = await run<VisionResult>("Analyzing visible household conditions...", () => api.analyze(media.id, location || "unknown"));
-    if (result) { setObservations(result.observations); await loadHousehold(); }
+    const mediaId = scanProgress?.mediaId ?? media?.id;
+    if (!mediaId || busy) return;
+    setBusy(true);
+    try { await analyzeSaved(mediaId, location || "unknown"); }
+    finally { setBusy(false); }
   }
 
   async function confirm(observation: Observation) {
@@ -251,7 +267,8 @@ export default function Home() {
   ] as const;
 
   return (
-    <main className="hh-app">
+    <main className="hh-app" id="main-content">
+      <a className="hh-skip-link" href="#household-content">Skip to household content</a>
       <header className="hh-header">
         <div className="hh-brand"><span className="hh-mark" aria-hidden="true">⌂</span><span>HomHive<small>Household intelligence</small></span></div>
         <nav className="hh-nav" aria-label="Main navigation">
@@ -259,16 +276,25 @@ export default function Home() {
         </nav>
         <div className="hh-toolbar">{isConnected && <span className="hh-muted" aria-label="Connected household">Connected · {householdId}</span>}<button className="hh-scan" onClick={() => setScanOpen(true)}>＋ Scan</button><button className="hh-icon-button" aria-label="Open settings" onClick={() => setSettingsOpen(true)}>⚙</button></div>
       </header>
-      <div className="hh-live" role="status" aria-live="polite"><span className={busy ? "pulse" : "dot"}/>{status}</div>
+      <div id="household-content" className="hh-live" role="status" aria-live="polite"><span className={busy ? "pulse" : "dot"}/>{status}</div>
+
+      {scanProgress && <section className={`hh-analysis-card hh-analysis-${scanProgress.phase}`} role="status" aria-live="polite" aria-label="Photo analysis progress">
+        <div className="hh-panel-head"><div><p className="hh-kicker">Household scan</p><h2>{scanProgress.phase === "uploading" ? "Saving your photo" : scanProgress.phase === "analyzing" ? "Analyzing your space" : scanProgress.phase === "done" ? "Analysis complete" : "Analysis needs attention"}</h2></div>{scanProgress.phase === "done" && <button className="hh-icon-button" aria-label="Dismiss completed scan" onClick={() => setScanProgress(null)}>✕</button>}</div>
+        <p>{scanProgress.detail}</p>
+        <div className={`hh-analysis-track ${scanProgress.percent === null ? "hh-analysis-indeterminate" : ""}`} role="progressbar" aria-label={scanProgress.phase === "uploading" ? "Photo upload" : "Photo analysis"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={scanProgress.percent === null ? undefined : scanProgress.percent}>
+          <div className="hh-analysis-fill" style={scanProgress.percent === null ? undefined : { width: `${scanProgress.percent}%` }}/>
+        </div>
+        <div className="hh-analysis-footer"><small>{scanProgress.phase === "uploading" ? `${scanProgress.percent ?? 0}% uploaded` : scanProgress.phase === "analyzing" ? "Analysis in progress · completion time varies" : scanProgress.phase === "done" ? "100% complete" : "Your original photo is retained"}</small>{scanProgress.phase === "error" && scanProgress.mediaId && <button disabled={busy} onClick={analyze}>Retry analysis</button>}</div>
+      </section>}
 
       {!token && <section className="hh-notice" role="status"><strong>Connect your household</strong><span>Add your household token in Settings to load saved work.</span><button onClick={() => setSettingsOpen(true)}>Open Settings</button></section>}
 
       {view === "home" && <section className="hh-view">
-        <div className="hh-view-title"><div><p className="hh-kicker">Your household</p><h1>Overview</h1><p>A clear view of what matters at home.</p></div><button className="secondary" disabled={busy || !token} onClick={loadHousehold}>↻ Refresh</button></div>
+        <div className="hh-view-title"><div><p className="hh-kicker">HomHive / Home intelligence</p><h1>Good to be home.</h1><p>Your home, understood. The right actions, at the right time.</p></div><button className="secondary" disabled={busy || !token} onClick={loadHousehold}>↻ Refresh</button></div>
         {isConnected && <div className="hh-stats">
           <button onClick={() => setView("spaces")}><span>Spaces</span><strong>{roomSummaries.length}</strong><small>Rooms with saved observations</small></button>
           <button onClick={() => setView("tasks")}><span>Accepted work</span><strong>{acceptedTasks.length}</strong><small>Ready for planning</small></button>
-          <button onClick={() => setView("activity")}><span>Needs review</span><strong>{pendingCount}</strong><small>Observations awaiting confirmation</small></button>
+          <button onClick={() => setView("activity")}><span>Needs review</span><strong>{pendingCount}</strong><small>Evidence awaiting verification</small></button>
         </div>}
         {isConnected && nextSuggestion && <section className="hh-panel" aria-label="Household recommendation">
           <p className="hh-kicker">Suggested for you</p>
@@ -304,11 +330,11 @@ export default function Home() {
         <div className="hh-panel"><h2>Accepted <span className="hh-mini-count">{acceptedTasks.length}</span></h2>{!report ? <p className="hh-empty">Accepted work appears here.</p> : acceptedTasks.length === 0 ? <p className="hh-empty">Accepted tasks will appear here.</p> : <div className="hh-compact-list">{acceptedTasks.map(({task}) => <div className="hh-task-row" key={task.id}><div><strong>{capitalizeFirst(task.description.replace(/ in unknown$/i, ""))}</strong><p>{task.estimated_effort_minutes} min · {task.metadata?.verification_status === "verified_resolved" ? "Verified" : task.metadata?.user_reported_complete_at ? "Awaiting verification" : "Accepted"}</p></div>{task.metadata?.user_reported_complete_at ? <span className="hh-status-pill">Verification pending</span> : <button disabled={busy || !token} onClick={() => markDone(task.id)}>Done</button>}</div>)}</div>}</div>
       </section>}
 
-      {view === "activity" && <section className="hh-view"><div className="hh-view-title"><div><p className="hh-kicker">Timeline</p><h1>Activity</h1><p>Past observations and decisions, with uncertainty preserved.</p></div><button className="secondary" disabled={busy || !token} onClick={loadHousehold}>↻ Refresh</button></div>
-        <section className="hh-panel">{!historyLoaded ? <p className="hh-empty">Load household history to see activity.</p> : history.length === 0 ? <p className="hh-empty">Your household activity will appear after your first scan.</p> : <div className="hh-compact-list">{[...history].sort((a,b)=>b.timestamp.localeCompare(a.timestamp)).map(item => <div key={item.id} className="hh-history-entry"><strong>{capitalizeFirst(display(item.location))} · {conditionSummary(item)}</strong><p>{needsReview(item) ? "Needs review" : "Confirmed"} · {new Date(item.timestamp).toLocaleString()}</p><details><summary>Evidence</summary><p>{observationEvidence(item)}</p><small>{displayCategory(item.category)} · Estimated level {Math.round(item.value * 100)}%</small></details></div>)}</div>}</section>
+      {view === "activity" && <section className="hh-view"><div className="hh-view-title"><div><p className="hh-kicker">Timeline</p><h1>Activity</h1><p>A transparent record of household evidence, decisions, and uncertainty.</p></div><button className="secondary" disabled={busy || !token} onClick={loadHousehold}>↻ Refresh</button></div>
+        <section className="hh-panel">{!historyLoaded ? <p className="hh-empty">Load household history to see activity.</p> : history.length === 0 ? <p className="hh-empty">Your household activity will appear after your first scan.</p> : <div className="hh-compact-list">{[...history].sort((a,b)=>b.timestamp.localeCompare(a.timestamp)).map(item => <div key={item.id} className="hh-history-entry"><strong>{capitalizeFirst(display(item.location))} · {conditionSummary(item)}</strong><p>{needsReview(item) ? "Unverified" : evidenceStatus(item)} · {new Date(item.timestamp).toLocaleString()}</p><details><summary>Evidence</summary><p>{observationEvidence(item)}</p><small>{displayCategory(item.category)} · Estimated level {Math.round(item.value * 100)}%</small></details></div>)}</div>}</section>
       </section>}
 
-      {scanOpen && <div className="hh-modal-backdrop" onClick={() => setScanOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="hh-scan-title" className="hh-modal" onClick={e=>e.stopPropagation()}><div className="hh-panel-head"><h2 id="hh-scan-title">Scan a space</h2><button className="hh-icon-button" aria-label="Close scan" onClick={() => setScanOpen(false)}>✕</button></div><details><summary>Room (optional)</summary><label>Room label<input value={location} placeholder="Add a room name if known" onChange={e => setLocation(e.target.value)}/></label><p className="hh-muted">HomHive may suggest a room category, but it will not guess which physical room it is.</p></details><label>Photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => {setFile(e.target.files?.[0] ?? null);setMedia(null);setObservations([]);}}/></label>{!token && <div className="hh-pending" role="status"><strong>Connect to upload</strong><p>Enter your household token in Settings to keep this scan private.</p><button type="button" className="secondary" onClick={() => {setScanOpen(false);setSettingsOpen(true);}}>Open Settings</button></div>}{file && token && <p className="hh-muted">Ready to upload. HomHive will analyze the photo automatically.</p>}<div className="hh-task-actions"><button disabled={busy || !file || !token} onClick={upload}>{busy ? "Working…" : "Upload and analyze"}</button>{media?.processing === "retry_required" && <button className="secondary" disabled={busy || !token} onClick={analyze}>Retry analysis</button>}</div>{observations.length > 0 && <div className="hh-compact-list"><h3>Observations</h3>{observations.map(item => <div className="hh-history-entry" key={item.id}><strong>{conditionSummary(item)}</strong><p>{observationEvidence(item)}</p><small>{needsReview(item) ? "Needs confirmation" : "Confirmed"}</small>{needsReview(item) && <button disabled={busy} onClick={() => confirm(item)}>Confirm observation</button>}</div>)}</div>}<p className="hh-muted">Confirming an observation is separate from accepting a suggested task.</p></section></div>}
+      {scanOpen && <div className="hh-modal-backdrop" onClick={() => setScanOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="hh-scan-title" className="hh-modal" onClick={e=>e.stopPropagation()}><div className="hh-panel-head"><h2 id="hh-scan-title">Scan a space</h2><button className="hh-icon-button" aria-label="Close scan" onClick={() => setScanOpen(false)}>✕</button></div><details><summary>Room (optional)</summary><label>Room label<input value={location} placeholder="Add a room name if known" onChange={e => setLocation(e.target.value)}/></label><p className="hh-muted">HomHive may suggest a room category, but it will not guess which physical room it is.</p></details><label>Photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => {setFile(e.target.files?.[0] ?? null);setMedia(null);setObservations([]);}}/></label>{!token && <div className="hh-pending" role="status"><strong>Connect to upload</strong><p>Enter your household token in Settings to keep this scan private.</p><button type="button" className="secondary" onClick={() => {setScanOpen(false);setSettingsOpen(true);}}>Open Settings</button></div>}{file && token && <p className="hh-muted">Ready to upload. HomHive will analyze the photo automatically.</p>}<div className="hh-task-actions"><button disabled={busy || !file || !token} onClick={upload}>{busy ? "Working…" : "Upload and analyze"}</button>{media?.processing === "retry_required" && <button className="secondary" disabled={busy || !token} onClick={analyze}>Retry analysis</button>}</div>{observations.length > 0 && <div className="hh-compact-list"><h3>Observations</h3>{observations.map(item => <div className="hh-history-entry" key={item.id}><strong>{conditionSummary(item)}</strong><p>{observationEvidence(item)}</p><small>{needsReview(item) ? "Unverified" : evidenceStatus(item)}</small>{needsReview(item) && <button disabled={busy} onClick={() => confirm(item)}>Confirm observation</button>}</div>)}</div>}<p className="hh-muted">AI-corroborated observations do not require routine confirmation. Accepting a task is a separate decision.</p></section></div>}
 
       {settingsOpen && <div className="hh-modal-backdrop" onClick={() => setSettingsOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="hh-settings-title" className="hh-modal" onClick={e=>e.stopPropagation()}><div className="hh-panel-head"><h2 id="hh-settings-title">Settings</h2><button className="hh-icon-button" aria-label="Close settings" onClick={() => setSettingsOpen(false)}>✕</button></div><label>Household<input value={householdId} onChange={e => setHouseholdId(e.target.value)}/></label><label>Household token<input type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder="Enter household token"/></label><details><summary>Connection diagnostics</summary><label>API URL<input value={apiUrl} onChange={e=>setApiUrl(e.target.value)}/></label><p className="hh-muted">Your token stays in this browser session. Never share it in chat.</p></details><details><summary>Presence (optional)</summary><p className="hh-muted">Manually share whether you're home. This is not automatic location tracking and expires after one hour.</p><p className="hh-muted">Current: {presence?.state ?? "UNKNOWN"}</p><div className="hh-task-actions"><button className="secondary" disabled={!token || busy} onClick={() => changePresence("HOME")}>I'm home</button><button className="secondary" disabled={!token || busy} onClick={() => changePresence("AWAY")}>I'm away</button><button className="secondary" disabled={!token || busy} onClick={() => changePresence("UNKNOWN")}>Stop sharing</button></div></details><button disabled={busy || !token || !householdId.trim()} onClick={async()=>{await loadHousehold();setSettingsOpen(false);}}>Load household</button></section></div>}
     </main>

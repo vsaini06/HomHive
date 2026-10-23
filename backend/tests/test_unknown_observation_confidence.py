@@ -73,7 +73,7 @@ def test_vision_service_stores_unknown_confidence_and_provenance():
                          if owner == household_id and observation.id == observation_id), None)
 
     store = Store()
-    result, created = VisionObservationService(Media(), Provider(), store).extract_and_store("home", "media1", "kitchen")
+    result, created = VisionObservationService(Media(), Provider(), store, verifier=AcceptingImageReviewer(), additional_verifier=AcceptingImageReviewer(), require_verification=True).extract_and_store("home", "media1", "kitchen")
     assert len(created) == 1
     assert created[0].confidence is None
     metadata = created[0].metadata
@@ -107,3 +107,17 @@ def test_review_required_does_not_persist():
     result, created = VisionObservationService(Media(), Provider(), Store()).extract_and_store("home", "media1", "kitchen")
     assert result.needs_review
     assert created == []
+
+
+class AcceptingImageReviewer:
+    """Deterministic positive review fixture; live services require real reviewers."""
+    def review(self, image, content_type, proposed):
+        from app.vision.verification import IndependentReview, VerifiedClaim
+        from app.vision.provider import SpaceCategory
+        return IndependentReview(
+            space_category=proposed.space_category or SpaceCategory.UNKNOWN,
+            room_supported=(proposed.space_category or SpaceCategory.UNKNOWN) != SpaceCategory.UNKNOWN,
+            claims=[VerifiedClaim(category=c.category.value, visible=True,
+                                  evidence_supported=True, workload_supported=True)
+                    for c in proposed.candidates],
+        )

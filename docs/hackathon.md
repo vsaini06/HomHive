@@ -150,3 +150,7 @@ forecast != current state
 ```
 
 The NVIDIA contribution is meaningful because Nemotron performs the cross-domain plan reasoning after HomHive has created structured household state and deterministic feasibility constraints. Tavily is meaningful because it supplies external evidence only where internal household knowledge is insufficient.
+
+## Demonstration integrity
+
+In the October 2026 local demonstration, a stored image produced a claim corroborated by independent OpenAI and Anthropic reviews, preserving unknown room identity and avoiding a plant-care task from a healthy-plant observation. The dashboard labels AI corroboration without asking for routine human confirmation. Do not represent fixed task-duration defaults as evidence-researched time estimates, or a user's Done report as verified completion.

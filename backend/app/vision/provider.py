@@ -6,7 +6,7 @@ import os
 from typing import Protocol
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, PrivateAttr
 
 from app.config import load_local_environment
 from app.media.service import MAX_IMAGE_BYTES, MediaService, detected_image_type
@@ -43,6 +43,8 @@ class VisionExtraction(BaseModel):
     needs_review: bool
     # An inferred category is a hint, not a verified physical room identity.
     space_category: SpaceCategory | None = None
+    # Request-local diagnostics; excluded from provider schema and persistence.
+    _verification_diagnostics: dict = PrivateAttr(default_factory=dict)
 
 
 class VisionProvider(Protocol):
@@ -168,11 +170,12 @@ class NebiusVisionProvider:
 
                         'Use the provided location verbatim; unknown is valid. '
 
-                        'If no supported condition can be observed, or '
-                        'visibility is too ambiguous to judge, return '
+                        'If no supported condition can be observed, return '
                         '{"candidates": [], "needs_review": true, "space_category": "unknown"}. '
-
-                        'Otherwise return needs_review false. '
+                        'If visible condition candidates exist but any are uncertain, '
+                        'include only directly supported candidates and set needs_review true; '
+                        'independent image verification will decide whether to accept them. '
+                        'For clear candidates set needs_review false. '
                         'Never provide a confidence score.'
                     ),
                 },
@@ -227,20 +230,24 @@ class NebiusVisionProvider:
                            [(str(error['loc']), error['type']) for error in exc.errors()])
             raise ValueError('Invalid vision provider response') from exc
 
-        if (
-            (not result.candidates and not result.needs_review)
-            or (result.candidates and result.needs_review)
-        ):
-            logger.warning('Vision validation rejected: inconsistent review state')
+        # A nonempty candidate list can legitimately require further review.
+        # Do not confuse the primary model's uncertainty with schema invalidity.
+        # Empty unreviewed results remain invalid; no candidates means no
+        # evidence to verify or persist.
+        if not result.candidates and not result.needs_review:
+            logger.warning(
+                'Vision validation rejected: inconsistent review state '
+                '(candidate_count=%d, needs_review=%s)',
+                len(result.candidates), result.needs_review,
+            )
             raise ValueError('Inconsistent vision review status')
 
         for candidate in result.candidates:
+            # The model may infer a room category, not an authoritative room identity.
+            # Preserve the caller's location without discarding independently
+            # verifiable scene evidence when the model proposes another label.
             if candidate.location != location:
-                logger.warning('Vision validation rejected: candidate location differs from requested location')
-                raise ValueError(
-                    f'Vision location mismatch: expected {location!r}, '
-                    f'received {candidate.location!r}'
-                )
+                candidate.location = location
 
             if candidate.category == ConditionType.MAINTENANCE_STATUS:
                 logger.warning('Vision validation rejected: unsupported category')

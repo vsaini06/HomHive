@@ -33,6 +33,7 @@ def build_vision_router(service: VisionObservationService, household_tokens: Map
         if result is None:
             raise HTTPException(status_code=404, detail="Media not found")
         extraction, observations = result
-        return {"needs_review": extraction.needs_review, "observations": [observation.model_dump(mode="json") for observation in observations]}
+        return {"needs_review": extraction.needs_review, "observations": [observation.model_dump(mode="json") for observation in observations],
+                "verification": extraction._verification_diagnostics}
 
     return router

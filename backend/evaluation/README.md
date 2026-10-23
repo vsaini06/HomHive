@@ -57,3 +57,7 @@ python -m evaluation.run_scene --image evaluation/images/kitchen_light_01_small.
 ```
 
 The command calls Nebius but does not write household data. Its initial successful live response returned only one drain for a kitchen with multiple visible objects. The inventory is structurally validated but not completeness-calibrated. See `../../docs/scene-inventory.md`.
+
+## Interpretation note
+
+Evaluation data measures scene visibility, candidate extraction and reviewer agreement separately. A corroborated negative observation is not an actionable task; an observation with `confidence=None` remains distinct from a calibrated-confidence result. The present integration adds no new evaluation dataset or fabricated accuracy statistics.

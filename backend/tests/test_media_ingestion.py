@@ -150,3 +150,26 @@ def test_ingestion_processor_failure_preserves_original_media_for_safe_retry(tmp
         assert 'private provider diagnostics' not in resp.text
         assert media.get_image('home', resp.json()['id']) is not None
     engine.dispose()
+
+
+def test_deferred_upload_returns_saved_media_without_running_analysis(tmp_path):
+    engine = create_engine(f'sqlite+pysqlite:///{tmp_path / "defer.sqlite"}')
+    Base.metadata.create_all(engine, tables=[MediaRecord.__table__])
+    media = MediaService(sessionmaker(engine), LocalMediaStorage(tmp_path / 'private'))
+    class Processor:
+        called = False
+        def extract_and_store(self, *args):
+            self.called = True
+            raise AssertionError("Analysis must not run inside deferred upload")
+    processor = Processor()
+    app = FastAPI()
+    app.include_router(build_media_router(media, {'home': 'secret'}, processor))
+    with TestClient(app) as client:
+        response = client.post('/households/home/media', headers={'Authorization': 'Bearer secret'},
+                               files={'file': ('photo.png', PNG, 'image/png')},
+                               data={'location': 'unknown', 'defer_analysis': 'true'})
+    assert response.status_code == 201
+    assert response.json()['processing'] == 'received'
+    assert processor.called is False
+    assert media.get_image('home', response.json()['id']) is not None
+    engine.dispose()

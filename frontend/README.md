@@ -60,3 +60,11 @@ The interface exposes:
 - plan generation and deferred-work explanations
 
 A live browser scenario verified that changing only available active time from 20 minutes to 5 minutes changed the plan while preserving the underlying household work.
+
+## Current interface
+
+HomHive provides Home, Spaces, Tasks, and Activity views, private photo upload, an evidence timeline, household connection settings, and action controls (Accept, Later, Dismiss, Done). The responsive design uses a shared typographic system, improved focus treatment, reduced-motion support, and semantic status announcements. The UI now labels explicitly corroborated AI observations distinctly from human-confirmed observations. An unknown room remains unknown rather than being inferred from a task description.
+
+Use `npm ci`, `npm run typecheck`, and `npm run build` inside `frontend/` to validate dependencies, TypeScript and the production bundle. Configure `NEXT_PUBLIC_HOMHIVE_API_URL` where needed. Authentication tokens are entered into the client session; do not put household tokens in `NEXT_PUBLIC_` variables or commits.
+
+**Not yet proven:** comprehensive accessibility audits, cross-browser/mobile device testing, and production readiness. A polished shell does not itself establish complete product workflows.

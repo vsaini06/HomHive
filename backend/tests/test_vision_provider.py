@@ -38,7 +38,6 @@ def test_uncertain_image_produces_no_observation():
 @pytest.mark.parametrize('reply', [
     'not json',
     '{"candidates":[{"category":"dish_load","value":1.8,"location":"kitchen"}],"needs_review":false}',
-    '{"candidates":[{"category":"dish_load","value":0.8,"location":"other"}],"needs_review":false}',
     '{"candidates":[{"category":"maintenance_status","value":0.8,"location":"kitchen"}],"needs_review":false}',
     '{"candidates":[],"needs_review":false,"confidence":0.9}',
 ])
@@ -110,3 +109,24 @@ def test_invalid_fenced_provider_json_still_rejected():
     client = FakeClient('```json\n{"candidates": [], "needs_review": false}\n```')
     with pytest.raises(ValueError, match='Inconsistent vision review status'):
         NebiusVisionProvider(client=client).extract(b'\xff\xd8\xffexample', 'image/jpeg', 'kitchen')
+
+
+def test_candidates_needing_review_are_valid_primary_evidence():
+    client = FakeClient('{"candidates":[{"category":"dish_load","value":0.6,"location":"unknown","visible_evidence":"Several dishes in visible sink"}],"needs_review":true,"space_category":"kitchen"}')
+    result = NebiusVisionProvider(client=client).extract(b'\xff\xd8\xffexample', 'image/jpeg', 'unknown')
+    assert result.needs_review is True
+    assert len(result.candidates) == 1
+    assert result.space_category.value == 'kitchen'
+
+
+def test_empty_candidates_without_review_still_rejected():
+    client = FakeClient('{"candidates":[],"needs_review":false,"space_category":"kitchen"}')
+    with pytest.raises(ValueError, match='Inconsistent vision review status'):
+        NebiusVisionProvider(client=client).extract(b'\xff\xd8\xffexample', 'image/jpeg', 'unknown')
+
+
+def test_inferred_room_cannot_override_requested_physical_location():
+    client = FakeClient('{"candidates":[{"category":"dish_load","value":0.8,"location":"kitchen","visible_evidence":"Visible stacked dishes in sink"}],"needs_review":false,"space_category":"kitchen"}')
+    result = NebiusVisionProvider(client=client).extract(b"\xff\xd8\xffimage", "image/jpeg", "unknown")
+    assert result.candidates[0].location == "unknown"
+    assert result.space_category.value == "kitchen"

@@ -123,3 +123,51 @@ html, body { max-width: 100%; overflow-x: clip; }
   .hh-stats button { display:flex; align-items:center; gap:.6rem; }
   .hh-nav button { font-size:.69rem; }
 }
+
+/* Refined product design system: consistent rhythm, accessible contrast and hierarchy. */
+:root{--hh-ink:#15281d;--hh-muted:#586b60;--hh-surface:#fff;--hh-canvas:#f3f6f1;--hh-accent:#17482f;--hh-ring:#2c7750}
+body{background:linear-gradient(160deg,#ecf3ed 0%,#f8faf7 42%,#f1f4f1 100%);color:var(--hh-ink);font-feature-settings:"kern"}
+.hh-app{width:min(1240px,calc(100% - 3rem))}
+.hh-header{padding:1rem .2rem;border-color:#dae5dc;background:rgba(248,250,247,.92)}
+.hh-brand{letter-spacing:-.035em;font-size:1.21rem}
+.hh-mark{background:linear-gradient(140deg,#245c3c,#123c29);box-shadow:0 6px 18px #19432d28}
+.hh-view-title{margin:2.2rem 0 1.45rem;align-items:flex-end}
+.hh-view-title h1{font-size:clamp(2.25rem,4.25vw,3.8rem);font-weight:800;letter-spacing:-.065em;line-height:1.03;margin:.42rem 0 .65rem}
+.hh-view-title p{font-size:clamp(.91rem,1.6vw,1.08rem);color:var(--hh-muted)}
+.hh-kicker{letter-spacing:.16em!important;color:#416f52!important}
+.hh-panel{border-radius:22px;padding:clamp(1.1rem,2.1vw,1.7rem);border-color:#e1e8e0;box-shadow:0 12px 35px #142c1b0b;transition:box-shadow .18s ease}
+.hh-panel:hover{box-shadow:0 14px 38px #142c1b14}
+.hh-stats{gap:1rem}.hh-stats button{border-radius:20px;padding:clamp(1rem,2.2vw,1.5rem);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.hh-stats button:hover{transform:translateY(-2px);border-color:#bad5be;box-shadow:0 8px 24px #17351f12}
+.hh-stats button strong{font-size:clamp(1.8rem,3.1vw,2.5rem);letter-spacing:-.045em}
+.hh-stats button small{line-height:1.45}
+.hh-scan{background:#164c31;box-shadow:0 5px 16px #164c3127}
+.hh-room-row:hover{background:#f2f7f2}.hh-task-row:hover{background:#fbfdfa}
+.hh-task-row{padding:1.12rem .4rem}.hh-task-row strong{line-height:1.35}
+.hh-history-entry{padding:1.12rem .2rem}.hh-history-entry strong{line-height:1.45}
+.hh-modal{border:1px solid #e2e9e1;box-shadow:0 28px 100px #081d0d45;padding:clamp(1.3rem,3vw,2rem)}
+.hh-app button,.hh-modal button{transition:filter .15s ease,background-color .15s ease,transform .15s ease}
+.hh-app button:hover:not(:disabled){filter:brightness(.97)}
+.hh-app button:focus-visible,.hh-app input:focus-visible,.hh-app summary:focus-visible,.hh-skip-link:focus-visible{outline:3px solid var(--hh-ring);outline-offset:3px}
+.hh-skip-link{position:absolute;left:1rem;top:-5rem;z-index:100;background:#fff;color:#17482f;padding:.8rem 1rem;border-radius:10px}.hh-skip-link:focus{top:.5rem}
+.hh-live{min-height:38px;font-weight:550;color:#476350}
+.hh-muted,.hh-empty,.hh-history-entry p,.hh-task-row p{color:var(--hh-muted)}
+.hh-notice{background:#e8f2e8;border-color:#c2dac6}
+.hh-panel details p{overflow-wrap:anywhere}
+@media(max-width:760px){.hh-app{width:calc(100% - 1.4rem)}.hh-view-title{margin:1.35rem 0 1rem}.hh-panel{margin:.6rem 0}.hh-header{padding:.7rem 0}.hh-stats{gap:.5rem}.hh-stats button:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){.hh-view,.hh-panel,.hh-stats button,.hh-app button,.pulse{animation:none!important;transition:none!important}}
+
+/* Saved-photo progress stays on the main screen after the upload dialog closes. */
+.hh-analysis-card{background:#fff;border:1px solid #dbe7db;border-radius:18px;padding:1.1rem 1.25rem;margin:1rem 0;box-shadow:0 8px 28px #1a46300d}
+.hh-analysis-card h2{margin:.3rem 0;font-size:1.1rem;letter-spacing:-.025em}
+.hh-analysis-card p{font-size:.87rem;color:#536a59;margin:.4rem 0 1rem}
+.hh-analysis-track{height:9px;border-radius:30px;overflow:hidden;background:#e6efe7;position:relative}
+.hh-analysis-fill{height:100%;width:0;background:linear-gradient(90deg,#2a7551,#60a77b);border-radius:inherit;transition:width .18s ease-out}
+.hh-analysis-indeterminate .hh-analysis-fill{position:absolute;width:32%;animation:hh-scan-progress 1.8s ease-in-out infinite}
+.hh-analysis-footer{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-top:.65rem}
+.hh-analysis-footer small{color:#536a59;font-size:.76rem}
+.hh-analysis-error{border-color:#e7c3ad}
+.hh-analysis-error .hh-analysis-track{background:#f5e8e3}
+.hh-analysis-footer button{border-radius:10px;padding:.52rem .8rem}
+@keyframes hh-scan-progress{0%{left:-35%}100%{left:105%}}
+@media (prefers-reduced-motion: reduce){.hh-analysis-indeterminate .hh-analysis-fill{animation:none;left:0;width:100%;opacity:.55}}

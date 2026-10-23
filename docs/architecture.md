@@ -524,3 +524,9 @@ ranked tasks + user context
 ```
 
 The reasoning model may explain and choose among feasible work, but it cannot create unknown work or override hard execution constraints.
+
+## Evidence trust and refresh semantics
+
+Visual providers produce candidate observations. Two independent vision reviewers corroborate individual claims; the resulting provenance is retained as `ai_verification=multi_model_corroborated`. This provenance does not represent human confirmation or a numeric confidence estimate. Legacy confidence-based forecast and task triggers still require calibrated confidence and intentionally exclude null-confidence data.
+
+`refresh_household_intelligence` reconstructs state, evaluates overdue completion obligations from trusted follow-up observations, then performs existing reactive/forecast decisions and ranking. It does not inspect new photos during refresh and does not assert that a reported completion has been physically verified.

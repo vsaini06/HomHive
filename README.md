@@ -260,3 +260,9 @@ The development bearer-token mapping is a local authentication mechanism, not a 
 ## License
 
 MIT
+
+## Interface and verification integration (October 2026)
+
+The web client separates **AI-corroborated**, **human-confirmed**, and **unverified** observations. Agreement between independent vision reviewers does not create a synthetic numeric confidence or a human confirmation. Reusing a processed media ID returns the persisted observation rather than initiating another analysis. The household intelligence refresh advances overdue completion checks using existing trusted evidence; it never treats the user's Done action as proof that a condition was resolved.
+
+Local setup uses both root and backend `.env` files. Keep secrets out of version control. Existing process variables may override file values, so verify which terminal starts Uvicorn after rotating a provider credential. The current task estimator still uses deterministic category defaults; evidence-grounded research estimates remain planned work. See `docs/current-state.md` for limitations and `frontend/README.md` for the interface.

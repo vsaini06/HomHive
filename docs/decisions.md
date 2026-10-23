@@ -471,3 +471,11 @@ Available active time, passive time, at-home requirements, quiet hours, and expl
 **Status:** Accepted
 
 Tavily results are external evidence, not household truth. Provider-specific responses are normalized into HomHive research models, source metadata is retained, and durable cache entries are scoped by household. Research is conditional and should not be invoked for routine facts already represented by deterministic household logic.
+
+## Decision: Preserve AI provenance rather than synthesizing confidence
+
+An independently corroborated visual claim may be persisted with unknown numeric confidence. Do not convert model agreement to `0.9` or `1.0` without calibration. The UI must display AI corroboration as its own status. Confidence-weighted forecasting and task triggering require future integration work to consume these claims safely.
+
+## Decision: Refresh overdue verification without new inference
+
+On refresh, evaluate obligations only when their deadline has passed. Use existing trusted follow-up evidence; otherwise retain pending work and record an `awaiting_evidence` state. No paid vision request is initiated implicitly.

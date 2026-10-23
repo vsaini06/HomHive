@@ -112,16 +112,34 @@ export class HomHiveApi {
     return response.json() as Promise<T>;
   }
 
-  async upload(file: File, location?: string): Promise<MediaRecord> {
+  async upload(file: File, location?: string, onProgress?: (percent: number) => void): Promise<MediaRecord> {
     const form = new FormData();
     form.append("file", file);
     if (location) form.append("location", location);
-    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/media`, {
-      method: "POST",
-      headers: this.headers(false),
-      body: form,
+    form.append("defer_analysis", "true");
+    return new Promise<MediaRecord>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/media`);
+      xhr.setRequestHeader("Authorization", `Bearer ${this.token}`);
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Could not upload photo. Check your connection."));
+      xhr.onabort = () => reject(new Error("Photo upload was cancelled."));
+      xhr.onload = () => {
+        let body: Record<string, unknown>;
+        try { body = JSON.parse(xhr.responseText) as Record<string, unknown>; }
+        catch { reject(new Error(`Unexpected upload response (HTTP ${xhr.status}).`)); return; }
+        if (xhr.status < 200 || xhr.status >= 300) {
+          reject(new Error(typeof body.detail === "string" ? body.detail : `Upload failed (HTTP ${xhr.status}).`));
+          return;
+        }
+        resolve(body as unknown as MediaRecord);
+      };
+      xhr.send(form);
     });
-    return this.parse<MediaRecord>(response);
   }
 
   async analyze(mediaId: string, location: string): Promise<VisionResult> {

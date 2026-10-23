@@ -20,7 +20,7 @@ def test_category_hint_does_not_invent_specific_room_identity():
         def get_image(self, household, media_id):
             return SimpleNamespace(content_type='image/jpeg'), b'\xff\xd8\xffcontent'
     observations=InMemoryObservationRepository()
-    result, created = VisionObservationService(Media(), provider, observations).extract_and_store('home','photo-1','unknown')
+    result, created = VisionObservationService(Media(), provider, observations, verifier=AcceptingImageReviewer(), additional_verifier=AcceptingImageReviewer(), require_verification=True).extract_and_store('home','photo-1','unknown')
     assert result.space_category == SpaceCategory.KITCHEN
     assert created[0].location == 'kitchen'
     assert created[0].metadata['location_provenance'] == 'scene_inferred_category'
@@ -48,7 +48,7 @@ def test_laundry_scene_sets_category_without_claiming_room_identity():
         def get_image(self, household, media_id):
             return SimpleNamespace(content_type='image/jpeg'), b'\xff\xd8\xffcontent'
     storage = InMemoryObservationRepository()
-    service = VisionObservationService(Media(), NebiusVisionProvider(client=FakeClient(response)), storage)
+    service = VisionObservationService(Media(), NebiusVisionProvider(client=FakeClient(response)), storage, verifier=AcceptingImageReviewer(), additional_verifier=AcceptingImageReviewer(), require_verification=True)
     first, created = service.extract_and_store('home', 'laundry-photo', 'unknown')
     assert first.space_category == SpaceCategory.LAUNDRY_ROOM
     assert created[0].location == 'laundry_room'
@@ -57,3 +57,17 @@ def test_laundry_scene_sets_category_without_claiming_room_identity():
     assert again.space_category == SpaceCategory.LAUNDRY_ROOM
     assert repeated[0].id == created[0].id
     assert len(storage.list_observations('home')) == 1
+
+
+class AcceptingImageReviewer:
+    """Deterministic positive review fixture; live services require real reviewers."""
+    def review(self, image, content_type, proposed):
+        from app.vision.verification import IndependentReview, VerifiedClaim
+        from app.vision.provider import SpaceCategory
+        return IndependentReview(
+            space_category=proposed.space_category or SpaceCategory.UNKNOWN,
+            room_supported=(proposed.space_category or SpaceCategory.UNKNOWN) != SpaceCategory.UNKNOWN,
+            claims=[VerifiedClaim(category=c.category.value, visible=True,
+                                  evidence_supported=True, workload_supported=True)
+                    for c in proposed.candidates],
+        )

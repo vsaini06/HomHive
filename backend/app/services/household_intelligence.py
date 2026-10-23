@@ -60,6 +60,18 @@ def refresh_household_intelligence(
 ) -> HouseholdIntelligence:
     state = reconstruct_household_state(household_id, observations)
     existing_tasks = tasks.list_tasks(household_id)
+    # An explicit refresh advances overdue verification using only available
+    # trusted evidence; a user's completion report never counts as proof.
+    from app.automation.verification import evaluate, parse_time
+    now = datetime.now(timezone.utc)
+    for task in existing_tasks:
+        meta = task.metadata
+        due_at = parse_time(meta.get("verification_due_at"))
+        if (meta.get("user_reported_complete_at") and due_at is not None
+                and due_at <= now and meta.get("verification_status")
+                not in {"verified_resolved", "verified_persisting", "expired"}):
+            updated = evaluate(task, household_id, observations, now)
+            tasks.save_task(household_id, updated)
 
     for observation in state.current_observations.values():
         key = f"{observation.location}:{observation.category.value}"

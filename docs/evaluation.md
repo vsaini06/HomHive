@@ -153,3 +153,7 @@ A metric is reportable only when:
 The strongest current resume-safe perception statement is:
 
 > Improved scene-entity recall from 47.5% to 71.2% (+50% relative) and micro-F1 from 58.3% to 71.8% on a human-labeled 59-entity kitchen development set by separating object discovery from condition assessment.
+
+## October 2026 validation scope
+
+Regression checks must cover: the same-media idempotent response, independent reviewer outcomes, corroborated versus unverified evidence labels, unknown room identity, absence of a task for healthy plants, overdue verification with no follow-up evidence, and the unchanged future-due state. Test whether a clear-sink observation supersedes older work **only** where object/room identity can be established. Do not treat a green unit suite as proof of real-scene correctness or accessibility.

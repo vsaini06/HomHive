@@ -72,3 +72,45 @@ def test_refresh_builds_forecast_from_persisted_history():
 
     assert len(report.forecasts) == 1
     assert report.forecasts[0].rate_per_hour > 0
+
+
+def test_refresh_advances_overdue_completion_without_fabricating_resolution():
+    observations = InMemoryObservationRepository()
+    tasks = InMemoryTaskRepository()
+    now = datetime.now(timezone.utc)
+    observations.add_observation('home', observation('source', 0.88, 0.95, now - timedelta(hours=4)))
+    first = refresh_household_intelligence('home', observations, tasks)
+    task = next(item for item in first.tasks if item.task_key == 'kitchen:dish_load')
+    task.metadata.update({
+        'accepted_at': (now - timedelta(hours=2)).isoformat(),
+        'user_reported_complete_at': (now - timedelta(hours=1)).isoformat(),
+        'verification_due_at': (now - timedelta(minutes=1)).isoformat(),
+        'verification_status': 'not_due',
+        'verification_attempts': 0,
+    })
+    tasks.save_task('home', task)
+    refresh_household_intelligence('home', observations, tasks)
+    updated = tasks.find_task('home', task.id)
+    assert updated.metadata['verification_status'] == 'awaiting_evidence'
+    assert updated.metadata['verification_attempts'] == 1
+    assert updated.status == TaskStatus.PENDING
+    refresh_household_intelligence('home', observations, tasks)
+    assert tasks.find_task('home', task.id).metadata['verification_attempts'] == 1
+
+
+def test_refresh_keeps_not_yet_due_verification_intact():
+    observations = InMemoryObservationRepository()
+    tasks = InMemoryTaskRepository()
+    now = datetime.now(timezone.utc)
+    observations.add_observation('home', observation('source', 0.88, 0.95, now - timedelta(hours=2)))
+    task = next(item for item in refresh_household_intelligence('home', observations, tasks).tasks if item.task_key == 'kitchen:dish_load')
+    task.metadata.update({
+        'user_reported_complete_at': now.isoformat(),
+        'verification_due_at': (now + timedelta(hours=1)).isoformat(),
+        'verification_status': 'not_due',
+        'verification_attempts': 0,
+    })
+    tasks.save_task('home', task)
+    refresh_household_intelligence('home', observations, tasks)
+    assert tasks.find_task('home', task.id).metadata['verification_status'] == 'not_due'
+    assert tasks.find_task('home', task.id).metadata['verification_attempts'] == 0

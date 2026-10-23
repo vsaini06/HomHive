@@ -124,8 +124,22 @@ def create_app(
     if media_engine is not None:
         vision_service = None
         if os.environ.get("NEBIUS_API_KEY"):
+            verifier = None
+            review_model = os.environ.get("HOMHIVE_OPENAI_REVIEW_MODEL", "").strip()
+            if review_model:
+                if not os.environ.get("OPENAI_API_KEY"):
+                    raise ValueError("OPENAI_API_KEY is required for independent verification")
+                from app.vision.verification import OpenAIImageVerifier
+                verifier = OpenAIImageVerifier(model=review_model)
+            extra_verifier = None
+            anthropic_model = os.environ.get('HOMHIVE_ANTHROPIC_REVIEW_MODEL', '').strip()
+            if anthropic_model:
+                from app.vision.anthropic_verification import AnthropicImageVerifier
+                extra_verifier = AnthropicImageVerifier(model=anthropic_model)
             vision_service = VisionObservationService(
                 media_service, NebiusVisionProvider(), observation_storage,
+                verifier=verifier, additional_verifier=extra_verifier,
+                require_verification=True,
             )
         evidence_ingestion = EvidenceIngestion(session_factory, media_service, vision_service)
         app.include_router(build_media_router(

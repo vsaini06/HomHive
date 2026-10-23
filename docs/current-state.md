@@ -110,3 +110,11 @@ These results remain development measurements. The scorer has label/granularity 
 ## System boundaries
 
 Raw observations, derived state, forecasts, action decisions, tasks, ranking, feasibility, research evidence, and final plans remain separate concepts. External provider output is parsed and validated before it can influence stable domain state or executable work.
+
+## October 23 integration findings
+
+A live image was processed by Nebius and independently reviewed by OpenAI and Anthropic; a `plant_condition=0.0` observation was persisted with claim-level corroboration and unresolved room identity. Reprocessing returned the same observation ID. A subsequent intelligence refresh retained it without creating a plant-care task. Numeric confidence remained null, so the confidence-qualified snapshot/forecast pipeline did not include that condition.
+
+The interface now distinguishes corroborated AI evidence from unverified evidence. A refresh advances due completion-verification obligations using stored follow-up evidence only. Existing household test data revealed older observation-backed and predictive dishwashing tasks that may remain active despite newer clear-sink evidence: safe cross-entity reconciliation still needs a deliberate design, not destructive cleanup. No claim is made that old tasks are automatically resolved.
+
+The last user-reported Windows baseline before this update was 402 passing tests. The updated package adds focused tests; run the full Windows suite again before committing.

@@ -189,3 +189,7 @@ The MVP is successful when a user can provide household evidence and receive a c
 - replanning potential
 
 The current repository has implemented the deterministic backend foundation for this target but not the complete end-to-end MVP.
+
+## Trustworthy household presentation
+
+Surface AI-corroborated state separately from human-confirmed state; the user accepts, defers or dismisses tasks rather than routinely validating visual observations. Preserve uncertainty and unknown room identity. A task reported Done enters an evidence-verification lifecycle and must not appear definitively completed until supported by follow-up evidence. Visual polish is subordinate to clear status, safe access, usable mobile layouts, and accessible controls.

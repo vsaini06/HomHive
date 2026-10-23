@@ -23,7 +23,7 @@ class Provider:
 def test_same_media_never_reprocesses_or_duplicates_unconfirmed_evidence():
     observations = InMemoryObservationRepository()
     provider = Provider()
-    service = VisionObservationService(Media(), provider, observations)
+    service = VisionObservationService(Media(), provider, observations, verifier=AcceptingImageReviewer(), additional_verifier=AcceptingImageReviewer(), require_verification=True)
     first = service.extract_and_store('home', 'same-media', 'kitchen')
     second = service.extract_and_store('home', 'same-media', 'kitchen')
     assert first[1][0].id == second[1][0].id
@@ -31,3 +31,17 @@ def test_same_media_never_reprocesses_or_duplicates_unconfirmed_evidence():
     assert second[1][0].confidence is None
     assert len(observations.list_observations('home')) == 1
     assert service.extract_and_store('another-home', 'same-media', 'kitchen')[1][0].id != first[1][0].id
+
+
+class AcceptingImageReviewer:
+    """Deterministic positive review fixture; live services require real reviewers."""
+    def review(self, image, content_type, proposed):
+        from app.vision.verification import IndependentReview, VerifiedClaim
+        from app.vision.provider import SpaceCategory
+        return IndependentReview(
+            space_category=proposed.space_category or SpaceCategory.UNKNOWN,
+            room_supported=(proposed.space_category or SpaceCategory.UNKNOWN) != SpaceCategory.UNKNOWN,
+            claims=[VerifiedClaim(category=c.category.value, visible=True,
+                                  evidence_supported=True, workload_supported=True)
+                    for c in proposed.candidates],
+        )

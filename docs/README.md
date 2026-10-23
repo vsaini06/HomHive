@@ -22,3 +22,7 @@ Documentation should distinguish three states clearly:
 - **Open** - design choice intentionally not finalized
 
 Do not describe planned integrations as if they already run in production.
+
+## Current release focus
+
+Read `current-state.md` for the implemented evidence, known confidence-to-intelligence integration gap, and lifecycle behavior. `architecture.md` describes provider separation and trusted evidence boundaries; `product-spec.md` describes the user-facing contract; `evaluation.md` lists validation criteria; `decisions.md` captures the confidence and overdue-verification decisions. Claims of complete production readiness or accessibility certification are not warranted yet.
