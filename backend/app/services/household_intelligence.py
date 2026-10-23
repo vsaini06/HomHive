@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from app.models import (
     ConditionForecast,
     HouseholdIntelligence,
@@ -40,6 +42,16 @@ def _persist_task(
     return storage.save_task(household_id, candidate)
 
 
+def _still_deferred(value: object, now: datetime) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        until = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return until.tzinfo is not None and until > now
+    except ValueError:
+        return False
+
+
 def refresh_household_intelligence(
     household_id: str,
     observations: ObservationStorage,
@@ -50,6 +62,15 @@ def refresh_household_intelligence(
     existing_tasks = tasks.list_tasks(household_id)
 
     for observation in state.current_observations.values():
+        key = f"{observation.location}:{observation.category.value}"
+        # Keep a human dismissal of this condition, including a re-upload,
+        # instead of recreating the same unresolved work on refresh.
+        if any(
+            task.task_key == key and task.status == TaskStatus.DISMISSED
+            and task.metadata.get("dismissed_at")
+            for task in existing_tasks
+        ):
+            continue
         decision = decide_task_from_observation(observation, existing_tasks)
         if decision.task is not None:
             _persist_task(household_id, decision.task, existing_tasks, tasks)
@@ -75,15 +96,47 @@ def refresh_household_intelligence(
             continue
 
         action_decisions.append(decision)
+        # One household condition represents one physical chore. Forecasts
+        # still exist, but do not create a competing actionable proposal.
+        key = f"{decision.location}:{decision.category.value}"
+        if any(
+            task.task_key == key and task.status in {TaskStatus.PENDING, TaskStatus.IN_PROGRESS}
+            for task in existing_tasks
+        ):
+            continue
+        if any(
+            task.task_key in {key, f"predictive:{key}"}
+            and task.status == TaskStatus.DISMISSED
+            and task.metadata.get("dismissed_at")
+            for task in existing_tasks
+        ):
+            continue
         predictive_task = sync_predictive_task(decision, existing_tasks)
         if predictive_task is not None:
             _persist_task(household_id, predictive_task, existing_tasks, tasks)
 
     all_tasks = tasks.list_tasks(household_id)
+    now = datetime.now(timezone.utc)
+    # Preserve predictive history, but show only one actionable task per
+    # household condition. Prefer an observation-backed task when present.
+    observation_keys = {
+        task.task_key for task in all_tasks
+        if task.status in {TaskStatus.PENDING, TaskStatus.IN_PROGRESS}
+        and not task.task_key.startswith("predictive:")
+    }
     active_tasks = [
         task
         for task in all_tasks
         if task.status in {TaskStatus.PENDING, TaskStatus.IN_PROGRESS}
+        and not (
+            task.task_key.startswith("predictive:")
+            and task.task_key.removeprefix("predictive:") in observation_keys
+        )
+        and not (
+            task.status == TaskStatus.PENDING
+            and task.metadata.get("deferred_until")
+            and _still_deferred(task.metadata["deferred_until"], now)
+        )
     ]
 
     return HouseholdIntelligence(

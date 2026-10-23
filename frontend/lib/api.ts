@@ -5,6 +5,7 @@ export type Observation = {
   category: string;
   value: number;
   confidence: number | null;
+  timestamp: string;
   metadata: Record<string, unknown>;
 };
 
@@ -19,6 +20,29 @@ export type MediaRecord = {
   content_type: string;
   size_bytes: number;
   created_at: string;
+  processing?: "processed" | "needs_review" | "retry_required" | "unavailable" | "pending_provider";
+  observations?: Observation[];
+};
+
+export type HouseholdNotification = {
+  id: string;
+  task_id: string;
+  title: string;
+  space: string;
+  estimated_minutes: number;
+  state: string;
+  delivery: string;
+  feasibility: "FEASIBLE" | "NOT_FEASIBLE" | "UNKNOWN";
+  recommended_time: string | null;
+  source_observation_id: string | null;
+  verification_status: string | null;
+};
+
+export type HouseholdPresence = {
+  state: "HOME" | "AWAY" | "UNKNOWN";
+  consent: boolean;
+  source: string | null;
+  expires_at: string | null;
 };
 
 export type RankedTask = {
@@ -30,6 +54,7 @@ export type RankedTask = {
     estimated_effort_minutes: number;
     confidence: number;
     status: string;
+    metadata: Record<string, unknown>;
   };
   priority_score: number;
 };
@@ -87,9 +112,10 @@ export class HomHiveApi {
     return response.json() as Promise<T>;
   }
 
-  async upload(file: File): Promise<MediaRecord> {
+  async upload(file: File, location?: string): Promise<MediaRecord> {
     const form = new FormData();
     form.append("file", file);
+    if (location) form.append("location", location);
     const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/media`, {
       method: "POST",
       headers: this.headers(false),
@@ -110,6 +136,14 @@ export class HomHiveApi {
     return this.parse(response);
   }
 
+  async observationHistory(): Promise<Observation[]> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/observations`,
+      { method: "GET", headers: this.headers(), cache: "no-store" },
+    );
+    return this.parse(response);
+  }
+
   async confirmObservation(observationId: string, confirmedValue: number): Promise<Observation> {
     const response = await fetch(
       `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/observations/${encodeURIComponent(observationId)}/confirm`,
@@ -118,6 +152,70 @@ export class HomHiveApi {
         headers: this.headers(),
         body: JSON.stringify({ confirmed_value: confirmedValue }),
       },
+    );
+    return this.parse(response);
+  }
+
+  async acceptTask(taskId: string): Promise<RankedTask["task"]> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/tasks/${encodeURIComponent(taskId)}/accept`,
+      { method: "POST", headers: this.headers() },
+    );
+    return this.parse(response);
+  }
+
+  async deferTask(taskId: string, minutes: number): Promise<RankedTask["task"]> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/tasks/${encodeURIComponent(taskId)}/defer`,
+      { method: "POST", headers: this.headers(), body: JSON.stringify({ minutes }) },
+    );
+    return this.parse(response);
+  }
+
+  async dismissTask(taskId: string): Promise<RankedTask["task"]> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/tasks/${encodeURIComponent(taskId)}/dismiss`,
+      { method: "POST", headers: this.headers() },
+    );
+    return this.parse(response);
+  }
+
+  async notifications(): Promise<HouseholdNotification[]> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/notifications`,
+      { headers: this.headers(), cache: "no-store" },
+    );
+    return this.parse(response);
+  }
+
+  async reportDone(taskId: string): Promise<RankedTask["task"]> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/tasks/${encodeURIComponent(taskId)}/done`,
+      { method: "POST", headers: this.headers(), body: JSON.stringify({}) },
+    );
+    return this.parse(response);
+  }
+
+  async presence(): Promise<HouseholdPresence> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/presence`,
+      { headers: this.headers(), cache: "no-store" },
+    );
+    return this.parse(response);
+  }
+
+  async updatePresence(state: HouseholdPresence["state"], consent: boolean): Promise<HouseholdPresence> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/presence`,
+      { method: "POST", headers: this.headers(), body: JSON.stringify({ state, consent, ttl_minutes: 60 }) },
+    );
+    return this.parse(response);
+  }
+
+  async revokePresence(): Promise<HouseholdPresence> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/presence/revoke`,
+      { method: "POST", headers: this.headers() },
     );
     return this.parse(response);
   }

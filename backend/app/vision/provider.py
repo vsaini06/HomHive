@@ -1,14 +1,19 @@
 
 import base64
 import json
+import logging
 import os
 from typing import Protocol
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.config import load_local_environment
 from app.media.service import MAX_IMAGE_BYTES, MediaService, detected_image_type
 from app.models import ConditionType
+
+
+logger = logging.getLogger(__name__)
 
 
 class VisionCandidate(BaseModel):
@@ -20,11 +25,24 @@ class VisionCandidate(BaseModel):
     visible_evidence: str = Field(min_length=1, max_length=500)
 
 
+class SpaceCategory(str, Enum):
+    KITCHEN = 'kitchen'
+    BATHROOM = 'bathroom'
+    BEDROOM = 'bedroom'
+    LIVING_ROOM = 'living_room'
+    LAUNDRY_ROOM = 'laundry_room'
+    OUTDOOR = 'outdoor'
+    GARAGE = 'garage'
+    UNKNOWN = 'unknown'
+
+
 class VisionExtraction(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     candidates: list[VisionCandidate] = Field(max_length=4)
     needs_review: bool
+    # An inferred category is a hint, not a verified physical room identity.
+    space_category: SpaceCategory | None = None
 
 
 class VisionProvider(Protocol):
@@ -90,8 +108,12 @@ class NebiusVisionProvider:
                         'whose target objects or areas are directly visible. '
 
                         'Return only a JSON object with exactly the keys '
-                        'candidates and needs_review. '
+                        'candidates, needs_review and space_category. '
 
+                        'space_category is one of kitchen, bathroom, bedroom, '
+                        'living_room, laundry_room, outdoor, garage, unknown. '
+                        'Infer only from visible features; use unknown when ambiguous. '
+                        'This category is not proof of a particular room ID. '
                         'Each candidate must contain exactly category, value, '
                         'location, visible_evidence. '
 
@@ -144,11 +166,11 @@ class NebiusVisionProvider:
                         'These ranges are qualitative guidance, '
                         'not item-count formulas. '
 
-                        'Use the provided location verbatim. '
+                        'Use the provided location verbatim; unknown is valid. '
 
                         'If no supported condition can be observed, or '
                         'visibility is too ambiguous to judge, return '
-                        '{"candidates": [], "needs_review": true}. '
+                        '{"candidates": [], "needs_review": true, "space_category": "unknown"}. '
 
                         'Otherwise return needs_review false. '
                         'Never provide a confidence score.'
@@ -184,31 +206,50 @@ class NebiusVisionProvider:
             raise ValueError('Vision provider returned no text')
 
         raw = response.choices[0].message.content.strip()
+        # Some providers wrap valid JSON in a Markdown code fence. Remove only
+        # a complete outer fence; do not try to repair invalid schema values.
+        if raw.startswith('```') and raw.endswith('```'):
+            lines = raw.splitlines()
+            if len(lines) >= 3 and lines[0].strip().lower() in {'```', '```json'} and lines[-1].strip() == '```':
+                raw = '\n'.join(lines[1:-1]).strip()
 
         try:
-            result = VisionExtraction.model_validate(json.loads(raw))
-        except (ValueError, ValidationError) as exc:
+            payload = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.warning('Vision provider returned malformed JSON (line=%s, column=%s)', exc.lineno, exc.colno)
+            raise ValueError('Invalid vision provider response') from exc
+        try:
+            result = VisionExtraction.model_validate(payload)
+        except ValidationError as exc:
+            # Only report structural error locations/types. Never log raw model
+            # content, images, API tokens, or full error inputs.
+            logger.warning('Vision schema validation failed: %s',
+                           [(str(error['loc']), error['type']) for error in exc.errors()])
             raise ValueError('Invalid vision provider response') from exc
 
         if (
             (not result.candidates and not result.needs_review)
             or (result.candidates and result.needs_review)
         ):
+            logger.warning('Vision validation rejected: inconsistent review state')
             raise ValueError('Inconsistent vision review status')
 
         for candidate in result.candidates:
             if candidate.location != location:
+                logger.warning('Vision validation rejected: candidate location differs from requested location')
                 raise ValueError(
                     f'Vision location mismatch: expected {location!r}, '
                     f'received {candidate.location!r}'
                 )
 
             if candidate.category == ConditionType.MAINTENANCE_STATUS:
+                logger.warning('Vision validation rejected: unsupported category')
                 raise ValueError(
                     'Vision provider returned unsupported category'
                 )
 
             if not candidate.visible_evidence.strip():
+                logger.warning('Vision validation rejected: empty evidence')
                 raise ValueError(
                     'Vision provider returned empty visual evidence'
                 )
@@ -216,6 +257,7 @@ class NebiusVisionProvider:
         if len({
             candidate.category for candidate in result.candidates
         }) != len(result.candidates):
+            logger.warning('Vision validation rejected: duplicate categories')
             raise ValueError('Duplicate vision categories')
 
         return result

@@ -97,3 +97,16 @@ def test_duplicate_category_is_rejected():
     client = FakeClient('{"candidates": [{"category": "dish_load", "value": 0, "location": "kitchen", "visible_evidence": "Empty visible sink"}, {"category": "dish_load", "value": 0.2, "location": "kitchen", "visible_evidence": "One visible dish"}], "needs_review": false}')
     with pytest.raises(ValueError, match='Duplicate vision categories'):
         NebiusVisionProvider(client=client).extract(b'\xff\xd8\xffexample', 'image/jpeg', 'kitchen')
+
+
+def test_markdown_fenced_provider_json_is_accepted():
+    client = FakeClient('```json\n{"candidates": [{"category": "dish_load", "value": 0.5, "location": "kitchen", "visible_evidence": "Several dishes in sink"}], "needs_review": false, "space_category": "kitchen"}\n```')
+    result = NebiusVisionProvider(client=client).extract(b'\xff\xd8\xffexample', 'image/jpeg', 'kitchen')
+    assert result.candidates[0].value == 0.5
+    assert result.space_category.value == 'kitchen'
+
+
+def test_invalid_fenced_provider_json_still_rejected():
+    client = FakeClient('```json\n{"candidates": [], "needs_review": false}\n```')
+    with pytest.raises(ValueError, match='Inconsistent vision review status'):
+        NebiusVisionProvider(client=client).extract(b'\xff\xd8\xffexample', 'image/jpeg', 'kitchen')

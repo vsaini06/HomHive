@@ -14,6 +14,13 @@ def confirm_observation(
     if original is None:
         return None
 
+    # A confirmation is a separate trusted event, not a mutation of model evidence.
+    # Repeated requests for the same original must reuse the first confirmation.
+    for existing in storage.list_observations(household_id):
+        if (existing.source == ObservationSource.USER_INPUT
+                and existing.metadata.get("confirmed_observation_id") == original.id):
+            return existing
+
     confirmation = Observation(
         id=str(uuid4()),
         source=ObservationSource.USER_INPUT,
@@ -25,6 +32,9 @@ def confirm_observation(
         metadata={
             "confirmed_observation_id": original.id,
             "source_media_id": original.metadata.get("media_id"),
+            **{key: original.metadata[key] for key in (
+                "visible_evidence", "space_category_hint", "space_identity_status",
+                "location_provenance") if key in original.metadata},
         },
     )
     return storage.add_observation(household_id, confirmation)

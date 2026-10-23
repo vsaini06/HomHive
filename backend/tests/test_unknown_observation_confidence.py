@@ -65,11 +65,23 @@ def test_vision_service_stores_unknown_confidence_and_provenance():
             self.items.append((household_id, observation))
             return observation
 
+        def list_observations(self, household_id):
+            return [observation for owner, observation in self.items if owner == household_id]
+
+        def find_observation(self, household_id, observation_id):
+            return next((observation for owner, observation in self.items
+                         if owner == household_id and observation.id == observation_id), None)
+
     store = Store()
     result, created = VisionObservationService(Media(), Provider(), store).extract_and_store("home", "media1", "kitchen")
     assert len(created) == 1
     assert created[0].confidence is None
-    assert created[0].metadata == {"media_id": "media1", "visible_evidence": "Dirty dishes are visible"}
+    metadata = created[0].metadata
+    assert metadata["media_id"] == "media1"
+    assert metadata["visible_evidence"] == "Dirty dishes are visible"
+    assert metadata["location_provenance"] == "user_supplied"
+    assert metadata["space_category_hint"] == "unknown"
+    assert metadata["space_identity_status"] == "provided_unverified"
     assert store.items[0][0] == "home"
 
 
@@ -83,6 +95,12 @@ def test_review_required_does_not_persist():
             return VisionExtraction(candidates=[], needs_review=True)
 
     class Store:
+        def list_observations(self, household_id):
+            return []
+
+        def find_observation(self, household_id, observation_id):
+            return None
+
         def add_observation(self, household_id, observation):
             raise AssertionError("Should not persist")
 

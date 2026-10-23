@@ -11,6 +11,8 @@ from strawberry.fastapi import GraphQLRouter
 from app.config import load_local_environment
 from app.db.session import build_engine, build_session_factory
 from app.media.api import build_media_router
+from app.evidence import EvidenceIngestion
+from app.automation.api import build_automation_router
 from app.media.service import MediaService
 from app.media.storage import LocalMediaStorage
 from app.planning import NebiusPlanningProvider, PlanningService
@@ -120,7 +122,15 @@ def create_app(
     )
 
     if media_engine is not None:
-        app.include_router(build_media_router(media_service, tokens))
+        vision_service = None
+        if os.environ.get("NEBIUS_API_KEY"):
+            vision_service = VisionObservationService(
+                media_service, NebiusVisionProvider(), observation_storage,
+            )
+        evidence_ingestion = EvidenceIngestion(session_factory, media_service, vision_service)
+        app.include_router(build_media_router(
+            media_service, tokens, vision_service, evidence_ingestion,
+        ))
         app.include_router(
             build_intelligence_router(
                 observation_storage,
@@ -129,6 +139,7 @@ def create_app(
             )
         )
         app.include_router(build_planning_router(planning_service, tokens))
+        app.include_router(build_automation_router(session_factory, tokens))
 
         if research_provider is not None:
             app.include_router(
@@ -138,12 +149,7 @@ def create_app(
                 )
             )
 
-        if os.environ.get("NEBIUS_API_KEY"):
-            vision_service = VisionObservationService(
-                media_service,
-                NebiusVisionProvider(),
-                observation_storage,
-            )
+        if vision_service is not None:
             app.include_router(build_vision_router(vision_service, tokens))
 
     @app.get("/health")

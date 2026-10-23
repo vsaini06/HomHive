@@ -1,14 +1,16 @@
 import hmac
+from uuid import uuid4
+from app.evidence import EvidenceInput
 from collections.abc import Mapping
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, Form
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import Response
 
 from .service import MAX_IMAGE_BYTES, MediaService, detected_image_type
 
 
-def build_media_router(service: MediaService, household_tokens: Mapping[str, str]) -> APIRouter:
+def build_media_router(service: MediaService, household_tokens: Mapping[str, str], observation_processor=None, evidence_ingestion=None) -> APIRouter:
     router = APIRouter(prefix='/households/{household_id}/media', tags=['media'])
     bearer = HTTPBearer(auto_error=False)
 
@@ -21,7 +23,7 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
             raise HTTPException(status_code=403, detail='Access denied')
 
     @router.post('', status_code=201)
-    async def upload_image(household_id: str, file: UploadFile, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+    async def upload_image(household_id: str, file: UploadFile, credentials: HTTPAuthorizationCredentials | None = Depends(bearer), location: str | None = Form(default=None), event_id: str | None = Form(default=None)):
         authorize(household_id, credentials)
         if file.content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
             raise HTTPException(status_code=415, detail='Unsupported image type')
@@ -30,8 +32,36 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
             raise HTTPException(status_code=413, detail='Invalid image size')
         if detected_image_type(data) != file.content_type:
             raise HTTPException(status_code=415, detail='Image content does not match declared type')
+        if evidence_ingestion is not None:
+            try:
+                response = evidence_ingestion.ingest(household_id, EvidenceInput(
+                    source_id='phone-upload', source_type='phone',
+                    event_id=event_id or str(uuid4()), content=data,
+                    content_type=file.content_type, location_hint=location,
+                ))
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            response['size_bytes'] = len(data)
+            return response
         info = service.save_image(household_id, data)
-        return {'id': info.id, 'content_type': info.content_type, 'size_bytes': info.size_bytes}
+        response = {'id': info.id, 'content_type': info.content_type, 'size_bytes': info.size_bytes}
+        if observation_processor is not None:
+            # A room label supplied by the user is context, not inferred identity.
+            # Unknown is explicit when no location has been verified.
+            resolved_location = (location or '').strip() or 'unknown'
+            try:
+                outcome = observation_processor.extract_and_store(household_id, info.id, resolved_location)
+                if outcome is None:
+                    response['processing'] = 'unavailable'
+                else:
+                    result, observations = outcome
+                    response['processing'] = 'needs_review' if result.needs_review else 'processed'
+                    response['observations'] = [o.model_dump(mode='json') for o in observations]
+            except Exception:
+                # The uploaded evidence remains persisted and can be retried by
+                # the existing extraction endpoint. Never expose provider errors.
+                response['processing'] = 'retry_required'
+        return response
 
     @router.get('/{media_id}')
     def get_image(household_id: str, media_id: str, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):

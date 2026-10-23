@@ -1,4 +1,5 @@
 from app.models import TaskStatus
+from datetime import datetime, timezone
 from app.repositories.task_storage import TaskStorage
 from app.research import ResearchRequest, ResearchResult, ResearchService
 from app.services.task_ranking import rank_tasks
@@ -6,6 +7,16 @@ from app.services.task_ranking import rank_tasks
 from .feasibility import build_deterministic_plan
 from .models import HouseholdPlan, PlanningContext, TaskFeasibility
 from .provider import PlanningProvider
+
+
+def _is_deferred(value: object, now: datetime) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        deadline = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return deadline.tzinfo is not None and deadline > now
+    except ValueError:
+        return False
 
 
 class PlanningService:
@@ -25,12 +36,22 @@ class PlanningService:
         context: PlanningContext,
         research_requests: list[ResearchRequest] | None = None,
     ) -> tuple[HouseholdPlan, list[TaskFeasibility], list[ResearchResult]]:
-        active_tasks = [
-            task
-            for task in self._tasks.list_tasks(household_id)
+        # Planning is a commitment workflow. Discovery proposals are not
+        # executable until explicitly accepted by the household member.
+        now = datetime.now(timezone.utc)
+        eligible = [
+            task for task in self._tasks.list_tasks(household_id)
             if task.status in {TaskStatus.PENDING, TaskStatus.IN_PROGRESS}
+            and bool(task.metadata.get("accepted_at"))
+            and not _is_deferred(task.metadata.get("deferred_until"), now)
         ]
-        ranked = rank_tasks(active_tasks)
+        # Forecast and observed proposals may represent the same chore.
+        # Keep the observed task when both are committed, deterministically.
+        unique = {}
+        for task in sorted(eligible, key=lambda item: (item.task_key.startswith("predictive:"), item.created_at, item.id)):
+            condition_key = task.task_key.removeprefix("predictive:")
+            unique.setdefault(condition_key, task)
+        ranked = rank_tasks(list(unique.values()))
         fallback, feasibility = build_deterministic_plan(ranked, context)
 
         research_results = []
