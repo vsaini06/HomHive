@@ -33,8 +33,8 @@ class Task(BaseModel):
         gt=0
     )
     deadline: datetime | None = None
-    confidence: float = Field(
-        ge=0.0,
+    confidence: float | None = Field(
+        default=None, ge=0.0,
         le=1.0,
     )
     status: TaskStatus = TaskStatus.PENDING

@@ -10,7 +10,7 @@ from fastapi.responses import Response
 from .service import MAX_IMAGE_BYTES, MediaService, detected_image_type
 
 
-def build_media_router(service: MediaService, household_tokens: Mapping[str, str], observation_processor=None, evidence_ingestion=None) -> APIRouter:
+def build_media_router(service: MediaService, household_tokens: Mapping[str, str], observation_processor=None, evidence_ingestion=None, after_upload=None) -> APIRouter:
     router = APIRouter(prefix='/households/{household_id}/media', tags=['media'])
     bearer = HTTPBearer(auto_error=False)
 
@@ -42,6 +42,14 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
             except ValueError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
             response['size_bytes'] = len(data)
+            if after_upload is not None and response.get('id') and not response.get('duplicate'):
+                try:
+                    after_upload(household_id, response['id'])
+                except Exception:
+                    # Media is already durable; queue failure must be observable in server logs.
+                    import logging
+                    logging.getLogger(__name__).exception('Autonomous enqueue failed')
+                    response['autonomous_enqueue'] = 'retry_required'
             return response
         info = service.save_image(household_id, data)
         response = {'id': info.id, 'content_type': info.content_type, 'size_bytes': info.size_bytes}
@@ -63,6 +71,13 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
                 response['processing'] = 'retry_required'
         if defer_analysis:
             response['processing'] = 'received'
+        if after_upload is not None:
+            try:
+                after_upload(household_id, info.id)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception('Autonomous enqueue failed')
+                response['autonomous_enqueue'] = 'retry_required'
         return response
 
     @router.get('/{media_id}')

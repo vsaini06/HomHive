@@ -17,7 +17,7 @@ import httpx
 from pydantic import ValidationError
 
 from .provider import VisionExtraction
-from .verification import IndependentReview
+from .verification import IndependentReview, parse_review_json
 
 
 logger = logging.getLogger(__name__)
@@ -120,6 +120,31 @@ class AnthropicImageVerifier:
             ],
         }
 
+        for attempt in range(2):
+            try:
+                return self._review_once(image, content_type, proposed_claims, attempt)
+            except (json.JSONDecodeError, ValidationError) as exc:
+                logger.warning(
+                    "Anthropic reviewer invalid output: attempt=%d/2 error=%s%s",
+                    attempt + 1,
+                    type(exc).__name__,
+                    (
+                        " line=%d col=%d pos=%d" % (exc.lineno, exc.colno, exc.pos)
+                        if isinstance(exc, json.JSONDecodeError) else
+                        " schema_error_count=%d" % len(exc.errors())
+                    ),
+                )
+                if attempt == 1:
+                    raise
+            except ValueError as exc:
+                # Only truncated replies are retried. Other structural failures
+                # remain failures rather than being treated as verified evidence.
+                if str(exc) != "Anthropic review output truncated" or attempt == 1:
+                    raise
+                logger.warning("Anthropic reviewer truncated output: retrying once")
+        raise RuntimeError("Unexpected verifier retry state")
+
+    def _review_once(self, image, content_type, proposed_claims, attempt):
         try:
             response = self._client.post(
                 "https://api.anthropic.com/v1/messages",
@@ -130,7 +155,7 @@ class AnthropicImageVerifier:
                 },
                 json={
                     "model": self._model,
-                    "max_tokens": 800,
+                    "max_tokens": 1600 if attempt == 0 else 2400,
                     "system": (
                         "Independently inspect the supplied IMAGE. "
                         "Do not assume that proposed claims are correct. "
@@ -147,7 +172,9 @@ class AnthropicImageVerifier:
                         "visible in the original image. "
                         "Do not invent exact room identity. "
                         "If a condition or numerical workload is "
-                        "ambiguous, mark it unsupported."
+                        "ambiguous, mark it unsupported. "
+                        "Return one complete, syntactically valid JSON object, "
+                        "without Markdown, explanations, or preamble."
                     ),
                     "messages": [
                         {
@@ -205,24 +232,18 @@ class AnthropicImageVerifier:
                 and isinstance(block.get("text"), str)
             ]
 
-            if len(texts) != 1:
-                raise ValueError("Unexpected Anthropic review response")
+            if not texts:
+                raise ValueError("Anthropic reviewer returned no text")
 
-            raw = texts[0].strip()
-
-            if raw.startswith("```") and raw.endswith("```"):
-                parts = raw.splitlines()
-
-                if (
-                    len(parts) >= 3
-                    and parts[0].lower() in ("```", "```json")
-                    and parts[-1] == "```"
-                ):
-                    raw = "\n".join(parts[1:-1]).strip()
-
-            parsed = json.loads(raw)
-
-            result = IndependentReview.model_validate(parsed)
+            # Response metadata only: never log raw model text or user imagery.
+            raw = "".join(texts)
+            logger.info(
+                "Anthropic reviewer response metadata: attempt=%d "
+                "stop_reason=%s block_count=%d text_length=%d",
+                attempt + 1, str(stop_reason)[:32], len(texts), len(raw),
+            )
+            # Multiple text blocks can represent one JSON reply.
+            result = parse_review_json(raw)
 
             logger.info(
                 "Anthropic vision verification completed: "

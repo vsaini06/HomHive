@@ -12,7 +12,7 @@ class VisionRequest(BaseModel):
     location: str = Field(min_length=1, max_length=255)
 
 
-def build_vision_router(service: VisionObservationService, household_tokens: Mapping[str, str]) -> APIRouter:
+def build_vision_router(service: VisionObservationService, household_tokens: Mapping[str, str], after_observations=None) -> APIRouter:
     router = APIRouter(prefix="/households/{household_id}/media", tags=["vision"])
     bearer = HTTPBearer(auto_error=False)
 
@@ -33,6 +33,8 @@ def build_vision_router(service: VisionObservationService, household_tokens: Map
         if result is None:
             raise HTTPException(status_code=404, detail="Media not found")
         extraction, observations = result
+        if observations and after_observations is not None:
+            after_observations(household_id)
         return {"needs_review": extraction.needs_review, "observations": [observation.model_dump(mode="json") for observation in observations],
                 "verification": extraction._verification_diagnostics}
 

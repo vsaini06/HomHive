@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { HomHiveApi, HouseholdNotification, HouseholdPresence, IntelligenceReport, MediaRecord, Observation, PlanResponse, VisionResult } from "../lib/api";
+import demoCatalog from "../public/demo-library/catalog.json";
+import { HomHiveApi, HouseholdNotification, HouseholdPresence, IntelligenceReport, MediaRecord, Observation, PlanResponse, VisionResult, AutonomousTask } from "../lib/api";
 
 const defaultApi = process.env.NEXT_PUBLIC_HOMHIVE_API_URL ?? "http://127.0.0.1:8000";
 
@@ -9,9 +10,17 @@ export default function Home() {
   const [apiUrl, setApiUrl] = useState(defaultApi);
   const [householdId, setHouseholdId] = useState("homhive_test_home");
   const [token, setToken] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authError, setAuthError] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [location, setLocation] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [media, setMedia] = useState<MediaRecord | null>(null);
+  const [autonomousTasks, setAutonomousTasks] = useState<AutonomousTask[]>([]);
+  const [roomReference, setRoomReference] = useState("");
+  const [autonomousNote, setAutonomousNote] = useState("");
   const [observations, setObservations] = useState<Observation[]>([]);
   const [history, setHistory] = useState<Observation[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -28,6 +37,11 @@ export default function Home() {
   const [view, setView] = useState<"home" | "spaces" | "tasks" | "activity">("home");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoQuery, setDemoQuery] = useState("");
+  const [demoCategory, setDemoCategory] = useState("All");
+  const [demoSelectionError, setDemoSelectionError] = useState("");
+  const [demoSelecting, setDemoSelecting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [scanProgress, setScanProgress] = useState<{ phase: "uploading" | "analyzing" | "done" | "error"; percent: number | null; mediaId: string | null; detail: string } | null>(null);
 
@@ -52,8 +66,70 @@ export default function Home() {
     }
   }
 
-  async function loadHousehold() {
-    if (!token || !householdId.trim()) return;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authEmail.trim());
+  const authDisabledReason = busy ? "Please wait for the current request to finish."
+    : !authEmail.trim() ? "Enter your email address to continue."
+    : !emailValid ? "Enter a valid email address."
+    : !authPassword ? "Enter your password to continue."
+    : authPassword.length < 12 ? "Use a password of at least 12 characters."
+    : authMode === "register" && !confirmPassword ? "Confirm your password to create an account."
+    : authMode === "register" && confirmPassword !== authPassword ? "Passwords do not match."
+    : "";
+  const householdDisabledReason = busy ? "A request is in progress."
+    : !token ? "Sign in or create an account before loading your household."
+    : !householdId.trim() ? "No household is assigned to this account."
+    : historyLoaded ? "Your household is already connected." : "";
+
+  async function authenticate() {
+    if (authDisabledReason) { setAuthError(authDisabledReason); return; }
+    setAuthError("");
+    setBusy(true);
+    try {
+      const response = await fetch(`${apiUrl.replace(/\/$/, "")}/auth/${authMode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: authEmail.trim(), password: authPassword }),
+      });
+      const result = await response.json() as { detail?: string; access_token?: string; households?: string[] };
+      if (!response.ok || !result.access_token || !result.households?.length) {
+        throw new Error(result.detail ?? "Could not sign in. Check your credentials.");
+      }
+      setHouseholdId(result.households[0]);
+      setHistoryLoaded(false);
+      setReport(null);
+      setHistory([]);
+      setToken(result.access_token);
+      setAuthPassword("");
+      setConfirmPassword("");
+      setSettingsOpen(false);
+      setStatus("Signed in. Select Load household to connect your household data.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Authentication failed";
+      setAuthError(authMode === "login" && /invalid credentials/i.test(message)
+        ? "We couldn't sign you in with those details. Check your password or use another account."
+        : authMode === "register" && /account already exists/i.test(message)
+        ? "An account may already use this email. Try signing in with your existing password."
+        : message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signOut() {
+    try {
+      await fetch(`${apiUrl.replace(/\/$/, "")}/auth/logout`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}` },
+      });
+    } finally {
+      setToken(""); setHistoryLoaded(false); setHistory([]); setReport(null);
+      setNotifications([]); setObservations([]); setPlan(null);
+      setSettingsOpen(false);
+    }
+  }
+
+
+  async function loadHousehold(): Promise<boolean> {
+    if (!token || !householdId.trim()) return false;
     const result = await run<Observation[]>("Loading persisted household observations...", () => api.observationHistory());
     if (result !== null) {
       setHistory(result);
@@ -68,7 +144,9 @@ export default function Home() {
         // Legacy backend compatibility: saved history and tasks remain visible.
         setNotifications([]);
       }
+      return true;
     }
+    return false;
   }
 
   // User confirmation is stored as a separate observation linked to its
@@ -117,8 +195,33 @@ export default function Home() {
     });
   }, [activeRoom, report]);
 
+  const demoCategories = useMemo(() => ["All", ...Array.from(new Set(demoCatalog.map(item => item.category))).sort()], []);
+  const visibleDemoImages = useMemo(() => demoCatalog.filter(item =>
+    (demoCategory === "All" || item.category === demoCategory) &&
+    `${item.title} ${item.category} ${item.group}`.toLowerCase().includes(demoQuery.trim().toLowerCase()),
+  ), [demoCategory, demoQuery]);
+
+  async function chooseDemoImage(image: (typeof demoCatalog)[number]) {
+    if (!token || !historyLoaded) { setDemoSelectionError("Load your household before choosing a sample photo."); return; }
+    setDemoSelecting(true);
+    setDemoSelectionError("");
+    try {
+      const response = await fetch(image.image, { cache: "force-cache" });
+      if (!response.ok) throw new Error("Could not load this sample photograph");
+      const bytes = await response.blob();
+      const selected = new File([bytes], `${image.id}.jpg`, { type: "image/jpeg" });
+      setFile(selected);
+      setMedia(null);
+      setObservations([]);
+      setDemoOpen(false);
+      setStatus(`Selected ${image.title}. Ready for the same live analysis as a personal photo.`);
+    } catch (error) {
+      setDemoSelectionError(error instanceof Error ? error.message : "Sample unavailable");
+    } finally { setDemoSelecting(false); }
+  }
+
   async function upload() {
-    if (!file || !token || busy) return;
+    if (!file || !token || !historyLoaded || busy) return;
     setBusy(true);
     setStatus("Uploading your photo…");
     setScanProgress({ phase: "uploading", percent: 0, mediaId: null, detail: "Securely saving your photo" });
@@ -172,6 +275,26 @@ export default function Home() {
       // Refresh invokes the existing discovery and persistence pipeline.
       const discovered = await run<IntelligenceReport>("Discovering household work...", () => api.refresh());
       if (discovered) setReport(discovered);
+    }
+  }
+
+  async function refreshAutonomousTasks() {
+    const tasks = await run("Loading autonomous tasks...", () => api.autonomousTasks());
+    if (tasks) setAutonomousTasks(tasks);
+  }
+
+  async function autonomousScan() {
+    if (!media?.id || !roomReference.trim()) {
+      setAutonomousNote("Upload a photograph and enter a reference media ID. Use this photograph's ID to enroll a new physical room.");
+      return;
+    }
+    const result = await run("Independently reviewing and tracking household work...", () =>
+      api.autonomousScan(media.id, roomReference.trim()));
+    if (result) {
+      setAutonomousNote(result.status === "held_unverified_room"
+        ? "Room continuity could not be verified. No changes saved."
+        : `Saved: ${result.created.length} created, ${result.existing.length} existing, ${Object.values(result.completed).filter(v => v === "completed").length} completed.`);
+      await refreshAutonomousTasks();
     }
   }
 
@@ -274,7 +397,7 @@ export default function Home() {
         <nav className="hh-nav" aria-label="Main navigation">
           {navItems.map((item) => <button key={item.id} className={view === item.id ? "hh-nav-active" : "hh-nav-button"} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span aria-hidden="true">{item.icon}</span>{item.label}</button>)}
         </nav>
-        <div className="hh-toolbar">{isConnected && <span className="hh-muted" aria-label="Connected household">Connected · {householdId}</span>}<button className="hh-scan" onClick={() => setScanOpen(true)}>＋ Scan</button><button className="hh-icon-button" aria-label="Open settings" onClick={() => setSettingsOpen(true)}>⚙</button></div>
+        <div className="hh-toolbar">{isConnected && <span className="hh-muted" aria-label="Connected household">Connected · My household</span>}<button className="hh-scan" onClick={() => setScanOpen(true)}>＋ Scan</button><button className="hh-icon-button" aria-label="Open settings" onClick={() => setSettingsOpen(true)}>⚙</button></div>
       </header>
       <div id="household-content" className="hh-live" role="status" aria-live="polite"><span className={busy ? "pulse" : "dot"}/>{status}</div>
 
@@ -287,7 +410,7 @@ export default function Home() {
         <div className="hh-analysis-footer"><small>{scanProgress.phase === "uploading" ? `${scanProgress.percent ?? 0}% uploaded` : scanProgress.phase === "analyzing" ? "Analysis in progress · completion time varies" : scanProgress.phase === "done" ? "100% complete" : "Your original photo is retained"}</small>{scanProgress.phase === "error" && scanProgress.mediaId && <button disabled={busy} onClick={analyze}>Retry analysis</button>}</div>
       </section>}
 
-      {!token && <section className="hh-notice" role="status"><strong>Connect your household</strong><span>Add your household token in Settings to load saved work.</span><button onClick={() => setSettingsOpen(true)}>Open Settings</button></section>}
+      {!isConnected && <section className="hh-notice" role="status"><strong>Connect your household</strong><span>Sign in, then select Load household to connect your data.</span><button onClick={() => setSettingsOpen(true)}>Open Settings</button></section>}
 
       {view === "home" && <section className="hh-view">
         <div className="hh-view-title"><div><p className="hh-kicker">HomHive / Home intelligence</p><h1>Good to be home.</h1><p>Your home, understood. The right actions, at the right time.</p></div><button className="secondary" disabled={busy || !token} onClick={loadHousehold}>↻ Refresh</button></div>
@@ -313,9 +436,9 @@ export default function Home() {
             {!report ? <p className="hh-empty">Your accepted tasks will appear here.</p> : acceptedTasks.length === 0 ? <p className="hh-empty">No accepted work right now.</p> : <><p className="hh-muted">{acceptedTasks.length} accepted task{acceptedTasks.length === 1 ? "" : "s"} on your list.</p><button className="hh-inline-action" onClick={() => setView("tasks")}>View tasks →</button></>}
           </section>
         </div>
-        {isConnected && <section className="hh-panel hh-planning"><div className="hh-panel-head"><div><p className="hh-kicker">Planning</p><h2>Your plan</h2></div></div>
-          <div className="hh-plan-layout"><div className="hh-plan-controls"><label>Time available <input type="number" min={1} max={720} value={availableMinutes} onChange={e => setAvailableMinutes(Number(e.target.value))}/></label><label className="check"><input type="checkbox" checked={atHome} onChange={e => setAtHome(e.target.checked)}/> I'm at home</label><label className="check"><input type="checkbox" checked={quietHours} onChange={e => setQuietHours(e.target.checked)}/> Quiet hours</label><details><summary>More context</summary><label>Research question (optional)<input value={researchQuery} onChange={e => setResearchQuery(e.target.value)}/></label></details><button disabled={busy || !token} onClick={createPlan}>Build plan</button></div>
-          <div className="hh-plan-output">{!plan ? <p className="hh-empty">Your plan will list accepted work that fits your availability.</p> : plannedTasks.length === 0 ? <p className="hh-empty">No accepted tasks fit these constraints right now.</p> : <ol className="hh-plan-steps">{plannedTasks.map(step => <li key={step.task_id}><div><strong>{taskById.get(step.task_id)?.description ?? "Household task"}</strong><small>{step.active_minutes} min active{step.passive_minutes ? ` · ${step.passive_minutes} min passive` : ""}</small></div><details><summary>Why It Fits</summary><p>{capitalizeFirst(step.reason)}</p></details></li>)}</ol>}{plan && <details className="hh-plan-detail"><summary>Plan Details</summary><p>{plan.plan.summary}</p>{plan.plan.deferred.map(item => <p key={item.task_id}>{item.reason}</p>)}</details>}</div></div>
+        {isConnected && <section className="hh-panel hh-planning"><div className="hh-panel-head"><div><p className="hh-kicker">Planning</p><h2>Make time for what matters</h2><p className="hh-muted">Build a realistic schedule from your accepted household tasks.</p></div></div>
+          <div className="hh-plan-layout"><div className="hh-plan-controls"><div className="hh-time-picks" aria-label="Suggested planning windows">{[15,30,45,60].map(minutes => <button type="button" className={availableMinutes === minutes ? "hh-time-active" : "secondary"} key={minutes} onClick={() => setAvailableMinutes(minutes)}>{minutes} min</button>)}</div><label>Time available <input type="number" min={1} max={720} value={availableMinutes} onChange={e => setAvailableMinutes(Number(e.target.value))}/></label><label className="check"><input type="checkbox" checked={atHome} onChange={e => setAtHome(e.target.checked)}/> I'm at home</label><label className="check"><input type="checkbox" checked={quietHours} onChange={e => setQuietHours(e.target.checked)}/> Quiet hours</label><details><summary>More context</summary><label>Research question (optional)<input value={researchQuery} onChange={e => setResearchQuery(e.target.value)}/></label></details><button disabled={busy || !token} onClick={createPlan}>Build plan</button></div>
+          <div className="hh-plan-output">{!plan ? <div className="hh-plan-preview"><span className="hh-plan-eyebrow">Your planning snapshot</span><strong>{acceptedTasks.length === 0 ? "Nothing accepted yet" : `${acceptedTasks.length} accepted task${acceptedTasks.length === 1 ? "" : "s"} ready`}</strong><p>{acceptedTasks.length ? `You have ${availableMinutes} minutes available. Build a plan to see which accepted chores fit your time and home context.` : "Accept a task from your suggestions to make it available for planning."}</p><div className="hh-plan-preview-meta"><span>{availableMinutes} minutes available</span><span>{quietHours ? "Quiet-hour friendly" : "Regular activity"}</span><span>{atHome ? "At home" : "Away from home"}</span></div></div> : plannedTasks.length === 0 ? <p className="hh-empty">No accepted tasks fit these constraints right now.</p> : <ol className="hh-plan-steps">{plannedTasks.map(step => <li key={step.task_id}><div><strong>{taskById.get(step.task_id)?.description ?? "Household task"}</strong><small>{step.active_minutes} min active{step.passive_minutes ? ` · ${step.passive_minutes} min passive` : ""}</small></div><details><summary>Why It Fits</summary><p>{capitalizeFirst(step.reason)}</p></details></li>)}</ol>}{plan && <details className="hh-plan-detail"><summary>Plan Details</summary><p>{plan.plan.summary}</p>{plan.plan.deferred.map(item => <p key={item.task_id}>{item.reason}</p>)}</details>}</div></div>
         </section>}
       </section>}
 
@@ -323,6 +446,22 @@ export default function Home() {
         {!roomSummaries.length ? <div className="hh-panel hh-empty">No spaces yet. Scan a room to get started.</div> : <><div className="hh-room-tabs" aria-label="Choose a room">{roomSummaries.map(room => <button key={room.room} aria-pressed={activeRoom?.room === room.room} className={activeRoom?.room === room.room ? "hh-selected" : ""} onClick={() => setSelectedRoom(room.room)}>{capitalizeFirst(display(room.room))}{room.pending > 0 && <span>{room.pending}</span>}</button>)}</div>
         {activeRoom && <div className="hh-home-grid"><section className="hh-panel"><p className="hh-kicker">Current condition</p><h2>{capitalizeFirst(display(activeRoom.room))}</h2>{activeRoom.latestConfirmed ? <><strong className="hh-state-value">{conditionSummary(activeRoom.latestConfirmed)}</strong><p className="hh-muted">Confirmed · {new Date(activeRoom.latestConfirmed.timestamp).toLocaleString()}</p><details><summary>Condition Details</summary><p className="hh-muted">{displayCategory(activeRoom.latestConfirmed.category)} · Estimated level {Math.round(activeRoom.latestConfirmed.value * 100)}%</p><p>{observationEvidence(activeRoom.latestConfirmed)}</p></details></> : <p className="hh-empty">No confirmed reading yet.</p>}{activeRoom.latestPending && <div className="hh-pending"><strong>Needs review</strong><p>{conditionSummary(activeRoom.latestPending)} · Unconfirmed</p><p className="hh-muted">{observationEvidence(activeRoom.latestPending)}</p><button disabled={busy || !token} onClick={() => confirm(activeRoom.latestPending!)}>Confirm observation</button></div>}<details><summary>Recent observations ({activeRoom.observations.length})</summary><div className="hh-compact-list">{activeRoom.observations.map(item => <div className="hh-history-entry" key={item.id}><strong>{conditionSummary(item)}</strong><small>{new Date(item.timestamp).toLocaleString()} · {needsReview(item) ? "Pending" : "Confirmed"}</small><details><summary>Evidence</summary><p>{observationEvidence(item)}</p><small>{displayCategory(item.category)} · Estimated level {Math.round(item.value * 100)}%</small></details></div>)}</div></details></section>
           <section className="hh-panel"><div className="hh-panel-head"><h2>Room tasks</h2><button className="hh-link" onClick={() => setView("tasks")}>All tasks →</button></div>{!report ? <p className="hh-empty">Load household tasks to view room work.</p> : roomTasks.length === 0 ? <p className="hh-empty">No active work for this space.</p> : <div className="hh-compact-list">{roomTasks.map(({task}) => <div className="hh-history-entry" key={task.id}><strong>{capitalizeFirst(task.description.replace(/ in unknown$/i, ""))}</strong><small>{taskState(task)} · {task.estimated_effort_minutes} min</small><button className="hh-inline-action" onClick={() => setView("tasks")}>View in Tasks →</button></div>)}</div>}</section></div>}</>}
+      </section>}
+
+      {view === "tasks" && <section className="hh-panel" aria-label="Autonomous household tasks">
+        <div className="hh-panel-head"><h2>Autonomous tasks</h2><button className="secondary" disabled={busy || !token} onClick={refreshAutonomousTasks}>Refresh autonomous tasks</button></div>
+        <p className="hh-muted">Opt-in live review. A reference photograph anchors a physical space; later photos require independent same-room verification.</p>
+        <p className="hh-muted">Current photo ID: {media?.id ?? "Upload a photo first"}</p>
+        <label htmlFor="hh-room-reference">Reference photo media ID</label>
+        <input id="hh-room-reference" value={roomReference} onChange={e => setRoomReference(e.target.value)} placeholder="Use current photo ID for first registration" />
+        {media?.id && <button className="secondary" onClick={() => setRoomReference(media.id)}>Use current photo as new room reference</button>}
+        <button disabled={busy || !token || !media?.id || !roomReference.trim()} onClick={autonomousScan}>Verify scan and update tasks</button>
+        {autonomousNote && <p role="status">{autonomousNote}</p>}
+        {autonomousTasks.length === 0 ? <p className="hh-muted">No autonomous tasks loaded. Enable the backend feature flag and refresh to inspect stored tasks.</p> :
+          <div className="hh-compact-list">{autonomousTasks.map(task => <div className="hh-task-row" key={task.id}>
+            <div><strong>{task.title}</strong><p>{task.status} · {task.effort_min === null ? "Duration unknown" : `${task.effort_min}–${task.effort_max} min`}</p>
+            <details><summary>Verification criteria</summary><p>{task.criteria}</p><small>Room reference: {task.room_id}</small></details></div>
+          </div>)}</div>}
       </section>}
 
       {view === "tasks" && <section className="hh-view"><div className="hh-view-title"><div><p className="hh-kicker">Your work</p><h1>Tasks</h1><p>Review suggestions and manage accepted chores.</p></div><button className="secondary" disabled={busy || !token} onClick={refresh}>↻ Refresh</button></div>
@@ -334,9 +473,57 @@ export default function Home() {
         <section className="hh-panel">{!historyLoaded ? <p className="hh-empty">Load household history to see activity.</p> : history.length === 0 ? <p className="hh-empty">Your household activity will appear after your first scan.</p> : <div className="hh-compact-list">{[...history].sort((a,b)=>b.timestamp.localeCompare(a.timestamp)).map(item => <div key={item.id} className="hh-history-entry"><strong>{capitalizeFirst(display(item.location))} · {conditionSummary(item)}</strong><p>{needsReview(item) ? "Unverified" : evidenceStatus(item)} · {new Date(item.timestamp).toLocaleString()}</p><details><summary>Evidence</summary><p>{observationEvidence(item)}</p><small>{displayCategory(item.category)} · Estimated level {Math.round(item.value * 100)}%</small></details></div>)}</div>}</section>
       </section>}
 
-      {scanOpen && <div className="hh-modal-backdrop" onClick={() => setScanOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="hh-scan-title" className="hh-modal" onClick={e=>e.stopPropagation()}><div className="hh-panel-head"><h2 id="hh-scan-title">Scan a space</h2><button className="hh-icon-button" aria-label="Close scan" onClick={() => setScanOpen(false)}>✕</button></div><details><summary>Room (optional)</summary><label>Room label<input value={location} placeholder="Add a room name if known" onChange={e => setLocation(e.target.value)}/></label><p className="hh-muted">HomHive may suggest a room category, but it will not guess which physical room it is.</p></details><label>Photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => {setFile(e.target.files?.[0] ?? null);setMedia(null);setObservations([]);}}/></label>{!token && <div className="hh-pending" role="status"><strong>Connect to upload</strong><p>Enter your household token in Settings to keep this scan private.</p><button type="button" className="secondary" onClick={() => {setScanOpen(false);setSettingsOpen(true);}}>Open Settings</button></div>}{file && token && <p className="hh-muted">Ready to upload. HomHive will analyze the photo automatically.</p>}<div className="hh-task-actions"><button disabled={busy || !file || !token} onClick={upload}>{busy ? "Working…" : "Upload and analyze"}</button>{media?.processing === "retry_required" && <button className="secondary" disabled={busy || !token} onClick={analyze}>Retry analysis</button>}</div>{observations.length > 0 && <div className="hh-compact-list"><h3>Observations</h3>{observations.map(item => <div className="hh-history-entry" key={item.id}><strong>{conditionSummary(item)}</strong><p>{observationEvidence(item)}</p><small>{needsReview(item) ? "Unverified" : evidenceStatus(item)}</small>{needsReview(item) && <button disabled={busy} onClick={() => confirm(item)}>Confirm observation</button>}</div>)}</div>}<p className="hh-muted">AI-corroborated observations do not require routine confirmation. Accepting a task is a separate decision.</p></section></div>}
-
-      {settingsOpen && <div className="hh-modal-backdrop" onClick={() => setSettingsOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="hh-settings-title" className="hh-modal" onClick={e=>e.stopPropagation()}><div className="hh-panel-head"><h2 id="hh-settings-title">Settings</h2><button className="hh-icon-button" aria-label="Close settings" onClick={() => setSettingsOpen(false)}>✕</button></div><label>Household<input value={householdId} onChange={e => setHouseholdId(e.target.value)}/></label><label>Household token<input type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder="Enter household token"/></label><details><summary>Connection diagnostics</summary><label>API URL<input value={apiUrl} onChange={e=>setApiUrl(e.target.value)}/></label><p className="hh-muted">Your token stays in this browser session. Never share it in chat.</p></details><details><summary>Presence (optional)</summary><p className="hh-muted">Manually share whether you're home. This is not automatic location tracking and expires after one hour.</p><p className="hh-muted">Current: {presence?.state ?? "UNKNOWN"}</p><div className="hh-task-actions"><button className="secondary" disabled={!token || busy} onClick={() => changePresence("HOME")}>I'm home</button><button className="secondary" disabled={!token || busy} onClick={() => changePresence("AWAY")}>I'm away</button><button className="secondary" disabled={!token || busy} onClick={() => changePresence("UNKNOWN")}>Stop sharing</button></div></details><button disabled={busy || !token || !householdId.trim()} onClick={async()=>{await loadHousehold();setSettingsOpen(false);}}>Load household</button></section></div>}
+      {scanOpen && <div className="hh-modal-backdrop" onClick={() => setScanOpen(false)}>
+        <section role="dialog" aria-modal="true" aria-labelledby="hh-scan-title" className="hh-modal" onClick={e => e.stopPropagation()}>
+          <div className="hh-panel-head"><h2 id="hh-scan-title">Scan a space</h2><button type="button" className="hh-icon-button" aria-label="Close scan" onClick={() => setScanOpen(false)}>✕</button></div>
+          {!isConnected ? <div className="hh-pending" role="status" style={{display:"grid",gap:".75rem",padding:"1.2rem",marginTop:"1.2rem"}}>
+            <strong style={{fontSize:"1.05rem"}}>Connect household to upload files</strong>
+            <p style={{margin:0}}>{token ? "You're signed in, but your household isn't loaded yet. Open Settings and select Load household to access your private photo uploads and demo library." : "Sign in or create an account, then select Load household in Settings. Photo upload and demo scenes will become available after a successful connection."}</p>
+            <button type="button" onClick={() => {setScanOpen(false);setSettingsOpen(true);}} style={{width:"100%"}}>{token ? "Open Settings · Load household" : "Open Settings · Sign in"}</button>
+          </div> : <>
+            <details><summary>Room (optional)</summary><label>Room label<input value={location} placeholder="Add a room name if known" onChange={e => setLocation(e.target.value)}/></label><p className="hh-muted">HomHive can suggest a room category but will not invent a physical room identity.</p></details>
+            <div className="hh-photo-options" style={{alignItems:"stretch"}}>
+              <div><strong>Choose a photo</strong><p className="hh-muted">Upload your own photo or choose from {demoCatalog.length} demo scenes. Both use live analysis.</p></div>
+              <button type="button" className="secondary" onClick={() => setDemoOpen(true)}>Browse demo library</button>
+            </div>
+            <label style={{display:"block",padding:"1rem",border:"1px dashed #96b4a0",borderRadius:"14px",background:"#f7faf7",cursor:"pointer",textAlign:"center"}}>
+              <strong>Upload a photo from your device</strong>
+              <span style={{display:"block",fontSize:".8rem",color:"#5a6c60",marginTop:".3rem"}}>JPG, PNG, or WebP · Choose an image</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" aria-label="Upload a household photo" style={{position:"absolute",width:"1px",height:"1px",opacity:0,overflow:"hidden"}} onChange={e => {setFile(e.target.files?.[0] ?? null);setMedia(null);setObservations([]);}} />
+            </label>
+            {file && <p className="hh-selected-photo" role="status">Selected: {file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB</p>}
+            {file && <p className="hh-muted">Ready for live AI analysis.</p>}
+            <div className="hh-task-actions"><button disabled={busy || !file || !isConnected} onClick={upload}>{busy ? "Working…" : "Upload and analyze"}</button>{media?.processing === "retry_required" && <button className="secondary" disabled={busy || !isConnected} onClick={analyze}>Retry analysis</button>}</div>
+            {!file && <p className="hh-muted" role="status">Select a photo from your device or browse the demo library to enable analysis.</p>}
+            {observations.length > 0 && <div className="hh-compact-list"><h3>Observations</h3>{observations.map(item => <div className="hh-history-entry" key={item.id}><strong>{conditionSummary(item)}</strong><p>{observationEvidence(item)}</p><small>{needsReview(item) ? "Unverified" : evidenceStatus(item)}</small>{needsReview(item) && <button disabled={busy} onClick={() => confirm(item)}>Confirm observation</button>}</div>)}</div>}
+            <p className="hh-muted">AI-corroborated observations do not require routine confirmation. Accepting a task is a separate decision.</p>
+          </>}
+        </section>
+      </div>}
+      {demoOpen && <div className="hh-modal-backdrop hh-demo-backdrop" onClick={() => setDemoOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="hh-demo-title" className="hh-modal hh-demo-dialog" onClick={e => e.stopPropagation()}><div className="hh-panel-head"><div><p className="hh-kicker">HomHive demo library</p><h2 id="hh-demo-title">Choose a household scene</h2><p className="hh-muted">{demoCatalog.length} sample photographs. Selecting one uses real AI analysis when you submit it.</p></div><button className="hh-icon-button" aria-label="Close image library" onClick={() => setDemoOpen(false)}>✕</button></div><div className="hh-demo-filters"><label>Find a scene<input value={demoQuery} onChange={e => setDemoQuery(e.target.value)} placeholder="Search rooms, conditions, and scenes"/></label><label>Room category<select value={demoCategory} onChange={e => setDemoCategory(e.target.value)}>{demoCategories.map(category => <option key={category} value={category}>{category}</option>)}</select></label></div><p className="hh-muted" aria-live="polite">Showing {visibleDemoImages.length} photographs</p>{demoSelectionError && <p role="alert" className="hh-demo-error">{demoSelectionError}</p>}<div className="hh-demo-grid">{visibleDemoImages.map(image => <button className="hh-demo-item" disabled={demoSelecting} key={image.id} onClick={() => chooseDemoImage(image)} aria-label={`Select ${image.title}`}><img src={image.thumbnail} alt={image.title} loading="lazy"/><span><strong>{image.title}</strong><small>{image.category} · {image.group === "original" ? "Original scene" : image.group === "base" ? "Base scene" : "Controlled variant"}</small></span></button>)}</div></section></div>}
+      {settingsOpen && <div className="hh-modal-backdrop" onClick={() => setSettingsOpen(false)}>
+        <section role="dialog" aria-modal="true" aria-labelledby="hh-settings-title" className="hh-modal hh-settings-dialog" onClick={e => e.stopPropagation()}>
+          <div className="hh-panel-head"><h2 id="hh-settings-title">Settings</h2><button type="button" className="hh-icon-button" aria-label="Close settings" onClick={() => setSettingsOpen(false)}>✕</button></div>
+          {!token ? <div className="hh-auth-form">
+            <div className="hh-auth-switch" role="group" aria-label="Account access">
+              <button type="button" aria-pressed={authMode === "login"} className={authMode === "login" ? "hh-time-active" : "secondary"} onClick={() => { setAuthMode("login"); setAuthError(""); setConfirmPassword(""); }}>Sign in</button>
+              <button type="button" aria-pressed={authMode === "register"} className={authMode === "register" ? "hh-time-active" : "secondary"} onClick={() => { setAuthMode("register"); setAuthError(""); setConfirmPassword(""); }}>Create account</button>
+            </div>
+            <div className="hh-auth-heading"><h3>{authMode === "login" ? "Welcome back" : "Create your private household"}</h3><p>{authMode === "login" ? "Sign in to access your saved household and tasks." : "Create an account to securely save scans, rooms, and household tasks."}</p></div>
+            <form className="hh-auth-fields" onSubmit={e => {e.preventDefault();void authenticate();}} noValidate>
+              <label>Email address<input type="email" autoComplete="email" placeholder="you@example.com" value={authEmail} onChange={e => {setAuthEmail(e.target.value);setAuthError("");}} /></label>
+              <label>Password<input type="password" autoComplete={authMode === "register" ? "new-password" : "current-password"} placeholder={authMode === "register" ? "At least 12 characters" : "Your password"} value={authPassword} onChange={e => {setAuthPassword(e.target.value);setAuthError("");}} /></label>
+              {authMode === "register" && <label>Confirm password<input type="password" autoComplete="new-password" placeholder="Re-enter your password" value={confirmPassword} onChange={e => {setConfirmPassword(e.target.value);setAuthError("");}} /></label>}
+              {authError && <div className="hh-auth-feedback" role="alert"><p>{authError}</p>{authMode === "register" && /already|existing/i.test(authError) && <button type="button" className="hh-inline-action" onClick={() => {setAuthMode("login");setAuthError("");setAuthPassword("");setConfirmPassword("");}}>Switch to sign in →</button>}</div>}
+              <button className="hh-auth-submit" type="submit" disabled={Boolean(authDisabledReason)}>{busy ? "Please wait…" : authMode === "login" ? "Sign in" : "Create account"}</button>
+              {authDisabledReason && <p className="hh-auth-reason" role="status">{authDisabledReason}</p>}
+            </form>
+            <p className="hh-auth-footnote">{authMode === "register" ? "Your account creates a private household. Sessions expire after seven days." : "Use the password you created with this email. Account recovery is not yet available."}</p>
+          </div> : <div className="hh-auth-connected"><strong>Signed in</strong><p>Your account has a private household. Select <strong>Load household</strong> to access scans and saved work.</p><button type="button" className="secondary" disabled={busy} onClick={signOut}>Sign out</button></div>}
+          <section className="hh-settings-section" aria-label="Household connection"><h3>Household connection</h3><p className="hh-muted">{isConnected ? "Your household is loaded. Scans and saved work are available." : token ? "You are signed in. Select Load household to connect your saved data." : "Sign in or create an account to connect your private household."}</p><button type="button" disabled={Boolean(householdDisabledReason)} onClick={async () => {if (await loadHousehold()) setSettingsOpen(false);}}>{busy ? "Connecting…" : isConnected ? "Household connected" : "Load household"}</button>{householdDisabledReason && <p role="status" className="hh-auth-reason">{householdDisabledReason}</p>}</section>
+          <details className="hh-settings-details"><summary>Presence (optional)</summary><p className="hh-muted">Share whether you are home. This is manual and expires after one hour.</p><p className="hh-muted">Current: {presence?.state ?? "UNKNOWN"}</p><div className="hh-task-actions"><button className="secondary" disabled={!isConnected || busy} onClick={() => changePresence("HOME")}>I'm home</button><button className="secondary" disabled={!isConnected || busy} onClick={() => changePresence("AWAY")}>I'm away</button><button className="secondary" disabled={!isConnected || busy} onClick={() => changePresence("UNKNOWN")}>Stop sharing</button></div>{(!isConnected || busy) && <p className="hh-auth-reason">{!isConnected ? "Load your household before sharing presence." : "Please wait for the current request."}</p>}</details>
+          <details className="hh-settings-details"><summary>Connection diagnostics</summary><label>API URL<input value={apiUrl} onChange={e => setApiUrl(e.target.value)}/></label><p className="hh-muted">Account sessions are held in this browser tab and revoked on sign out.</p>{token && <p className="hh-muted">Technical household ID (for troubleshooting): <code style={{overflowWrap:"anywhere"}}>{householdId}</code></p>}</details>
+        </section></div>}
     </main>
   );
 }

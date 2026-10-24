@@ -85,6 +85,15 @@ export type PlanResponse = {
   research: unknown[];
 };
 
+export type AutonomousTask = {
+  id: string; room_id: string; title: string; action: string;
+  status: string; effort_min: number | null; effort_max: number | null; criteria: string;
+};
+export type AutonomousScanResult = {
+  status: string; saved: boolean; created: string[]; existing: string[];
+  completed: Record<string, string>; approved_actions: number; room_id?: string;
+};
+
 export class HomHiveApi {
   constructor(
     private readonly baseUrl: string,
@@ -110,6 +119,19 @@ export class HomHiveApi {
       throw new Error(message);
     }
     return response.json() as Promise<T>;
+  }
+
+  async autonomousTasks(): Promise<AutonomousTask[]> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-tasks`,
+      { headers: this.headers(), cache: "no-store" });
+    return (await this.parse<{tasks: AutonomousTask[]}>(response)).tasks;
+  }
+
+  async autonomousScan(mediaId: string, referenceMediaId: string): Promise<AutonomousScanResult> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/media/${encodeURIComponent(mediaId)}/autonomous-scan`, {
+      method: "POST", headers: this.headers(), body: JSON.stringify({reference_media_id:referenceMediaId}),
+    });
+    return this.parse(response);
   }
 
   async upload(file: File, location?: string, onProgress?: (percent: number) => void): Promise<MediaRecord> {

@@ -49,7 +49,7 @@ def _priority_score(
 
     score = (
         urgency_score * URGENCY_WEIGHT
-        + task.confidence * CONFIDENCE_WEIGHT
+        + (task.confidence if task.confidence is not None else 0.0) * CONFIDENCE_WEIGHT
         + effort_score * EFFORT_WEIGHT
     )
 

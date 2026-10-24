@@ -1,0 +1,2202 @@
+[
+  {
+    "id": "original-001",
+    "title": "Original scene 001",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-001-thumb.jpg",
+    "image": "/demo-library/original-001.jpg",
+    "original_name": "226ceace-9cb4-495f-8868-def7bed02c5c.png",
+    "original_sha256": "7e15c2abba8e2aca387435ac8aa95b650e6adad8171ce90838de0fcf6495aaf2"
+  },
+  {
+    "id": "original-002",
+    "title": "Original scene 002",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-002-thumb.jpg",
+    "image": "/demo-library/original-002.jpg",
+    "original_name": "261327f1-1165-4db7-b64f-8aa12de62963.png",
+    "original_sha256": "15752a2e8410d70a2378f5f28b289e01db6c96ce25da55547abe0e5711008d74"
+  },
+  {
+    "id": "original-003",
+    "title": "Original scene 003",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-003-thumb.jpg",
+    "image": "/demo-library/original-003.jpg",
+    "original_name": "44bbe7db-b1b2-4657-9c31-cf78920fb66a.png",
+    "original_sha256": "92977302649ae21293361ff6a71a260e5d29c95d794795637019a6f412ac4ad2"
+  },
+  {
+    "id": "original-004",
+    "title": "Original scene 004",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-004-thumb.jpg",
+    "image": "/demo-library/original-004.jpg",
+    "original_name": "6e4bd66b-1a45-494c-bc6e-33d1278d92ac.png",
+    "original_sha256": "9a6d5f6a91968e48c65e6fd12f1bc47927e99f509fca9462d455ad56162d91b2"
+  },
+  {
+    "id": "original-005",
+    "title": "Original scene 005",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-005-thumb.jpg",
+    "image": "/demo-library/original-005.jpg",
+    "original_name": "a752aca1-1473-4b88-8bf8-728e3f8b2901.png",
+    "original_sha256": "986ffe4b33b786d64e9502b1d9c956e964a22aac2ea08deb81787b71c89b3884"
+  },
+  {
+    "id": "original-006",
+    "title": "Original scene 006",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-006-thumb.jpg",
+    "image": "/demo-library/original-006.jpg",
+    "original_name": "b0196e09-55d6-4d4f-a6ae-6c29291e48ff.png",
+    "original_sha256": "5f2e1bd4d9e9b92ce2ef393d2b92bf6e57f533f9555b04b72befc59a3b8586a0"
+  },
+  {
+    "id": "original-007",
+    "title": "Bright Kitchen Sink with Everyday Essentials",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-007-thumb.jpg",
+    "image": "/demo-library/original-007.jpg",
+    "original_name": "Bright Kitchen Sink with Everyday Essentials.png",
+    "original_sha256": "b28d04380c702a8e5828ba2f9f502335a89f0881138774681ef017961c3c8326"
+  },
+  {
+    "id": "original-008",
+    "title": "Chaotic Walk-In Closet Overflow",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-008-thumb.jpg",
+    "image": "/demo-library/original-008.jpg",
+    "original_name": "Chaotic Walk-In Closet Overflow.png",
+    "original_sha256": "2562ab4950649e54c8183d23b0d9dff975fde0f869154ffd867be5abbeaf20ab"
+  },
+  {
+    "id": "original-009",
+    "title": "Original scene 009",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-009-thumb.jpg",
+    "image": "/demo-library/original-009.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_34_47 PM-1.png",
+    "original_sha256": "65d7f41d5ef84d44991fc68d04740aa848eda64b54f594f3773970f53886eb52"
+  },
+  {
+    "id": "original-010",
+    "title": "Original scene 010",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-010-thumb.jpg",
+    "image": "/demo-library/original-010.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_34_48 PM-2.png",
+    "original_sha256": "175096bd1734d9711f1d803bc902dc21bd003e8ef25ab24b1ff5fe4351ec99a3"
+  },
+  {
+    "id": "original-011",
+    "title": "Original scene 011",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-011-thumb.jpg",
+    "image": "/demo-library/original-011.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_34_48 PM-3.png",
+    "original_sha256": "6da7bb6c142b28c485d84089153a2ab6107e50642380fc6be00981c64f20817b"
+  },
+  {
+    "id": "original-012",
+    "title": "Original scene 012",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-012-thumb.jpg",
+    "image": "/demo-library/original-012.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_34_49 PM-4.png",
+    "original_sha256": "58fcf14144f0f0f3d91209b8ecd2ef75c3a6654c5fd603ec2bf99b9550b6f7ce"
+  },
+  {
+    "id": "original-013",
+    "title": "Original scene 013",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-013-thumb.jpg",
+    "image": "/demo-library/original-013.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_38_25 PM.png",
+    "original_sha256": "5f2e1bd4d9e9b92ce2ef393d2b92bf6e57f533f9555b04b72befc59a3b8586a0"
+  },
+  {
+    "id": "original-014",
+    "title": "Original scene 014",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-014-thumb.jpg",
+    "image": "/demo-library/original-014.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_38_31 PM.png",
+    "original_sha256": "b52042b6a3d456b79ec9c181953792ba980f89506154d693a7a9066bf40153f7"
+  },
+  {
+    "id": "original-015",
+    "title": "Original scene 015",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-015-thumb.jpg",
+    "image": "/demo-library/original-015.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_38_34 PM.png",
+    "original_sha256": "3d6da5e6988f924bc3512ac2c57852c43f0e51af72f5b134a923b8b3160219cf"
+  },
+  {
+    "id": "original-016",
+    "title": "Original scene 016",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-016-thumb.jpg",
+    "image": "/demo-library/original-016.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_49_20 PM-2.png",
+    "original_sha256": "cb193a46f3afbf242e5fda9ce6a55bc12f519157a0841eaba079d4b6d801c098"
+  },
+  {
+    "id": "original-017",
+    "title": "Original scene 017",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-017-thumb.jpg",
+    "image": "/demo-library/original-017.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_49_20 PM-3.png",
+    "original_sha256": "2d1170b448f8e955f25a4ac13c65e9c1313e4942e55261cfd03d01323bcaee76"
+  },
+  {
+    "id": "original-018",
+    "title": "Original scene 018",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-018-thumb.jpg",
+    "image": "/demo-library/original-018.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_49_21 PM-4.png",
+    "original_sha256": "6f874f519e8982be094a4dbcbd22730347e72336d755c53010906a7beb75c319"
+  },
+  {
+    "id": "original-019",
+    "title": "Original scene 019",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-019-thumb.jpg",
+    "image": "/demo-library/original-019.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_49_22 PM-5.png",
+    "original_sha256": "6d9c6947ae2e4862b77defca5b4700422b156b4325fccb7c30f7b53ddfcfa08e"
+  },
+  {
+    "id": "original-020",
+    "title": "Original scene 020",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-020-thumb.jpg",
+    "image": "/demo-library/original-020.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_49_22 PM-6.png",
+    "original_sha256": "8c94ddaf176e20347dd73c73aead34789afe93ce6b530b90daeee5227188e094"
+  },
+  {
+    "id": "original-021",
+    "title": "Original scene 021",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-021-thumb.jpg",
+    "image": "/demo-library/original-021.jpg",
+    "original_name": "ChatGPT Image Oct 13, 2026, 05_49_23 PM-7.png",
+    "original_sha256": "c764517da402d7ab891d2d09c5725f405ea0fe5e52be8a0ec0b94676117936d7"
+  },
+  {
+    "id": "original-022",
+    "title": "Clean Stainless Sink Kitchen Scene",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-022-thumb.jpg",
+    "image": "/demo-library/original-022.jpg",
+    "original_name": "Clean Stainless Sink Kitchen Scene.png",
+    "original_sha256": "6ae68408e4c5613f894b52b3c0f8da303af0ca51755e6b48c9ebc84e1b7b4019"
+  },
+  {
+    "id": "original-023",
+    "title": "Cluttered Cozy Entryway with Packages",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-023-thumb.jpg",
+    "image": "/demo-library/original-023.jpg",
+    "original_name": "Cluttered Cozy Entryway with Packages.png",
+    "original_sha256": "6d6d14996626634485b232de2545e2e822492bca7320fe576712afb8a3bdb66d"
+  },
+  {
+    "id": "original-024",
+    "title": "Cluttered Cozy Laundry Room",
+    "category": "Laundry",
+    "group": "original",
+    "thumbnail": "/demo-library/original-024-thumb.jpg",
+    "image": "/demo-library/original-024.jpg",
+    "original_name": "Cluttered Cozy Laundry Room.png",
+    "original_sha256": "b512f9fae24b0c51bf00971c1433119d96aed2466ff09091f7d5313ba93de79e"
+  },
+  {
+    "id": "original-025",
+    "title": "Cluttered Entryway After Delivery",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-025-thumb.jpg",
+    "image": "/demo-library/original-025.jpg",
+    "original_name": "Cluttered Entryway After Delivery.png",
+    "original_sha256": "46945ca8dcc8745d0eb34b5e46f9223a25ef7d110705aaf49ab8cd2895b15ea4"
+  },
+  {
+    "id": "original-026",
+    "title": "Cluttered Garage Storage Space",
+    "category": "Garage",
+    "group": "original",
+    "thumbnail": "/demo-library/original-026-thumb.jpg",
+    "image": "/demo-library/original-026.jpg",
+    "original_name": "Cluttered Garage Storage Space.png",
+    "original_sha256": "25c8c6edb9ddbd639d77249c5449c08dc038b5864aa6d8d090942d67584e1a0a"
+  },
+  {
+    "id": "original-027",
+    "title": "Cluttered Garage Workshop Interior",
+    "category": "Garage",
+    "group": "original",
+    "thumbnail": "/demo-library/original-027-thumb.jpg",
+    "image": "/demo-library/original-027.jpg",
+    "original_name": "Cluttered Garage Workshop Interior.png",
+    "original_sha256": "122ba56c38fe2c2366aa0612be716df103832a435da1f24de882c2908d207d4e"
+  },
+  {
+    "id": "original-028",
+    "title": "Cluttered Kitchen After Cooking (1)",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-028-thumb.jpg",
+    "image": "/demo-library/original-028.jpg",
+    "original_name": "Cluttered Kitchen After Cooking (1).png",
+    "original_sha256": "8a8c51d182788dfa47858597ae3c4d9f604a3c7d7b10feb1c5a737e64942b5e5"
+  },
+  {
+    "id": "original-029",
+    "title": "Cluttered Kitchen After Cooking",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-029-thumb.jpg",
+    "image": "/demo-library/original-029.jpg",
+    "original_name": "Cluttered Kitchen After Cooking.png",
+    "original_sha256": "8551575466562eca5a0e7190078ccf8a7f518dccf3b79dcb07eb1a5ce933c647"
+  },
+  {
+    "id": "original-030",
+    "title": "Cluttered Kitchen After Dinner",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-030-thumb.jpg",
+    "image": "/demo-library/original-030.jpg",
+    "original_name": "Cluttered Kitchen After Dinner.png",
+    "original_sha256": "db74f895427ea7aa5a274fc4592fe6b708a199d0fb3a314d4f086fb2864a94f4"
+  },
+  {
+    "id": "original-031",
+    "title": "Cluttered Kitchen Sink After Dinner",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-031-thumb.jpg",
+    "image": "/demo-library/original-031.jpg",
+    "original_name": "Cluttered Kitchen Sink After Dinner.png",
+    "original_sha256": "cd2ec1af4b36d8246461747d180ee3e9fbc598d6800138c70ab4875c1550f2e6"
+  },
+  {
+    "id": "original-032",
+    "title": "Cluttered Kitchen Sink Chaos",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-032-thumb.jpg",
+    "image": "/demo-library/original-032.jpg",
+    "original_name": "Cluttered Kitchen Sink Chaos.png",
+    "original_sha256": "88ccbaa724efa48f01f6e6723892cf407a31a9121bd6a6570cfd2b61f59d98fa"
+  },
+  {
+    "id": "original-033",
+    "title": "Cluttered Laundry Room Chaos (1)",
+    "category": "Laundry",
+    "group": "original",
+    "thumbnail": "/demo-library/original-033-thumb.jpg",
+    "image": "/demo-library/original-033.jpg",
+    "original_name": "Cluttered Laundry Room Chaos (1).png",
+    "original_sha256": "2887b90c763036997b24699d34f952862763b37c902a49b3a10ed5f0d6b66804"
+  },
+  {
+    "id": "original-034",
+    "title": "Cluttered Laundry Room Chaos",
+    "category": "Laundry",
+    "group": "original",
+    "thumbnail": "/demo-library/original-034-thumb.jpg",
+    "image": "/demo-library/original-034.jpg",
+    "original_name": "Cluttered Laundry Room Chaos.png",
+    "original_sha256": "d02b12ec2070316a83d3d7cd297fa09b3eb3a5a8a59c847f99cec80d14a4d6c4"
+  },
+  {
+    "id": "original-035",
+    "title": "Cluttered Mudroom Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-035-thumb.jpg",
+    "image": "/demo-library/original-035.jpg",
+    "original_name": "Cluttered Mudroom Entryway.png",
+    "original_sha256": "eb65a0de7588d2da046d9a488bbe1973b3d6bdc4b97d2397711d7aac6254c4e6"
+  },
+  {
+    "id": "original-036",
+    "title": "Cluttered Pantry Behind the Scenes",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-036-thumb.jpg",
+    "image": "/demo-library/original-036.jpg",
+    "original_name": "Cluttered Pantry Behind the Scenes.png",
+    "original_sha256": "e12e3c77c1f3f1a6bdf904d14ffaf9c88fcb3e8bd081db7f34056c31f6847ea8"
+  },
+  {
+    "id": "original-037",
+    "title": "Cluttered Refrigerator Interior",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-037-thumb.jpg",
+    "image": "/demo-library/original-037.jpg",
+    "original_name": "Cluttered Refrigerator Interior.png",
+    "original_sha256": "19e7dc143e7a205ed7e801b485ab16b930d4b2602b3c5b8f4a81aa514f0d805d"
+  },
+  {
+    "id": "original-038",
+    "title": "Cluttered Two-Car Garage Workshop",
+    "category": "Garage",
+    "group": "original",
+    "thumbnail": "/demo-library/original-038-thumb.jpg",
+    "image": "/demo-library/original-038.jpg",
+    "original_name": "Cluttered Two-Car Garage Workshop.png",
+    "original_sha256": "b46a76ba5875e8cc3c03631df7cddfd765806e3f61ef7af3ba156f56d0a21e50"
+  },
+  {
+    "id": "original-039",
+    "title": "Cluttered Walk-In Closet Scene (1)",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-039-thumb.jpg",
+    "image": "/demo-library/original-039.jpg",
+    "original_name": "Cluttered Walk-In Closet Scene (1).png",
+    "original_sha256": "d8c5a946eee07647b916300f367a9eff9be69d7f4e260a627a072aa9472a9d72"
+  },
+  {
+    "id": "original-040",
+    "title": "Cluttered Walk-In Closet Scene",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-040-thumb.jpg",
+    "image": "/demo-library/original-040.jpg",
+    "original_name": "Cluttered Walk-In Closet Scene.png",
+    "original_sha256": "c9f7e4eac0fd1c351d014d1cfeb1da746cd1505cd7d38c2ab3942262910d2047"
+  },
+  {
+    "id": "original-041",
+    "title": "Cluttered Warm-Lit Garage Workshop",
+    "category": "Garage",
+    "group": "original",
+    "thumbnail": "/demo-library/original-041-thumb.jpg",
+    "image": "/demo-library/original-041.jpg",
+    "original_name": "Cluttered Warm-Lit Garage Workshop.png",
+    "original_sha256": "7ceba06baa08c8f2825bd2caf24d188be84ea69911ac889bd3d0486fbc2b722c"
+  },
+  {
+    "id": "original-042",
+    "title": "Cluttered Warm-Lit Laundry Room",
+    "category": "Laundry",
+    "group": "original",
+    "thumbnail": "/demo-library/original-042-thumb.jpg",
+    "image": "/demo-library/original-042.jpg",
+    "original_name": "Cluttered Warm-Lit Laundry Room.png",
+    "original_sha256": "30993be977b956230839431b821e4925131b8831fda4af24a14da3b681460591"
+  },
+  {
+    "id": "original-043",
+    "title": "Cozy Balcony Garden at Dusk",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-043-thumb.jpg",
+    "image": "/demo-library/original-043.jpg",
+    "original_name": "Cozy Balcony Garden at Dusk.png",
+    "original_sha256": "756ae8dc6848d45bada410bc6310806be50bdacb83eb6c660b22f4a1dffb19a4"
+  },
+  {
+    "id": "original-044",
+    "title": "Cozy City Balcony Garden at Night",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-044-thumb.jpg",
+    "image": "/demo-library/original-044.jpg",
+    "original_name": "Cozy City Balcony Garden at Night.png",
+    "original_sha256": "865a642236214ebc5a4f63896350746ee322aa2203bf37a30d3006b662885411"
+  },
+  {
+    "id": "original-045",
+    "title": "Cozy Cluttered Apartment Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-045-thumb.jpg",
+    "image": "/demo-library/original-045.jpg",
+    "original_name": "Cozy Cluttered Apartment Entryway.png",
+    "original_sha256": "155fbe6ee0ff4aa9008d99ba8b3b13ad9581d805f930b8c783ef8caea8e53caa"
+  },
+  {
+    "id": "original-046",
+    "title": "Cozy Cluttered Balcony at Sunset",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-046-thumb.jpg",
+    "image": "/demo-library/original-046.jpg",
+    "original_name": "Cozy Cluttered Balcony at Sunset.png",
+    "original_sha256": "02c5c6285aa2eb35c4c7e0e9c6ef3ed55ca8d9e369765d4f6bbddc478fd56240"
+  },
+  {
+    "id": "original-047",
+    "title": "Cozy Cluttered Bedroom Retreat (1)",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-047-thumb.jpg",
+    "image": "/demo-library/original-047.jpg",
+    "original_name": "Cozy Cluttered Bedroom Retreat (1).png",
+    "original_sha256": "6569eab665d599e288f169dcee5513b73a1788af1c0e304e8a87d57dacd25725"
+  },
+  {
+    "id": "original-048",
+    "title": "Cozy Cluttered Bedroom Retreat",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-048-thumb.jpg",
+    "image": "/demo-library/original-048.jpg",
+    "original_name": "Cozy Cluttered Bedroom Retreat.png",
+    "original_sha256": "cc818067b2a8c43e2f1789e08563001d9f655e1754172ed8cd3a2a7f1372e564"
+  },
+  {
+    "id": "original-049",
+    "title": "Cozy Cluttered Entryway with Packages",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-049-thumb.jpg",
+    "image": "/demo-library/original-049.jpg",
+    "original_name": "Cozy Cluttered Entryway with Packages.png",
+    "original_sha256": "6ee17aea5cb958a50c45d6052ecb2145e68017b9e3761878cb1af82aa49bc216"
+  },
+  {
+    "id": "original-050",
+    "title": "Cozy Cluttered Hallway Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-050-thumb.jpg",
+    "image": "/demo-library/original-050.jpg",
+    "original_name": "Cozy Cluttered Hallway Entryway.png",
+    "original_sha256": "a0b56b49b86986232feeaeb65393014f84a5a2f745e3e2e40a4574247cca8ebd"
+  },
+  {
+    "id": "original-051",
+    "title": "Cozy Cluttered Living Room at Night",
+    "category": "Living room",
+    "group": "original",
+    "thumbnail": "/demo-library/original-051-thumb.jpg",
+    "image": "/demo-library/original-051.jpg",
+    "original_name": "Cozy Cluttered Living Room at Night.png",
+    "original_sha256": "dda88b6ae36cfc980644316f090f8e6f6ca4ba72e1621150356a5a82840aa12a"
+  },
+  {
+    "id": "original-052",
+    "title": "Cozy Cluttered Living Room in Sunlight",
+    "category": "Living room",
+    "group": "original",
+    "thumbnail": "/demo-library/original-052-thumb.jpg",
+    "image": "/demo-library/original-052.jpg",
+    "original_name": "Cozy Cluttered Living Room in Sunlight.png",
+    "original_sha256": "baffbcd929e62d64bb5dc74bfa5ecf2ca7119f17a9c7efb8dbe97eff6efab34a"
+  },
+  {
+    "id": "original-053",
+    "title": "Cozy Cluttered Living Room Retreat",
+    "category": "Living room",
+    "group": "original",
+    "thumbnail": "/demo-library/original-053-thumb.jpg",
+    "image": "/demo-library/original-053.jpg",
+    "original_name": "Cozy Cluttered Living Room Retreat.png",
+    "original_sha256": "9dda608400d37eeafa049dc3f4faf3fe34d15803fd5490eef9c9af7d55e7323b"
+  },
+  {
+    "id": "original-054",
+    "title": "Cozy Cluttered Modern Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-054-thumb.jpg",
+    "image": "/demo-library/original-054.jpg",
+    "original_name": "Cozy Cluttered Modern Entryway.png",
+    "original_sha256": "eda460d44078978c09e519f348166e13eed94ae88205a7ff3aeb55d24386f2af"
+  },
+  {
+    "id": "original-055",
+    "title": "Cozy Evening Coding Workspace",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-055-thumb.jpg",
+    "image": "/demo-library/original-055.jpg",
+    "original_name": "Cozy Evening Coding Workspace.png",
+    "original_sha256": "5137fdfdc646f250e1dcff47dbd4f7ad4b64660b73399aed78418594f17fbe0c"
+  },
+  {
+    "id": "original-056",
+    "title": "Cozy Evening Developer Workspace (1)",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-056-thumb.jpg",
+    "image": "/demo-library/original-056.jpg",
+    "original_name": "Cozy Evening Developer Workspace (1).png",
+    "original_sha256": "ba0581e6b3eee991a110a7e4b857170e6c6664819281651bcafbcda405659d94"
+  },
+  {
+    "id": "original-057",
+    "title": "Cozy Evening Developer Workspace",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-057-thumb.jpg",
+    "image": "/demo-library/original-057.jpg",
+    "original_name": "Cozy Evening Developer Workspace.png",
+    "original_sha256": "0b29e84bdb6add02199217ac1ecfcc00bf8516f5aa12907a538a20fa93b5a007"
+  },
+  {
+    "id": "original-058",
+    "title": "Cozy Evening Dining and Kitchen",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-058-thumb.jpg",
+    "image": "/demo-library/original-058.jpg",
+    "original_name": "Cozy Evening Dining and Kitchen.png",
+    "original_sha256": "6f456de87beb12f0a7561693c791e2d8daefeb161b463c5f0de364ec751ddf9a"
+  },
+  {
+    "id": "original-059",
+    "title": "Cozy Evening Dining Nook",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-059-thumb.jpg",
+    "image": "/demo-library/original-059.jpg",
+    "original_name": "Cozy Evening Dining Nook.png",
+    "original_sha256": "0cd2417517feef5e9544e0b07c47f1f98bdc24a597041cc60330182d4db74350"
+  },
+  {
+    "id": "original-060",
+    "title": "Cozy Evening Dinner Aftermath",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-060-thumb.jpg",
+    "image": "/demo-library/original-060.jpg",
+    "original_name": "Cozy Evening Dinner Aftermath.png",
+    "original_sha256": "d413dcab11ee0a1a1dea63984bde0ed103a8a2526262fdaabc55119d8e44e713"
+  },
+  {
+    "id": "original-061",
+    "title": "Cozy Evening Home Office Setup",
+    "category": "Workspace",
+    "group": "original",
+    "thumbnail": "/demo-library/original-061-thumb.jpg",
+    "image": "/demo-library/original-061.jpg",
+    "original_name": "Cozy Evening Home Office Setup.png",
+    "original_sha256": "cd1960e2b41a0e456d2e24a7e8dfdb28870470bd8f7cb2dde7a5490a68d171cb"
+  },
+  {
+    "id": "original-062",
+    "title": "Cozy Green Accent Bedroom Retreat",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-062-thumb.jpg",
+    "image": "/demo-library/original-062.jpg",
+    "original_name": "Cozy Green Accent Bedroom Retreat.png",
+    "original_sha256": "4f7c8b91a8d3dad3c22e57c94c8b057c175fb03f751f3665050036e00d995e14"
+  },
+  {
+    "id": "original-063",
+    "title": "Cozy Green-Accented Bedroom Retreat",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-063-thumb.jpg",
+    "image": "/demo-library/original-063.jpg",
+    "original_name": "Cozy Green-Accented Bedroom Retreat.png",
+    "original_sha256": "2ae8862bf58e0fae579c057526cac799cc0381448be94f911507c7b2d2162b77"
+  },
+  {
+    "id": "original-064",
+    "title": "Cozy Hygge Bedroom Retreat",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-064-thumb.jpg",
+    "image": "/demo-library/original-064.jpg",
+    "original_name": "Cozy Hygge Bedroom Retreat.png",
+    "original_sha256": "7499926b4e8c68a50f97efce823e5ebb6eefda503b0f4ee25c0bdcbd6602fcc4"
+  },
+  {
+    "id": "original-065",
+    "title": "Cozy Lived-In Apartment Living Room",
+    "category": "Living room",
+    "group": "original",
+    "thumbnail": "/demo-library/original-065-thumb.jpg",
+    "image": "/demo-library/original-065.jpg",
+    "original_name": "Cozy Lived-In Apartment Living Room.png",
+    "original_sha256": "580343128081c7b2acee7d3ead70b6182c0a46def0075b2d83c13b13542b26c5"
+  },
+  {
+    "id": "original-066",
+    "title": "Cozy Lived-In Entryway Hallway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-066-thumb.jpg",
+    "image": "/demo-library/original-066.jpg",
+    "original_name": "Cozy Lived-In Entryway Hallway.png",
+    "original_sha256": "798ea489fcf61a9b3239df78354e466cbc8afc5470762fcc76d3f9485cfc74b0"
+  },
+  {
+    "id": "original-067",
+    "title": "Cozy Lived-In Modern Apartment",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-067-thumb.jpg",
+    "image": "/demo-library/original-067.jpg",
+    "original_name": "Cozy Lived-In Modern Apartment.png",
+    "original_sha256": "98c813b3016ea2aef3961235446772831210dad850bd7efd2a088bf207a461d4"
+  },
+  {
+    "id": "original-068",
+    "title": "Cozy Lived-In Sage Bedroom",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-068-thumb.jpg",
+    "image": "/demo-library/original-068.jpg",
+    "original_name": "Cozy Lived-In Sage Bedroom.png",
+    "original_sha256": "f440223878a7d5f399f1e27371606dd002f41d483b570558e0f133c38aaaefd0"
+  },
+  {
+    "id": "original-069",
+    "title": "Cozy Modern Dining Room with Greenery",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-069-thumb.jpg",
+    "image": "/demo-library/original-069.jpg",
+    "original_name": "Cozy Modern Dining Room with Greenery.png",
+    "original_sha256": "a727e1f0ab1b76e9413338964dd91f8f35e970292ef26a3cef5acf536d6312da"
+  },
+  {
+    "id": "original-070",
+    "title": "Cozy Modern Home Office Workspace",
+    "category": "Workspace",
+    "group": "original",
+    "thumbnail": "/demo-library/original-070-thumb.jpg",
+    "image": "/demo-library/original-070.jpg",
+    "original_name": "Cozy Modern Home Office Workspace.png",
+    "original_sha256": "22511a0f6590ad72fa51896e32cda1d92c8b1896eb5c95cac7809b4469b2c220"
+  },
+  {
+    "id": "original-071",
+    "title": "Cozy Modern Living Room Retreat",
+    "category": "Living room",
+    "group": "original",
+    "thumbnail": "/demo-library/original-071-thumb.jpg",
+    "image": "/demo-library/original-071.jpg",
+    "original_name": "Cozy Modern Living Room Retreat.png",
+    "original_sha256": "9363aa45005dfa1024217819bb4e4568127167953b4ea7ec8842abf0b85b4c9e"
+  },
+  {
+    "id": "original-072",
+    "title": "Cozy Modern Sage Bedroom Retreat",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-072-thumb.jpg",
+    "image": "/demo-library/original-072.jpg",
+    "original_name": "Cozy Modern Sage Bedroom Retreat.png",
+    "original_sha256": "085a9dbef421759847838c1fdbc374e20db49578a05cc7459a67be1dd7c07abb"
+  },
+  {
+    "id": "original-073",
+    "title": "Cozy Moonlit Workspace with City Views",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-073-thumb.jpg",
+    "image": "/demo-library/original-073.jpg",
+    "original_name": "Cozy Moonlit Workspace with City Views.png",
+    "original_sha256": "4c34293f8c493d36d4f81d1c17d7d231d1327052878d3544247fa727b9a25818"
+  },
+  {
+    "id": "original-074",
+    "title": "Cozy Nighttime Urban Balcony Retreat",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-074-thumb.jpg",
+    "image": "/demo-library/original-074.jpg",
+    "original_name": "Cozy Nighttime Urban Balcony Retreat.png",
+    "original_sha256": "af48f98d64114bd6227ddfc970def6e71dbe86067a973f630b1fa10c6f674a70"
+  },
+  {
+    "id": "original-075",
+    "title": "Cozy Organized Modern Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-075-thumb.jpg",
+    "image": "/demo-library/original-075.jpg",
+    "original_name": "Cozy Organized Modern Entryway.png",
+    "original_sha256": "f9c40ff31e4c0c4430c7f30bd436ae5905b81a2057ab7eb9a7dbcd93e11af842"
+  },
+  {
+    "id": "original-076",
+    "title": "Cozy Overgrown Backyard at Dusk",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-076-thumb.jpg",
+    "image": "/demo-library/original-076.jpg",
+    "original_name": "Cozy Overgrown Backyard at Dusk.png",
+    "original_sha256": "78cf9ec9f2e76ea79e8486a39febbedaa5ea64678db8ce5bd185a8ce3021b3cd"
+  },
+  {
+    "id": "original-077",
+    "title": "Cozy Plant-Filled Apartment Living Room",
+    "category": "Living room",
+    "group": "original",
+    "thumbnail": "/demo-library/original-077-thumb.jpg",
+    "image": "/demo-library/original-077.jpg",
+    "original_name": "Cozy Plant-Filled Apartment Living Room.png",
+    "original_sha256": "92027ab9753f3a9b98e9da08a7f8642bcaf72a3ec81cb49059ae88af8bd25101"
+  },
+  {
+    "id": "original-078",
+    "title": "Cozy Scandinavian Living Room Retreat",
+    "category": "Living room",
+    "group": "original",
+    "thumbnail": "/demo-library/original-078-thumb.jpg",
+    "image": "/demo-library/original-078.jpg",
+    "original_name": "Cozy Scandinavian Living Room Retreat.png",
+    "original_sha256": "0a025cb1b99560b8e3cdd7ce714c1f81e4ff163bfb8f80e31f927563bbab7636"
+  },
+  {
+    "id": "original-079",
+    "title": "Cozy Suburban Backyard at Dusk",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-079-thumb.jpg",
+    "image": "/demo-library/original-079.jpg",
+    "original_name": "Cozy Suburban Backyard at Dusk.png",
+    "original_sha256": "1e2bbb6aa5928a4421d4756976345cf8406ab6ffe506c5536d82f08ff1f0e508"
+  },
+  {
+    "id": "original-080",
+    "title": "Cozy Urban Balcony Garden Retreat",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-080-thumb.jpg",
+    "image": "/demo-library/original-080.jpg",
+    "original_name": "Cozy Urban Balcony Garden Retreat.png",
+    "original_sha256": "9cf9e78cffe14b8169dc080f5337c91733a75b55928d4b2e610bdb6c15457b83"
+  },
+  {
+    "id": "original-081",
+    "title": "Cozy Warm-Lit Bedroom at Night",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-081-thumb.jpg",
+    "image": "/demo-library/original-081.jpg",
+    "original_name": "Cozy Warm-Lit Bedroom at Night.png",
+    "original_sha256": "e2effff08127f285f22afa6a4b4e331a3be2021dae276b777b0bf5850965f27d"
+  },
+  {
+    "id": "original-082",
+    "title": "Dimly Lit Cluttered Garage Workshop",
+    "category": "Garage",
+    "group": "original",
+    "thumbnail": "/demo-library/original-082-thumb.jpg",
+    "image": "/demo-library/original-082.jpg",
+    "original_name": "Dimly Lit Cluttered Garage Workshop.png",
+    "original_sha256": "e73923477637b47c228ba90b85b5f0332c8f8b81b45260cdd3ff49363e3a763d"
+  },
+  {
+    "id": "original-083",
+    "title": "Fully Stocked Refrigerator Interior",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-083-thumb.jpg",
+    "image": "/demo-library/original-083.jpg",
+    "original_name": "Fully Stocked Refrigerator Interior.png",
+    "original_sha256": "ed535c6a4ed3d13562a15d06eb8381da7ae0aacecf72c7debdd4616dab49d3ed"
+  },
+  {
+    "id": "original-084",
+    "title": "Golden-Hour Lived-In Dining Nook",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-084-thumb.jpg",
+    "image": "/demo-library/original-084.jpg",
+    "original_name": "Golden-Hour Lived-In Dining Nook.png",
+    "original_sha256": "f3559c2adb5fb866ad52774be83a1ecc00c7571c4aa252e7103483584f5b7eec"
+  },
+  {
+    "id": "original-085",
+    "title": "HouseholdImage1",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-085-thumb.jpg",
+    "image": "/demo-library/original-085.jpg",
+    "original_name": "HouseholdImage1.jpg",
+    "original_sha256": "254754c3649474a1e6d43161799cee97880f264e7d7c2f01ff83026cbc6cc15e"
+  },
+  {
+    "id": "original-086",
+    "title": "HouseholdImage2",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-086-thumb.jpg",
+    "image": "/demo-library/original-086.jpg",
+    "original_name": "HouseholdImage2.png",
+    "original_sha256": "ebd255d59c6f5f22d7c5af7ec5614f45e68bc29359d443e7efbd35398a6e80e8"
+  },
+  {
+    "id": "original-087",
+    "title": "Lived-In Kitchen Sink with Dirty Dishes",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-087-thumb.jpg",
+    "image": "/demo-library/original-087.jpg",
+    "original_name": "Lived-In Kitchen Sink with Dirty Dishes.png",
+    "original_sha256": "2f5bba9721808a24ae2f1827f172e44ae2246879b8531f98923ba9caf248d4d0"
+  },
+  {
+    "id": "original-088",
+    "title": "Lived-In Laundry Utility Room",
+    "category": "Laundry",
+    "group": "original",
+    "thumbnail": "/demo-library/original-088-thumb.jpg",
+    "image": "/demo-library/original-088.jpg",
+    "original_name": "Lived-In Laundry Utility Room.png",
+    "original_sha256": "b60bf17af800b91524a9ac21c32f7d964a23e6abb6bca69a755db61f574caffa"
+  },
+  {
+    "id": "original-089",
+    "title": "Lived-In Pantry Storage Room",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-089-thumb.jpg",
+    "image": "/demo-library/original-089.jpg",
+    "original_name": "Lived-In Pantry Storage Room.png",
+    "original_sha256": "0a332a47ecb78e0b0127969d965d4ee5ea6ddb0a2545e1c0ce69a02fc7336502"
+  },
+  {
+    "id": "original-090",
+    "title": "Lived-In Pantry with Organized Clutter",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-090-thumb.jpg",
+    "image": "/demo-library/original-090.jpg",
+    "original_name": "Lived-In Pantry with Organized Clutter.png",
+    "original_sha256": "da09dd3b23314d5fba314d584b1e9d16efe40ee186ec527e37aa389609beee73"
+  },
+  {
+    "id": "original-091",
+    "title": "Lived-In Pantry with Organized Shelves",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-091-thumb.jpg",
+    "image": "/demo-library/original-091.jpg",
+    "original_name": "Lived-In Pantry with Organized Shelves.png",
+    "original_sha256": "8c82a7fefd87d35a6939434c2381ef6b2945bbb7ef81584fa50044c5c49e267d"
+  },
+  {
+    "id": "original-092",
+    "title": "Lived-In Suburban Backyard Garden",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-092-thumb.jpg",
+    "image": "/demo-library/original-092.jpg",
+    "original_name": "Lived-In Suburban Backyard Garden.png",
+    "original_sha256": "6abdbf14d43411a826b902a8359f2cad9e07f79fbe34139d541144f832916d93"
+  },
+  {
+    "id": "original-093",
+    "title": "Lived-In Walk-In Closet Wardrobe",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-093-thumb.jpg",
+    "image": "/demo-library/original-093.jpg",
+    "original_name": "Lived-In Walk-In Closet Wardrobe.png",
+    "original_sha256": "5f279a1dce2e24cb17e570268e9e184be6a1d325b3a95c6ecfcda928935137a5"
+  },
+  {
+    "id": "original-094",
+    "title": "Lived-In Warm Hallway Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-094-thumb.jpg",
+    "image": "/demo-library/original-094.jpg",
+    "original_name": "Lived-In Warm Hallway Entryway.png",
+    "original_sha256": "6c9882d3a75bf0a370f0bf31d71282d84077b5cca748f8d9847f017aea4232b6"
+  },
+  {
+    "id": "original-095",
+    "title": "Lush Lived-In City Balcony",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-095-thumb.jpg",
+    "image": "/demo-library/original-095.jpg",
+    "original_name": "Lush Lived-In City Balcony.png",
+    "original_sha256": "de5a453cab1858316ed6905c32ab1d62660cb91f6b8730224869b6da5d6da0de"
+  },
+  {
+    "id": "original-096",
+    "title": "Messy Overstuffed Refrigerator Interior",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-096-thumb.jpg",
+    "image": "/demo-library/original-096.jpg",
+    "original_name": "Messy Overstuffed Refrigerator Interior.png",
+    "original_sha256": "82766e18f0d1227da874494f8486ddb4d13ccf9f66eb0c3e0b6a6f536cde6897"
+  },
+  {
+    "id": "original-097",
+    "title": "Messy Walk-In Closet Overflowing with Clothes and Shoes",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-097-thumb.jpg",
+    "image": "/demo-library/original-097.jpg",
+    "original_name": "Messy Walk-In Closet Overflowing with Clothes and Shoes.png",
+    "original_sha256": "2ec52bbb721fde27ebbe599327ecd07bd7fe9315de55e1a9c910ee943dfc5fef"
+  },
+  {
+    "id": "original-098",
+    "title": "Messy Warm-Lit Kitchen Scene",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-098-thumb.jpg",
+    "image": "/demo-library/original-098.jpg",
+    "original_name": "Messy Warm-Lit Kitchen Scene.png",
+    "original_sha256": "8cbec3ce00da11e771f8ea55faba83cb6c055c247a4206d70452022bbbd83b0b"
+  },
+  {
+    "id": "original-099",
+    "title": "Messy, Well-Stocked Refrigerator Interior",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-099-thumb.jpg",
+    "image": "/demo-library/original-099.jpg",
+    "original_name": "Messy, Well-Stocked Refrigerator Interior.png",
+    "original_sha256": "cb272ca754195d8a58a9f772cb4a1c3f23560ac9768715541ba37dc3d84d6cc2"
+  },
+  {
+    "id": "original-100",
+    "title": "Modern Gray-and-White Bathroom Retreat-1",
+    "category": "Bathroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-100-thumb.jpg",
+    "image": "/demo-library/original-100.jpg",
+    "original_name": "Modern Gray-and-White Bathroom Retreat-1.png",
+    "original_sha256": "cf8ea081b9a57173a550f5384d889821220875cecbd735140669db2efdea2b50"
+  },
+  {
+    "id": "original-101",
+    "title": "Modern Neutral Bathroom Interior-2",
+    "category": "Bathroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-101-thumb.jpg",
+    "image": "/demo-library/original-101.jpg",
+    "original_name": "Modern Neutral Bathroom Interior-2.png",
+    "original_sha256": "e12da3cacc573db6d086c9aebd1cf04fe6739e9198a231db166343780f427e28"
+  },
+  {
+    "id": "original-102",
+    "title": "Modern Neutral Bathroom with Lush Greenery-1",
+    "category": "Bathroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-102-thumb.jpg",
+    "image": "/demo-library/original-102.jpg",
+    "original_name": "Modern Neutral Bathroom with Lush Greenery-1.png",
+    "original_sha256": "856f9df2bea599e89b877a13ee1feb58d88fe0767ad764cf10bd6ab0b5255643"
+  },
+  {
+    "id": "original-103",
+    "title": "Modern Organized Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-103-thumb.jpg",
+    "image": "/demo-library/original-103.jpg",
+    "original_name": "Modern Organized Entryway.png",
+    "original_sha256": "63c1f923fd54f28200c944ca6acca9fad6926ee8206131adc96a56653d0918c9"
+  },
+  {
+    "id": "original-104",
+    "title": "Modern Organized Walk-In Closet",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-104-thumb.jpg",
+    "image": "/demo-library/original-104.jpg",
+    "original_name": "Modern Organized Walk-In Closet.png",
+    "original_sha256": "27d290359538c51258520227f9c8ceae64574814c2f3e237d97199ff916f5fdb"
+  },
+  {
+    "id": "original-105",
+    "title": "Moody Cluttered Hallway at Dusk",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-105-thumb.jpg",
+    "image": "/demo-library/original-105.jpg",
+    "original_name": "Moody Cluttered Hallway at Dusk.png",
+    "original_sha256": "51ade07cf27d7c4f2adcb090887d5ad7179dee3db2ea8f58caec6aa1a0af173b"
+  },
+  {
+    "id": "original-106",
+    "title": "Moody Warm-Lit Hallway Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-106-thumb.jpg",
+    "image": "/demo-library/original-106.jpg",
+    "original_name": "Moody Warm-Lit Hallway Entryway.png",
+    "original_sha256": "4686c75b122ddf650afa01e5606e249ee7a46b1c4f4c89e58784c0f362c36b3f"
+  },
+  {
+    "id": "original-107",
+    "title": "Neatly Stocked Refrigerator Interior",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-107-thumb.jpg",
+    "image": "/demo-library/original-107.jpg",
+    "original_name": "Neatly Stocked Refrigerator Interior.png",
+    "original_sha256": "02805325ab82a6998b62b1579aaa7e03c98f7f902801bcf9089bdc7a00281ef4"
+  },
+  {
+    "id": "original-108",
+    "title": "Neglected Backyard Garden in Bright Sunlight",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-108-thumb.jpg",
+    "image": "/demo-library/original-108.jpg",
+    "original_name": "Neglected Backyard Garden in Bright Sunlight.png",
+    "original_sha256": "7d09c795463ee22a0d1501b725e29ac828bd30d9a98071634fbd5271a4e2dba0"
+  },
+  {
+    "id": "original-109",
+    "title": "Neglected Patio at Dusk",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-109-thumb.jpg",
+    "image": "/demo-library/original-109.jpg",
+    "original_name": "Neglected Patio at Dusk.png",
+    "original_sha256": "206a5a3d7e66ab6314609f63fd592a9b8c705bc40e52c693209752772fa8b07a"
+  },
+  {
+    "id": "original-110",
+    "title": "Neglected Pothos by the Window",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-110-thumb.jpg",
+    "image": "/demo-library/original-110.jpg",
+    "original_name": "Neglected Pothos by the Window.png",
+    "original_sha256": "fc93ae0d034061aecd539d2a370d4ef2a994c1b199a1a56a1c0303c91f068068"
+  },
+  {
+    "id": "original-111",
+    "title": "Neglected Pothos in a Cozy Interior",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-111-thumb.jpg",
+    "image": "/demo-library/original-111.jpg",
+    "original_name": "Neglected Pothos in a Cozy Interior.png",
+    "original_sha256": "bb4b2784fce08bc1268204d858c42851c498a65e868008e00062b7d27018dc38"
+  },
+  {
+    "id": "original-112",
+    "title": "Neglected Pothos in Cozy Interior",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-112-thumb.jpg",
+    "image": "/demo-library/original-112.jpg",
+    "original_name": "Neglected Pothos in Cozy Interior.png",
+    "original_sha256": "01a5663e1e7c036a3f1c93e6230957abaa859c675f76e9839895fd4f04d6dde5"
+  },
+  {
+    "id": "original-113",
+    "title": "Neglected Variegated Pothos by the Window",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-113-thumb.jpg",
+    "image": "/demo-library/original-113.jpg",
+    "original_name": "Neglected Variegated Pothos by the Window.png",
+    "original_sha256": "30df40cfe046e18cd9b2dba1a7f475c6bc742b0cbf44e17850ecc436d833706b"
+  },
+  {
+    "id": "original-114",
+    "title": "Neglected Variegated Pothos on Dresser",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-114-thumb.jpg",
+    "image": "/demo-library/original-114.jpg",
+    "original_name": "Neglected Variegated Pothos on Dresser.png",
+    "original_sha256": "34c23af5db93446994f9e6123c8d10206a794e74492c7928786127d738d84c0d"
+  },
+  {
+    "id": "original-115",
+    "title": "Organized Laundry Room with Storage Shelves",
+    "category": "Laundry",
+    "group": "original",
+    "thumbnail": "/demo-library/original-115-thumb.jpg",
+    "image": "/demo-library/original-115.jpg",
+    "original_name": "Organized Laundry Room with Storage Shelves.png",
+    "original_sha256": "87d3b65cd32efec142bd2a699ca0878985f81a2d8fa6130ac4c908c9b4d152cd"
+  },
+  {
+    "id": "original-116",
+    "title": "Organized Modern Bathroom Interior-4",
+    "category": "Bathroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-116-thumb.jpg",
+    "image": "/demo-library/original-116.jpg",
+    "original_name": "Organized Modern Bathroom Interior-4.png",
+    "original_sha256": "f5f32af25d5b7801778c3637380b73e1649e5d518ff1481ba928ee6b8f957703"
+  },
+  {
+    "id": "original-117",
+    "title": "Organized Modern Bathroom with Greenery-3",
+    "category": "Bathroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-117-thumb.jpg",
+    "image": "/demo-library/original-117.jpg",
+    "original_name": "Organized Modern Bathroom with Greenery-3.png",
+    "original_sha256": "274403f8d92ff92b8ce42f0a906780366a21f3509eada7b9b010a5dd88298790"
+  },
+  {
+    "id": "original-118",
+    "title": "Organized Modern Laundry Room (1)",
+    "category": "Laundry",
+    "group": "original",
+    "thumbnail": "/demo-library/original-118-thumb.jpg",
+    "image": "/demo-library/original-118.jpg",
+    "original_name": "Organized Modern Laundry Room (1).png",
+    "original_sha256": "52a2965c510f0828657e70afc1704164778b1eaa53a70242238f81fb11843d81"
+  },
+  {
+    "id": "original-119",
+    "title": "Organized Modern Laundry Room",
+    "category": "Laundry",
+    "group": "original",
+    "thumbnail": "/demo-library/original-119-thumb.jpg",
+    "image": "/demo-library/original-119.jpg",
+    "original_name": "Organized Modern Laundry Room.png",
+    "original_sha256": "3bc961131aa89b81ef4615e41abe0fecd1bfe00210b65d20de2514279d05f181"
+  },
+  {
+    "id": "original-120",
+    "title": "Organized Modern Pantry Interior",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-120-thumb.jpg",
+    "image": "/demo-library/original-120.jpg",
+    "original_name": "Organized Modern Pantry Interior.png",
+    "original_sha256": "47e8551173aca2adac9b569b0ea7488ffb837b36cebd132357e66f91390b327a"
+  },
+  {
+    "id": "original-121",
+    "title": "Organized Modern Refrigerator Interior",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-121-thumb.jpg",
+    "image": "/demo-library/original-121.jpg",
+    "original_name": "Organized Modern Refrigerator Interior.png",
+    "original_sha256": "7eefb3e13418b839fe4efac81d120f1963679439a569ba826b4ea76b25303e0c"
+  },
+  {
+    "id": "original-122",
+    "title": "Organized Modern Walk-In Closet (1)",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-122-thumb.jpg",
+    "image": "/demo-library/original-122.jpg",
+    "original_name": "Organized Modern Walk-In Closet (1).png",
+    "original_sha256": "bc9dd83ed92ce092127b1d2b067e05671299a07f1c7827c70546ac7c30ad67e4"
+  },
+  {
+    "id": "original-123",
+    "title": "Organized Modern Walk-In Closet",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-123-thumb.jpg",
+    "image": "/demo-library/original-123.jpg",
+    "original_name": "Organized Modern Walk-In Closet.png",
+    "original_sha256": "b7732ae9cd45a7b3eb7b8df24a8e0d7514cc9ceb95be1ad7a34aea2aa86801cd"
+  },
+  {
+    "id": "original-124",
+    "title": "Organized Two-Car Garage Workshop (1)",
+    "category": "Garage",
+    "group": "original",
+    "thumbnail": "/demo-library/original-124-thumb.jpg",
+    "image": "/demo-library/original-124.jpg",
+    "original_name": "Organized Two-Car Garage Workshop (1).png",
+    "original_sha256": "f785e640087df20ad49f3726666917ee97d190cfb37e048020518d7030fa70bc"
+  },
+  {
+    "id": "original-125",
+    "title": "Organized Two-Car Garage Workshop",
+    "category": "Garage",
+    "group": "original",
+    "thumbnail": "/demo-library/original-125-thumb.jpg",
+    "image": "/demo-library/original-125.jpg",
+    "original_name": "Organized Two-Car Garage Workshop.png",
+    "original_sha256": "c8581a5d0642558d21fe551ec4c438aaec305ebaa013f777b91ff104c4f184f1"
+  },
+  {
+    "id": "original-126",
+    "title": "Overgrown Autumn Backyard Through Foliage",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-126-thumb.jpg",
+    "image": "/demo-library/original-126.jpg",
+    "original_name": "Overgrown Autumn Backyard Through Foliage.png",
+    "original_sha256": "c35c58f4e89a07a2d97f290b2a9ca5eaa428ab378984f75f854792bc6873805c"
+  },
+  {
+    "id": "original-127",
+    "title": "Overstuffed Refrigerator Full of Leftovers",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-127-thumb.jpg",
+    "image": "/demo-library/original-127.jpg",
+    "original_name": "Overstuffed Refrigerator Full of Leftovers.png",
+    "original_sha256": "c3f6ad9581c51dd62b8cea9f62b07df6c7213001a15747d4dc6d9cf755db9187"
+  },
+  {
+    "id": "original-128",
+    "title": "Realistic Cluttered Refrigerator Interior",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-128-thumb.jpg",
+    "image": "/demo-library/original-128.jpg",
+    "original_name": "Realistic Cluttered Refrigerator Interior.png",
+    "original_sha256": "9ccb6d6e86a2bae9e68ee1e3013077cab4ac3e1291de190577a1ba4083156472"
+  },
+  {
+    "id": "original-129",
+    "title": "Serene Modern Hallway Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-129-thumb.jpg",
+    "image": "/demo-library/original-129.jpg",
+    "original_name": "Serene Modern Hallway Entryway.png",
+    "original_sha256": "0353b9bb2afcaae9e7b9605f4d335e391b78a8d3453d96f3f1ee6fcb2a459558"
+  },
+  {
+    "id": "original-130",
+    "title": "Sunlit Balcony Garden Retreat",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-130-thumb.jpg",
+    "image": "/demo-library/original-130.jpg",
+    "original_name": "Sunlit Balcony Garden Retreat.png",
+    "original_sha256": "22151c6a5bfa5c634ff6acb910b45571ae93ee09dde4718b03779cacf152d200"
+  },
+  {
+    "id": "original-131",
+    "title": "Sunlit Greenery-Filled Dining Room",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-131-thumb.jpg",
+    "image": "/demo-library/original-131.jpg",
+    "original_name": "Sunlit Greenery-Filled Dining Room.png",
+    "original_sha256": "cbf798d73ebe2c66f2636ee8282ccae4db637f454b3db9d2a45aaeaffaff67cc"
+  },
+  {
+    "id": "original-132",
+    "title": "Sunlit Overgrown Suburban Backyard",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-132-thumb.jpg",
+    "image": "/demo-library/original-132.jpg",
+    "original_name": "Sunlit Overgrown Suburban Backyard.png",
+    "original_sha256": "0bbcedb7df520333a87935e187736d5084c8180dd592b267f308ab41b10310c2"
+  },
+  {
+    "id": "original-133",
+    "title": "Sunlit Scandinavian Bedroom Retreat-2",
+    "category": "Bedroom",
+    "group": "original",
+    "thumbnail": "/demo-library/original-133-thumb.jpg",
+    "image": "/demo-library/original-133.jpg",
+    "original_name": "Sunlit Scandinavian Bedroom Retreat-2.png",
+    "original_sha256": "19a88263b2c6f24b33c0f86f8bc707131ed6274f4f6dc4a3b7fe7ea43fe74b9d"
+  },
+  {
+    "id": "original-134",
+    "title": "Sunlit Struggling Variegated Pothos",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-134-thumb.jpg",
+    "image": "/demo-library/original-134.jpg",
+    "original_name": "Sunlit Struggling Variegated Pothos.png",
+    "original_sha256": "3099aea9cb45259e8f935c7c5c64c06d6609247b054593def8641478d33a47f1"
+  },
+  {
+    "id": "original-135",
+    "title": "Sunlit Urban Balcony Garden",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-135-thumb.jpg",
+    "image": "/demo-library/original-135.jpg",
+    "original_name": "Sunlit Urban Balcony Garden.png",
+    "original_sha256": "06d219d5e8d8a80bc76d414abfe7ca7a5c4ff6be653f21ec8478b910f28eff75"
+  },
+  {
+    "id": "original-136",
+    "title": "Sunlit Variegated Chinese Evergreen",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-136-thumb.jpg",
+    "image": "/demo-library/original-136.jpg",
+    "original_name": "Sunlit Variegated Chinese Evergreen.png",
+    "original_sha256": "ba3f1a3c378588d5fcc9f7c58a49a21a8cb1560b33ad891f0601b9613c70fd1b"
+  },
+  {
+    "id": "original-137",
+    "title": "Sunlit Variegated Plant Vignette",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-137-thumb.jpg",
+    "image": "/demo-library/original-137.jpg",
+    "original_name": "Sunlit Variegated Plant Vignette.png",
+    "original_sha256": "8a66603a5d1d9b5883f7328b8b501ba501fc950f6cd27faba0e260699e720301"
+  },
+  {
+    "id": "original-138",
+    "title": "Sunlit Variegated Pothos on a Dresser (1)",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-138-thumb.jpg",
+    "image": "/demo-library/original-138.jpg",
+    "original_name": "Sunlit Variegated Pothos on a Dresser (1).png",
+    "original_sha256": "7ec22d326775191f06f1b7ad8ce7268f3f6e8c8acf6c95d38566a1002f9a3f21"
+  },
+  {
+    "id": "original-139",
+    "title": "Sunlit Variegated Pothos on a Dresser",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-139-thumb.jpg",
+    "image": "/demo-library/original-139.jpg",
+    "original_name": "Sunlit Variegated Pothos on a Dresser.png",
+    "original_sha256": "c7f00298ee826fd8bab88ab133b458807dfd1a31d896dd7b715bb6fc93735478"
+  },
+  {
+    "id": "original-140",
+    "title": "Sunlit Variegated Pothos on Wooden Dresser",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-140-thumb.jpg",
+    "image": "/demo-library/original-140.jpg",
+    "original_name": "Sunlit Variegated Pothos on Wooden Dresser.png",
+    "original_sha256": "2f992d981a278cf496871b0ae3d027fb9026706f84b8b15b08169178924d23fa"
+  },
+  {
+    "id": "original-141",
+    "title": "Sunlit Wilted Pothos on a Dresser",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-141-thumb.jpg",
+    "image": "/demo-library/original-141.jpg",
+    "original_name": "Sunlit Wilted Pothos on a Dresser.png",
+    "original_sha256": "f74ae8a8084a886cf02d684eccbacc0582302716105ea6f4b5da837c0322a494"
+  },
+  {
+    "id": "original-142",
+    "title": "Sunlit Wilting Spider Plant Vignette",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-142-thumb.jpg",
+    "image": "/demo-library/original-142.jpg",
+    "original_name": "Sunlit Wilting Spider Plant Vignette.png",
+    "original_sha256": "9cfe8a400d9f75d0a01d3cba2bb75cf1fc4761d217f64da6627d43f17af49e0e"
+  },
+  {
+    "id": "original-143",
+    "title": "Sunny Suburban Backyard Retreat",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-143-thumb.jpg",
+    "image": "/demo-library/original-143.jpg",
+    "original_name": "Sunny Suburban Backyard Retreat.png",
+    "original_sha256": "1cb77758ea870683bebfa0be9c84715f302d3246f534d20bd61ffffddddd8d31"
+  },
+  {
+    "id": "original-144",
+    "title": "Tidy Evening Garage Interior",
+    "category": "Garage",
+    "group": "original",
+    "thumbnail": "/demo-library/original-144-thumb.jpg",
+    "image": "/demo-library/original-144.jpg",
+    "original_name": "Tidy Evening Garage Interior.png",
+    "original_sha256": "990d92c4e473c8cb7c9e4683ddc1c2a60a790dce42f9caa163ba0b5a835ea76a"
+  },
+  {
+    "id": "original-145",
+    "title": "Twilight Overgrown Backyard Retreat",
+    "category": "Outdoor",
+    "group": "original",
+    "thumbnail": "/demo-library/original-145-thumb.jpg",
+    "image": "/demo-library/original-145.jpg",
+    "original_name": "Twilight Overgrown Backyard Retreat.png",
+    "original_sha256": "ec9d74927403285b896156168043ab276c1bf0f4384b4002c9f518550156b313"
+  },
+  {
+    "id": "original-146",
+    "title": "Warm Scandinavian Dining Room with Plants",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-146-thumb.jpg",
+    "image": "/demo-library/original-146.jpg",
+    "original_name": "Warm Scandinavian Dining Room with Plants.png",
+    "original_sha256": "e572b6ce881f37c4dad6cc9230a4e9ead8c42685a8e037246cd65ff18439d60c"
+  },
+  {
+    "id": "original-147",
+    "title": "Warm Sunset Home Office Workspace",
+    "category": "Workspace",
+    "group": "original",
+    "thumbnail": "/demo-library/original-147-thumb.jpg",
+    "image": "/demo-library/original-147.jpg",
+    "original_name": "Warm Sunset Home Office Workspace.png",
+    "original_sha256": "60b8d2e2b0882f06866350df6ec0c0a98012f23006a168638cc20a5ca305e309"
+  },
+  {
+    "id": "original-148",
+    "title": "Warm-Lit Lived-In Entryway",
+    "category": "Entryway",
+    "group": "original",
+    "thumbnail": "/demo-library/original-148-thumb.jpg",
+    "image": "/demo-library/original-148.jpg",
+    "original_name": "Warm-Lit Lived-In Entryway.png",
+    "original_sha256": "b57d1d0f74393bf3d8ba4edffec07d97fd9c4b4dd544ec001802c1cb770afd18"
+  },
+  {
+    "id": "original-149",
+    "title": "Warmly Lit, Well-Stocked Pantry",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-149-thumb.jpg",
+    "image": "/demo-library/original-149.jpg",
+    "original_name": "Warmly Lit, Well-Stocked Pantry.png",
+    "original_sha256": "df1b0b4702015c20f90b5213f1fad219be39f0242e986532092f883dc53894f1"
+  },
+  {
+    "id": "original-150",
+    "title": "Well-Stocked Modern Pantry",
+    "category": "Kitchen",
+    "group": "original",
+    "thumbnail": "/demo-library/original-150-thumb.jpg",
+    "image": "/demo-library/original-150.jpg",
+    "original_name": "Well-Stocked Modern Pantry.png",
+    "original_sha256": "42dafc7c81f9d4a3f6ca79361e2595aac9ea58f30817117c3da2ae090eefb9ae"
+  },
+  {
+    "id": "original-151",
+    "title": "Wilted Pothos in Warm Window Light",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-151-thumb.jpg",
+    "image": "/demo-library/original-151.jpg",
+    "original_name": "Wilted Pothos in Warm Window Light.png",
+    "original_sha256": "f2f5ad314533e08f4d33dffd7e2cc5254c396f86b55aa47b6502f45d98134f4d"
+  },
+  {
+    "id": "original-152",
+    "title": "Wilting Pothos in Warm Lamplight",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-152-thumb.jpg",
+    "image": "/demo-library/original-152.jpg",
+    "original_name": "Wilting Pothos in Warm Lamplight.png",
+    "original_sha256": "ec715630438c239330f2538fb30d445e2caa8145057a4b69c0e90a661e0d0fcc"
+  },
+  {
+    "id": "original-153",
+    "title": "Wilting Pothos in Warm Sunlight",
+    "category": "Other",
+    "group": "original",
+    "thumbnail": "/demo-library/original-153-thumb.jpg",
+    "image": "/demo-library/original-153.jpg",
+    "original_name": "Wilting Pothos in Warm Sunlight.png",
+    "original_sha256": "d6d2411147a9e0f4b5a8fc5e44a8495a4bd1096271dbe7446218bf27d86b1963"
+  },
+  {
+    "id": "base-001",
+    "title": "Cluttered Garage Storage Workspace",
+    "category": "Garage",
+    "group": "base",
+    "thumbnail": "/demo-library/base-001-thumb.jpg",
+    "image": "/demo-library/base-001.jpg",
+    "original_name": "Cluttered Garage Storage Workspace.png",
+    "original_sha256": "7c843d986c72c02f923b5d5a3a8c42fee770c22e18bb34f3dbaa126fb38340f4"
+  },
+  {
+    "id": "base-002",
+    "title": "Cluttered Utility Closet with HVAC and Water Heater",
+    "category": "Bedroom",
+    "group": "base",
+    "thumbnail": "/demo-library/base-002-thumb.jpg",
+    "image": "/demo-library/base-002.jpg",
+    "original_name": "Cluttered Utility Closet with HVAC and Water Heater.png",
+    "original_sha256": "a7a88945ceb1307e5e71ca77c74fc835a115a70b405b5f9e93219adac2a5bf91"
+  },
+  {
+    "id": "base-003",
+    "title": "Compact Stacked Laundry Closet",
+    "category": "Laundry",
+    "group": "base",
+    "thumbnail": "/demo-library/base-003-thumb.jpg",
+    "image": "/demo-library/base-003.jpg",
+    "original_name": "Compact Stacked Laundry Closet.png",
+    "original_sha256": "155eeb6f92c6eed521c9688c5e0f330ea164c622f4d927d1bec74a9fe3f03dd3"
+  },
+  {
+    "id": "base-004",
+    "title": "Cozy Apartment Entryway with Storage",
+    "category": "Entryway",
+    "group": "base",
+    "thumbnail": "/demo-library/base-004-thumb.jpg",
+    "image": "/demo-library/base-004.jpg",
+    "original_name": "Cozy Apartment Entryway with Storage.png",
+    "original_sha256": "e03ca6cd1a57a85f89c9d85b3d8da2d65426737a050914539b5a911994ae185e"
+  },
+  {
+    "id": "base-005",
+    "title": "Cozy Basement Laundry Room",
+    "category": "Laundry",
+    "group": "base",
+    "thumbnail": "/demo-library/base-005-thumb.jpg",
+    "image": "/demo-library/base-005.jpg",
+    "original_name": "Cozy Basement Laundry Room.png",
+    "original_sha256": "e6564ce13d4b2031147f1000d273bdcfc9a269fa129b833d084f7771f7a2fb4c"
+  },
+  {
+    "id": "base-006",
+    "title": "Cozy Cluttered Apartment Living Space",
+    "category": "Living room",
+    "group": "base",
+    "thumbnail": "/demo-library/base-006-thumb.jpg",
+    "image": "/demo-library/base-006.jpg",
+    "original_name": "Cozy Cluttered Apartment Living Space.png",
+    "original_sha256": "a7ca5ad8341edbd2fd78e6d3f419554f8b1b385bf9d5ceca5e1aaa2633396dba"
+  },
+  {
+    "id": "base-007",
+    "title": "Cozy Cluttered Dining Room with Hutch",
+    "category": "Kitchen",
+    "group": "base",
+    "thumbnail": "/demo-library/base-007-thumb.jpg",
+    "image": "/demo-library/base-007.jpg",
+    "original_name": "Cozy Cluttered Dining Room with Hutch.png",
+    "original_sha256": "3263dfa3f033e055a527df525b4164c2eadcc87b5cbfaa1cb725caf0d4eb5059"
+  },
+  {
+    "id": "base-008",
+    "title": "Cozy Cluttered Home Study",
+    "category": "Workspace",
+    "group": "base",
+    "thumbnail": "/demo-library/base-008-thumb.jpg",
+    "image": "/demo-library/base-008.jpg",
+    "original_name": "Cozy Cluttered Home Study.png",
+    "original_sha256": "8311a6098226d127046af7f962e52fddfc40193dc5de70b2642c41615792c58b"
+  },
+  {
+    "id": "base-009",
+    "title": "Cozy Cluttered Retro Bathroom",
+    "category": "Bathroom",
+    "group": "base",
+    "thumbnail": "/demo-library/base-009-thumb.jpg",
+    "image": "/demo-library/base-009.jpg",
+    "original_name": "Cozy Cluttered Retro Bathroom.png",
+    "original_sha256": "61079fb8b1f4e487acc11c95f1b50d88adc946ad9e7ae209a62be0eadd1c4146"
+  },
+  {
+    "id": "base-010",
+    "title": "Cozy Home Office with Code and Plants",
+    "category": "Workspace",
+    "group": "base",
+    "thumbnail": "/demo-library/base-010-thumb.jpg",
+    "image": "/demo-library/base-010.jpg",
+    "original_name": "Cozy Home Office with Code and Plants.png",
+    "original_sha256": "0bb24457f0e7a7ebe464ceee0a3d5054d27ef38d336c51321198df9a38329593"
+  },
+  {
+    "id": "base-011",
+    "title": "Cozy Indian Living Room with Balcony Light",
+    "category": "Living room",
+    "group": "base",
+    "thumbnail": "/demo-library/base-011-thumb.jpg",
+    "image": "/demo-library/base-011.jpg",
+    "original_name": "Cozy Indian Living Room with Balcony Light.png",
+    "original_sha256": "cca8975c8586fc953c324634ab7b6a5ce294749a2832e0653ee5af98bae3c295"
+  },
+  {
+    "id": "base-012",
+    "title": "Cozy Indoor Jungle by the Window",
+    "category": "Other",
+    "group": "base",
+    "thumbnail": "/demo-library/base-012-thumb.jpg",
+    "image": "/demo-library/base-012.jpg",
+    "original_name": "Cozy Indoor Jungle by the Window.png",
+    "original_sha256": "26c600f2527536ce318162aba0dc8418dc8f21740f1b9129d64b166698f2bffb"
+  },
+  {
+    "id": "base-013",
+    "title": "Cozy Modern Home Entryway and Living Space",
+    "category": "Living room",
+    "group": "base",
+    "thumbnail": "/demo-library/base-013-thumb.jpg",
+    "image": "/demo-library/base-013.jpg",
+    "original_name": "Cozy Modern Home Entryway and Living Space.png",
+    "original_sha256": "c275d11a9e99ed3164d28be4ee5c2479746fcf5770e207a4c3051ff1f58e87bc"
+  },
+  {
+    "id": "base-014",
+    "title": "Cozy Neutral Bedroom Interior",
+    "category": "Bedroom",
+    "group": "base",
+    "thumbnail": "/demo-library/base-014-thumb.jpg",
+    "image": "/demo-library/base-014.jpg",
+    "original_name": "Cozy Neutral Bedroom Interior.png",
+    "original_sha256": "d9af7e303dc67133c3c94fde3bb6a0f05260ee3b3d89f7be6063213bfe4346de"
+  },
+  {
+    "id": "base-015",
+    "title": "Cozy Neutral Powder Room",
+    "category": "Bathroom",
+    "group": "base",
+    "thumbnail": "/demo-library/base-015-thumb.jpg",
+    "image": "/demo-library/base-015.jpg",
+    "original_name": "Cozy Neutral Powder Room.png",
+    "original_sha256": "3ae4ce4bb5ead80f22c3f18de961f5f2e3f3209215ebc4c6ccd7cb8181e9900b"
+  },
+  {
+    "id": "base-016",
+    "title": "Cozy Plant-Filled Modern Living Room",
+    "category": "Living room",
+    "group": "base",
+    "thumbnail": "/demo-library/base-016-thumb.jpg",
+    "image": "/demo-library/base-016.jpg",
+    "original_name": "Cozy Plant-Filled Modern Living Room.png",
+    "original_sha256": "0e9710fb99ff67f6a94507fd4b7453f2a0a1169a7c23e736ba4094edb87fc220"
+  },
+  {
+    "id": "base-017",
+    "title": "Cozy Student Bedroom Study Nook",
+    "category": "Bedroom",
+    "group": "base",
+    "thumbnail": "/demo-library/base-017-thumb.jpg",
+    "image": "/demo-library/base-017.jpg",
+    "original_name": "Cozy Student Bedroom Study Nook.png",
+    "original_sha256": "3a23eb44bffacc17a1b60159d43dbe9a7c0a30ae8cd15dba39cc8776d0fb7f47"
+  },
+  {
+    "id": "base-018",
+    "title": "Cozy Vintage Kitchen Interior",
+    "category": "Kitchen",
+    "group": "base",
+    "thumbnail": "/demo-library/base-018-thumb.jpg",
+    "image": "/demo-library/base-018.jpg",
+    "original_name": "Cozy Vintage Kitchen Interior.png",
+    "original_sha256": "d6f7c26cb27bef5d63a0439338e0b1f5d5038f43eb005ca3c0c1de93dde7c0b4"
+  },
+  {
+    "id": "base-019",
+    "title": "Cozy Vintage Upstairs Hallway",
+    "category": "Entryway",
+    "group": "base",
+    "thumbnail": "/demo-library/base-019-thumb.jpg",
+    "image": "/demo-library/base-019.jpg",
+    "original_name": "Cozy Vintage Upstairs Hallway.png",
+    "original_sha256": "bc3ecd18f8000e37b4870c27fae97ad353d98b231eebadada6a132099b757d51"
+  },
+  {
+    "id": "base-020",
+    "title": "Cozy, Well-Stocked Pantry Closet",
+    "category": "Kitchen",
+    "group": "base",
+    "thumbnail": "/demo-library/base-020-thumb.jpg",
+    "image": "/demo-library/base-020.jpg",
+    "original_name": "Cozy, Well-Stocked Pantry Closet.png",
+    "original_sha256": "8c89686e89a7f9ac5759c7ed77b5dcd61f740a605fb94916440742327969e192"
+  },
+  {
+    "id": "base-021",
+    "title": "Fully Stocked Open Refrigerator-3",
+    "category": "Other",
+    "group": "base",
+    "thumbnail": "/demo-library/base-021-thumb.jpg",
+    "image": "/demo-library/base-021.jpg",
+    "original_name": "Fully Stocked Open Refrigerator-3.png",
+    "original_sha256": "537f73a63b0f491a4027944755842bb1f538b32542114fbffe4c2da97d677ecf"
+  },
+  {
+    "id": "base-022",
+    "title": "Inside a Well-Stocked Refrigerator",
+    "category": "Other",
+    "group": "base",
+    "thumbnail": "/demo-library/base-022-thumb.jpg",
+    "image": "/demo-library/base-022.jpg",
+    "original_name": "Inside a Well-Stocked Refrigerator.png",
+    "original_sha256": "7b8d787455bec97de5cf5a9bbccacc45025c0764ee55c97f65804f32f63304cf"
+  },
+  {
+    "id": "base-023",
+    "title": "Lived-In Suburban Backyard Retreat",
+    "category": "Outdoor",
+    "group": "base",
+    "thumbnail": "/demo-library/base-023-thumb.jpg",
+    "image": "/demo-library/base-023.jpg",
+    "original_name": "Lived-In Suburban Backyard Retreat.png",
+    "original_sha256": "6e7e9c43b3258735dd56d84bbb1a891d26c2d84b9b889a4c38a19e32fe1df76f"
+  },
+  {
+    "id": "base-024",
+    "title": "Modern Lived-In Bathroom Interior",
+    "category": "Bathroom",
+    "group": "base",
+    "thumbnail": "/demo-library/base-024-thumb.jpg",
+    "image": "/demo-library/base-024.jpg",
+    "original_name": "Modern Lived-In Bathroom Interior.png",
+    "original_sha256": "0c3cdc81920bf4731673173821ea330a7a2d173598ff4e40ef0a342a8bdefbd9"
+  },
+  {
+    "id": "base-025",
+    "title": "Organized Garage with SUV and Workshop",
+    "category": "Garage",
+    "group": "base",
+    "thumbnail": "/demo-library/base-025-thumb.jpg",
+    "image": "/demo-library/base-025.jpg",
+    "original_name": "Organized Garage with SUV and Workshop.png",
+    "original_sha256": "d597ca83cb1db20d45649d7ed0bc4776c56bb0043291db7bb6f7d9371d9fb4bb"
+  },
+  {
+    "id": "base-026",
+    "title": "Organized Walk-In Closet Interior",
+    "category": "Bedroom",
+    "group": "base",
+    "thumbnail": "/demo-library/base-026-thumb.jpg",
+    "image": "/demo-library/base-026.jpg",
+    "original_name": "Organized Walk-In Closet Interior.png",
+    "original_sha256": "1db975e38c54a72f69a028c861608a76551e7d2b672ff24af446390ce6b9d576"
+  },
+  {
+    "id": "base-027",
+    "title": "Sunlit Cozy Bedroom Interior",
+    "category": "Bedroom",
+    "group": "base",
+    "thumbnail": "/demo-library/base-027-thumb.jpg",
+    "image": "/demo-library/base-027.jpg",
+    "original_name": "Sunlit Cozy Bedroom Interior.png",
+    "original_sha256": "41ed1efba7e7d6b9a5bf161c25048a17f6d1c85c60206a382393282d8732ae97"
+  },
+  {
+    "id": "base-028",
+    "title": "Sunny Urban Balcony Garden",
+    "category": "Outdoor",
+    "group": "base",
+    "thumbnail": "/demo-library/base-028-thumb.jpg",
+    "image": "/demo-library/base-028.jpg",
+    "original_name": "Sunny Urban Balcony Garden.png",
+    "original_sha256": "b956aac92ccb936370cb13dafbb6444d35c251f38ff8edeaf0b259eb70b5fec3"
+  },
+  {
+    "id": "base-029",
+    "title": "Tidy Basement Utility Room",
+    "category": "Garage",
+    "group": "base",
+    "thumbnail": "/demo-library/base-029-thumb.jpg",
+    "image": "/demo-library/base-029.jpg",
+    "original_name": "Tidy Basement Utility Room.png",
+    "original_sha256": "2e0f455efd50efead09c96542403876f6b6b08070f0f588ec02673f9219e7fba"
+  },
+  {
+    "id": "base-030",
+    "title": "Warm Galley Kitchen with Woven Runner",
+    "category": "Kitchen",
+    "group": "base",
+    "thumbnail": "/demo-library/base-030-thumb.jpg",
+    "image": "/demo-library/base-030.jpg",
+    "original_name": "Warm Galley Kitchen with Woven Runner.png",
+    "original_sha256": "e1447d634312ad63b0b275796d7175b357013b4c67b1553ee5affe5289ddd2fe"
+  },
+  {
+    "id": "base-031",
+    "title": "Warmly Lived-In L-Shaped Kitchen",
+    "category": "Kitchen",
+    "group": "base",
+    "thumbnail": "/demo-library/base-031-thumb.jpg",
+    "image": "/demo-library/base-031.jpg",
+    "original_name": "Warmly Lived-In L-Shaped Kitchen.png",
+    "original_sha256": "e1d0d75cd60eadb77b4b2795fc7f575278b85d3eb656ee95676fc4560ded791b"
+  },
+  {
+    "id": "base-032",
+    "title": "Well-Stocked Pantry Cupboard-2",
+    "category": "Kitchen",
+    "group": "base",
+    "thumbnail": "/demo-library/base-032-thumb.jpg",
+    "image": "/demo-library/base-032.jpg",
+    "original_name": "Well-Stocked Pantry Cupboard-2.png",
+    "original_sha256": "086cf69592558521a1d22b7f7eb9d21001c7b20d6a19b91cbea0623bcf62eca2"
+  },
+  {
+    "id": "variant-001",
+    "title": "bathroom_partial_vanity_crop_01",
+    "category": "Bathroom",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-001-thumb.jpg",
+    "image": "/demo-library/variant-001.jpg",
+    "original_name": "bathroom_partial_vanity_crop_01.png",
+    "original_sha256": "e216b95805a93116a3a55cb740429c0db33b17364f03474d3c79e855c37307eb"
+  },
+  {
+    "id": "variant-002",
+    "title": "bedroom_study_desk_crop_03",
+    "category": "Bedroom",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-002-thumb.jpg",
+    "image": "/demo-library/variant-002.jpg",
+    "original_name": "bedroom_study_desk_crop_03.png",
+    "original_sha256": "e891f876cbb934e1eada2246a646fb52e0d45fbed51c10c12a5f81ab05607b62"
+  },
+  {
+    "id": "variant-003",
+    "title": "Variant scene 003",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-003-thumb.jpg",
+    "image": "/demo-library/variant-003.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_12_31 AM-1.png",
+    "original_sha256": "1f6a3110771baf5acc36880b408d082f1f105961a31ce97a5f38d59635dbbb6d"
+  },
+  {
+    "id": "variant-004",
+    "title": "Variant scene 004",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-004-thumb.jpg",
+    "image": "/demo-library/variant-004.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_12_33 AM-2.png",
+    "original_sha256": "da2f6dcbf259b88d3e95e592cb4b2bf579ca1cac241dda576630a6f44630f25b"
+  },
+  {
+    "id": "variant-005",
+    "title": "Variant scene 005",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-005-thumb.jpg",
+    "image": "/demo-library/variant-005.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_12_33 AM-3.png",
+    "original_sha256": "32d8d135202a987c2efbc38733a4a5216a06126a10f5a33beb992d29b063ea09"
+  },
+  {
+    "id": "variant-006",
+    "title": "Variant scene 006",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-006-thumb.jpg",
+    "image": "/demo-library/variant-006.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_12_34 AM-4.png",
+    "original_sha256": "c81eb94a69328d202303601f3c2bfd7bb21490b59b0de80c51c9b681e4fb8800"
+  },
+  {
+    "id": "variant-007",
+    "title": "Variant scene 007",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-007-thumb.jpg",
+    "image": "/demo-library/variant-007.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_12_35 AM-5.png",
+    "original_sha256": "f08b729c5c87a5d84b94af42df3cd01dd5a971489428b6a98ce7872233b9abf8"
+  },
+  {
+    "id": "variant-008",
+    "title": "Variant scene 008",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-008-thumb.jpg",
+    "image": "/demo-library/variant-008.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_12_36 AM-6.png",
+    "original_sha256": "bd33543c6934549ae2738b80a891ffde7233881e24f020194363b19d955a7e23"
+  },
+  {
+    "id": "variant-009",
+    "title": "Variant scene 009",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-009-thumb.jpg",
+    "image": "/demo-library/variant-009.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_12_39 AM-8.png",
+    "original_sha256": "00f338e8abb9891511d73b9edf8649dcf5d2bf266b5a85286377f7b0e8d70256"
+  },
+  {
+    "id": "variant-010",
+    "title": "Variant scene 010",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-010-thumb.jpg",
+    "image": "/demo-library/variant-010.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_42_53 AM-1.png",
+    "original_sha256": "de55b9b98c779196ea31b021762efb32f8204ff99a85114306c4069f80a8823d"
+  },
+  {
+    "id": "variant-011",
+    "title": "Variant scene 011",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-011-thumb.jpg",
+    "image": "/demo-library/variant-011.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_42_54 AM-2.png",
+    "original_sha256": "c9bf45e355d599aaef1a5ed37278d8a6da8c394406fadd581d07d1248d3f346c"
+  },
+  {
+    "id": "variant-012",
+    "title": "Variant scene 012",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-012-thumb.jpg",
+    "image": "/demo-library/variant-012.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_08 AM-1.png",
+    "original_sha256": "29483fe54731dc9d1f4cc5701c9fc7ee4641d1696903f9c4f116ac34abb2d988"
+  },
+  {
+    "id": "variant-013",
+    "title": "Variant scene 013",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-013-thumb.jpg",
+    "image": "/demo-library/variant-013.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_10 AM-2.png",
+    "original_sha256": "2abd13865df1b12c6c90073bb75b8729731d3c79ec11c60f76937937b3f8eec5"
+  },
+  {
+    "id": "variant-014",
+    "title": "Variant scene 014",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-014-thumb.jpg",
+    "image": "/demo-library/variant-014.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_11 AM-3.png",
+    "original_sha256": "6703d22194556bb5f6a13747ffc4d63eaccff693ce40b55a5105b60ec42b983b"
+  },
+  {
+    "id": "variant-015",
+    "title": "Variant scene 015",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-015-thumb.jpg",
+    "image": "/demo-library/variant-015.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_13 AM-4.png",
+    "original_sha256": "63414b42809e6f53f611ac0904f21f994382e7ea1979519b1aa444c54c320d11"
+  },
+  {
+    "id": "variant-016",
+    "title": "Variant scene 016",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-016-thumb.jpg",
+    "image": "/demo-library/variant-016.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_14 AM-5.png",
+    "original_sha256": "d67edf62ef78ff6ca164435554fdfad5e895dff0b0c136111c21ca2a9e10a315"
+  },
+  {
+    "id": "variant-017",
+    "title": "Variant scene 017",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-017-thumb.jpg",
+    "image": "/demo-library/variant-017.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_15 AM-6.png",
+    "original_sha256": "10302840efe16d928921f2a5d19daebfdf82c04dd2ce6b44ccce7d4acf8bd843"
+  },
+  {
+    "id": "variant-018",
+    "title": "Variant scene 018",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-018-thumb.jpg",
+    "image": "/demo-library/variant-018.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_16 AM-7.png",
+    "original_sha256": "736d6fc2b44407723c4fd9cd5d88e78ad3eac8dc7e943cb68a4c4f2449090b38"
+  },
+  {
+    "id": "variant-019",
+    "title": "Variant scene 019",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-019-thumb.jpg",
+    "image": "/demo-library/variant-019.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_18 AM-8.png",
+    "original_sha256": "295326eebb8e82f30a06b3146155ee06602dd5974e2a5245e0f5cadb2cfe1eca"
+  },
+  {
+    "id": "variant-020",
+    "title": "Variant scene 020",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-020-thumb.jpg",
+    "image": "/demo-library/variant-020.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_19 AM-9.png",
+    "original_sha256": "6b66416aaf5d4f5d0b6a9beeb9585a3ae977b05547ec5c600bb3cd9b398c1a54"
+  },
+  {
+    "id": "variant-021",
+    "title": "Variant scene 021",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-021-thumb.jpg",
+    "image": "/demo-library/variant-021.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 05_58_20 AM-10.png",
+    "original_sha256": "393be4c57a17c3128ddda921b1fa28411675413a554441e1cdf5477461130ab8"
+  },
+  {
+    "id": "variant-022",
+    "title": "Variant scene 022",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-022-thumb.jpg",
+    "image": "/demo-library/variant-022.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 07_11_40 AM.png",
+    "original_sha256": "1319684d4de447cffb5af73704d2148d848f6c4556ba3d230bdeb0064990f768"
+  },
+  {
+    "id": "variant-023",
+    "title": "Variant scene 023",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-023-thumb.jpg",
+    "image": "/demo-library/variant-023.jpg",
+    "original_name": "ChatGPT Image Oct 18, 2026, 07_11_48 AM.png",
+    "original_sha256": "3a8f9f188500c6e195bcb19142090f10abfe5657c5856bdcd02964cfb2a4d85e"
+  },
+  {
+    "id": "variant-024",
+    "title": "Variant scene 024",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-024-thumb.jpg",
+    "image": "/demo-library/variant-024.jpg",
+    "original_name": "ChatGPT Image Oct 19, 2026, 09_52_14 AM-1.png",
+    "original_sha256": "c770747ea6af397856be44b60bcc145ddd717723a51b9a76a9b8e020ceddacb3"
+  },
+  {
+    "id": "variant-025",
+    "title": "Variant scene 025",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-025-thumb.jpg",
+    "image": "/demo-library/variant-025.jpg",
+    "original_name": "ChatGPT Image Oct 19, 2026, 09_52_15 AM-2.png",
+    "original_sha256": "1fa156f52e15c0cdbceed7e7d5e403e5f9209e6a2307a94cf9a408f5822c914d"
+  },
+  {
+    "id": "variant-026",
+    "title": "Variant scene 026",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-026-thumb.jpg",
+    "image": "/demo-library/variant-026.jpg",
+    "original_name": "ChatGPT Image Oct 19, 2026, 09_52_17 AM-3.png",
+    "original_sha256": "eed3ef75501ff14ecd1d9c981d6f99461a62019c88cb397612acc2560ead53a3"
+  },
+  {
+    "id": "variant-027",
+    "title": "Cozy Apartment with Plant TV Display",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-027-thumb.jpg",
+    "image": "/demo-library/variant-027.jpg",
+    "original_name": "Cozy Apartment with Plant TV Display.png",
+    "original_sha256": "6d234b86ca34927fd3dbbc3d7455fe926c9e576c7a084e97f351fcb8e13b745e"
+  },
+  {
+    "id": "variant-028",
+    "title": "Cozy Bathroom with Mirrored Soap Bottle",
+    "category": "Bathroom",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-028-thumb.jpg",
+    "image": "/demo-library/variant-028.jpg",
+    "original_name": "Cozy Bathroom with Mirrored Soap Bottle.png",
+    "original_sha256": "f0d12741dd09a6463ef6099c0d1fcb30fb698196bdbdd930a27d1b36d23ca27a"
+  },
+  {
+    "id": "variant-029",
+    "title": "Cozy Entryway to Open-Plan Living",
+    "category": "Living room",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-029-thumb.jpg",
+    "image": "/demo-library/variant-029.jpg",
+    "original_name": "Cozy Entryway to Open-Plan Living.png",
+    "original_sha256": "3114f76836f4dea5dcae3b9654a5f00baa8721d713e38786a66edec62211ccde"
+  },
+  {
+    "id": "variant-030",
+    "title": "Cozy Home Office Mug and Plant Monitor",
+    "category": "Workspace",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-030-thumb.jpg",
+    "image": "/demo-library/variant-030.jpg",
+    "original_name": "Cozy Home Office Mug and Plant Monitor.png",
+    "original_sha256": "91b451d2f6e22d730644cb0a981e56692e7f200b6690a7a8dfc5c950718c7a00"
+  },
+  {
+    "id": "variant-031",
+    "title": "Cozy Modern Bathroom Vignette",
+    "category": "Bathroom",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-031-thumb.jpg",
+    "image": "/demo-library/variant-031.jpg",
+    "original_name": "Cozy Modern Bathroom Vignette.png",
+    "original_sha256": "4c168807c871b69e53c5413376c8560864ed5ae7e737ba1e7aa98eef3ccba9a4"
+  },
+  {
+    "id": "variant-032",
+    "title": "Cozy Powder Room Mirror Reflection",
+    "category": "Bathroom",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-032-thumb.jpg",
+    "image": "/demo-library/variant-032.jpg",
+    "original_name": "Cozy Powder Room Mirror Reflection.png",
+    "original_sha256": "aaf6c9ee34c0381849763966cf147dd1ea2fc659203fc0f0d0a925681e3d0fa3"
+  },
+  {
+    "id": "variant-033",
+    "title": "Cozy Vintage Hallway with Peeking Woman",
+    "category": "Entryway",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-033-thumb.jpg",
+    "image": "/demo-library/variant-033.jpg",
+    "original_name": "Cozy Vintage Hallway with Peeking Woman.png",
+    "original_sha256": "66b50bf96e40f4739d8775b98565d3f52be60b7633769e8e9ca997de8c718d52"
+  },
+  {
+    "id": "variant-034",
+    "title": "Pantry Shelf with Empty Basket Space",
+    "category": "Kitchen",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-034-thumb.jpg",
+    "image": "/demo-library/variant-034.jpg",
+    "original_name": "Pantry Shelf with Empty Basket Space.png",
+    "original_sha256": "05cb2bf50eec630cb634b94bfe232c4ad51af774d72c43f875200b1ea3c71ba3"
+  },
+  {
+    "id": "variant-035",
+    "title": "Welcoming Portrait in a Cozy Modern Home",
+    "category": "Other",
+    "group": "variant",
+    "thumbnail": "/demo-library/variant-035-thumb.jpg",
+    "image": "/demo-library/variant-035.jpg",
+    "original_name": "Welcoming Portrait in a Cozy Modern Home.png",
+    "original_sha256": "4078c6c467e1da1e98def2ea8ca048702337b44172c081acc8c7b14cb2ce5220"
+  }
+]

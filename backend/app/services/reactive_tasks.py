@@ -85,7 +85,11 @@ def decide_task_from_observation(
         )
 
     # Strong condition values are not enough if the observation itself is weak.
-    if (
+    independent_corroboration = (
+        observation.metadata.get("ai_verification") == "multi_model_corroborated"
+        and observation.metadata.get("ai_verification_scope") == "claim_level"
+    )
+    if not independent_corroboration and (
         observation.confidence is None
         or observation.confidence < trigger.min_confidence
     ):
@@ -118,7 +122,8 @@ def decide_task_from_observation(
         task_key=task_key,
         description=(
             trigger.description_template.format(
-                location=observation.location
+                location=(observation.location if observation.location != "unknown"
+                          else "an unidentified space")
             )
         ),
         source_observation_id=observation.id,
@@ -129,6 +134,8 @@ def decide_task_from_observation(
         confidence=observation.confidence,
         metadata=(
             {
+                "evidence_verification": "multi_model_corroborated" if independent_corroboration else "numeric_confidence",
+                "effort_estimate_source": "default_unverified",
                 "active_minutes": 5,
                 "passive_minutes": max(0, trigger.effort_minutes - 5),
                 "noise_level": "normal",
@@ -136,6 +143,8 @@ def decide_task_from_observation(
             }
             if observation.category == ConditionType.LAUNDRY_LOAD
             else {
+                "evidence_verification": "multi_model_corroborated" if independent_corroboration else "numeric_confidence",
+                "effort_estimate_source": "default_unverified",
                 "active_minutes": trigger.effort_minutes,
                 "passive_minutes": 0,
                 "noise_level": "quiet",

@@ -26,6 +26,22 @@ class IndependentReview(BaseModel):
     claims: list[VerifiedClaim] = Field(max_length=4)
 
 
+def parse_review_json(raw: str) -> IndependentReview:
+    """Parse a reviewer JSON object without relaxing evidence requirements."""
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError("Empty independent review")
+    text = raw.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if len(lines) >= 3 and lines[0].strip().lower() in {"```", "```json"} and lines[-1].strip() == "```":
+            text = "\n".join(lines[1:-1]).strip()
+    # No scanning arbitrary prose for braces: keep invalid model responses invalid.
+    value = json.loads(text)
+    if not isinstance(value, dict):
+        raise ValueError("Independent reviewer did not return a JSON object")
+    return IndependentReview.model_validate(value)
+
+
 class ImageVerifier(Protocol):
     def review(self, image: bytes, content_type: str, proposed: VisionExtraction) -> IndependentReview: ...
 
@@ -67,34 +83,61 @@ class OpenAIImageVerifier:
             "claims": [{"category": c.category.value, "workload": c.value,
                         "visible_evidence": c.visible_evidence} for c in proposed.candidates],
         }
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": (
-                    "You are an INDEPENDENT household image reviewer. Inspect the attached IMAGE; "
-                    "do not accept another model's assertions without visual support. "
-                    "Reply ONLY with JSON having space_category, room_supported, claims. "
-                    "space_category must be one of kitchen, bathroom, bedroom, living_room, "
-                    "laundry_room, outdoor, garage, unknown. room_supported is true only "
-                    "when visual features justify the proposed category. "
-                    "Each claims entry has exactly category, visible, evidence_supported, workload_supported. "
-                    "Repeat a claim category only when you independently assess it; false means "
-                    "unsupported. workload_supported is false if the numerical workload lacks "
-                    "reasonable visual support. For occluded/out-of-frame targets use false. "
-                    "Do not equate image similarity with exact physical-room identity."
-                )},
-                {"role": "user", "content": [
-                    {"type": "text", "text": json.dumps(summary, separators=(",", ":"))},
-                    {"type": "image_url", "image_url": {"url": f"data:{content_type};base64,{data}"}},
-                ]},
-            ],
-        )
-        raw = response.choices[0].message.content
-        if not isinstance(raw, str):
-            raise ValueError("Independent reviewer returned no text")
-        raw = raw.strip()
-        if raw.startswith("```") and raw.endswith("```"):
-            parts = raw.splitlines()
-            if len(parts) >= 3 and parts[0].lower() in ("```", "```json") and parts[-1] == "```":
-                raw = "\n".join(parts[1:-1]).strip()
-        return IndependentReview.model_validate(json.loads(raw))
+        import logging
+        from pydantic import ValidationError
+        log = logging.getLogger(__name__)
+        messages = [
+            {"role": "system", "content": (
+                "You independently verify household claims against the supplied image. "
+                "Return ONLY one valid JSON object, no markdown or explanations. "
+                "Required top-level keys: space_category, room_supported, claims. "
+                "space_category must be kitchen, bathroom, bedroom, living_room, "
+                "laundry_room, outdoor, garage, or unknown. room_supported is a boolean. "
+                "claims is an array with exactly one entry for each proposed category, "
+                "in its original order. Every claim entry must contain exactly "
+                "category (same string as proposal), visible (boolean), "
+                "evidence_supported (boolean), workload_supported (boolean). "
+                "Mark false when visual evidence is unclear, missing or occluded, "
+                "or the workload estimate is not visually grounded. "
+                "Do not infer exact physical room identity from a category."
+            )},
+            {"role": "user", "content": [
+                {"type": "text", "text": json.dumps(summary, separators=(",", ":"))},
+                {"type": "image_url", "image_url": {"url": f"data:{content_type};base64,{data}"}},
+            ]},
+        ]
+        last_error = None
+        for attempt in range(2):
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                max_tokens=1400 if attempt == 0 else 2400,
+            )
+            choices = getattr(response, "choices", ())
+            choice = choices[0] if choices else None
+            raw = getattr(getattr(choice, "message", None), "content", None)
+            finish_reason = getattr(choice, "finish_reason", None)
+            if finish_reason not in (None, "stop", "length"):
+                raise ValueError("OpenAI reviewer did not finish with a usable response")
+            try:
+                if not isinstance(raw, str):
+                    raise ValueError("OpenAI reviewer returned no text")
+                review = parse_review_json(raw)
+                # Truncated responses cannot be trusted even if a JSON fragment parsed.
+                if finish_reason == "length":
+                    raise ValueError("OpenAI reviewer response was truncated")
+                return review
+            except (json.JSONDecodeError, ValidationError, ValueError) as exc:
+                last_error = exc
+                if isinstance(exc, ValidationError):
+                    paths = [".".join(map(str, e.get("loc", ()))) for e in exc.errors(include_url=False, include_input=False)]
+                    kinds = [e.get("type", "unknown") for e in exc.errors(include_url=False, include_input=False)]
+                    log.warning("OpenAI reviewer invalid output: category=schema_validation count=%d fields=%s types=%s finish_reason=%s attempt=%d",
+                                len(paths), paths[:8], kinds[:8], finish_reason, attempt + 1)
+                elif isinstance(exc, json.JSONDecodeError):
+                    log.warning("OpenAI reviewer invalid output: category=json_decode position=%d length=%d finish_reason=%s attempt=%d",
+                                exc.pos, len(raw) if isinstance(raw, str) else 0, finish_reason, attempt + 1)
+                else:
+                    log.warning("OpenAI reviewer invalid output: category=missing_or_truncated finish_reason=%s attempt=%d",
+                                finish_reason, attempt + 1)
+        raise last_error

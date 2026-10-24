@@ -18,7 +18,7 @@ class TaskRecord(Base):
     urgency: Mapped[str] = mapped_column(String(32), nullable=False)
     estimated_effort_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     task_metadata: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, nullable=False)

@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, sessionmaker
 from strawberry.fastapi import GraphQLRouter
@@ -50,6 +50,7 @@ def create_app(
     household_entity_service = HouseholdEntityService(repository=repository)
 
     media_engine = None
+    accounts = None
     research_provider = None
     media_root = os.environ.get("HOMHIVE_MEDIA_ROOT")
     household_tokens_json = os.environ.get("HOMHIVE_HOUSEHOLD_TOKENS")
@@ -67,6 +68,14 @@ def create_app(
 
         media_engine = build_engine()
         session_factory = build_session_factory(media_engine)
+        # Account auth is opt-in until database migration and signing secret are configured.
+        account_secret = os.environ.get("HOMHIVE_ACCOUNT_SIGNING_SECRET", "")
+        if account_secret:
+            if len(account_secret) < 32:
+                raise ValueError("Account signing secret must be at least 32 characters")
+            from app.auth.service import AccountService, HouseholdTokens
+            accounts = AccountService(session_factory)
+            tokens = HouseholdTokens(tokens, account_secret)
         media_service = MediaService(session_factory, LocalMediaStorage(Path(media_root)))
         observation_storage = SQLAlchemyObservationRepository(session_factory)
         task_storage = SQLAlchemyTaskRepository(session_factory)
@@ -102,6 +111,29 @@ def create_app(
                 media_engine.dispose()
 
     app = FastAPI(title="HomHive API", lifespan=lifespan)
+
+    if accounts is not None:
+        from app.auth.service import build_accounts_router
+        app.include_router(build_accounts_router(accounts))
+
+        @app.middleware("http")
+        async def household_session_bridge(request: Request, call_next):
+            # Check membership BEFORE converting a user session to an internal
+            # compatibility credential. Never disclose household credentials.
+            parts = request.url.path.split("/")
+            if len(parts) >= 3 and parts[1] == "households":
+                authorization = request.headers.get("authorization", "")
+                if authorization.lower().startswith("bearer "):
+                    supplied = authorization[7:]
+                    household_id = parts[2]
+                    if accounts.membership(supplied, household_id):
+                        credential = tokens.get(household_id)
+                        if credential is not None:
+                            request.scope["headers"] = [
+                                (key, value) for key, value in request.scope["headers"]
+                                if key.lower() != b"authorization"
+                            ] + [(b"authorization", ("Bearer " + credential).encode())]
+            return await call_next(request)
 
     origins = _allowed_origins()
     if origins:
@@ -142,8 +174,13 @@ def create_app(
                 require_verification=True,
             )
         evidence_ingestion = EvidenceIngestion(session_factory, media_service, vision_service)
+        autonomous_jobs = None
+        if os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "").lower() == "true":
+            from app.services.autonomous_jobs import AutonomousJobService
+            autonomous_jobs = AutonomousJobService(session_factory)
         app.include_router(build_media_router(
             media_service, tokens, vision_service, evidence_ingestion,
+            after_upload=autonomous_jobs.enqueue if autonomous_jobs is not None else None,
         ))
         app.include_router(
             build_intelligence_router(
@@ -164,7 +201,45 @@ def create_app(
             )
 
         if vision_service is not None:
-            app.include_router(build_vision_router(vision_service, tokens))
+            from app.services.household_intelligence import refresh_household_intelligence
+            app.include_router(build_vision_router(
+                vision_service, tokens,
+                after_observations=lambda household_id: refresh_household_intelligence(
+                    household_id, observation_storage, task_storage
+                ),
+            ))
+            # Explicit opt-in preview: does not alter legacy observations or tasks.
+            # Any failure is reported as incomplete, never as successful verification.
+            if (os.environ.get("HOMHIVE_ENABLE_OPEN_WORLD_PREVIEW", "").lower() == "true"
+                and os.environ.get("OPENAI_API_KEY") and os.environ.get("ANTHROPIC_API_KEY")
+                and os.environ.get("HOMHIVE_OPENAI_REVIEW_MODEL")
+                and os.environ.get("HOMHIVE_ANTHROPIC_REVIEW_MODEL")):
+                from app.vision.open_world_api import build_open_world_preview_router
+                from app.services.open_world_live import (OpenAIJsonClient, AnthropicJsonClient,
+                    OpenWorldVision, OpenWorldPlanner, OpenWorldActionReviewer)
+                def open_world_pipeline():
+                    import httpx
+                    from openai import OpenAI
+                    primary = OpenAIJsonClient(OpenAI(timeout=45, max_retries=1),
+                        os.environ["HOMHIVE_OPENAI_REVIEW_MODEL"])
+                    independent = AnthropicJsonClient(httpx.Client(timeout=60),
+                        os.environ["HOMHIVE_ANTHROPIC_REVIEW_MODEL"], os.environ["ANTHROPIC_API_KEY"])
+                    return (OpenWorldVision(primary, independent),
+                            OpenWorldPlanner(primary), OpenWorldActionReviewer(independent))
+                app.include_router(build_open_world_preview_router(media_service, tokens, open_world_pipeline))
+                if os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_SCAN", "").lower() == "true":
+                    from app.vision.autonomous_api import build_autonomous_router
+                    app.include_router(build_autonomous_router(media_service, tokens, session_factory, open_world_pipeline,
+                        jobs=autonomous_jobs))
+                    if autonomous_jobs is not None:
+                        from app.services.autonomous_scan_bridge import AutonomousScanBridge
+                        from app.services.autonomous_lifecycle import AutonomousLifecycle
+                        from app.vision.autonomous_api import run_autonomous_scan
+                        scan_bridge = AutonomousScanBridge(AutonomousLifecycle(session_factory))
+                        app.state.autonomous_process_one = lambda: autonomous_jobs.process_one(
+                            media=media_service, bridge=scan_bridge, build_pipeline=open_world_pipeline,
+                            scan=run_autonomous_scan)
+
 
     @app.get("/health")
     def health_check() -> dict[str, str]:
