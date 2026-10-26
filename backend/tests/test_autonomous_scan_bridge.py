@@ -121,3 +121,13 @@ def test_original_photo_cannot_complete(bridge):
 def test_household_isolation(bridge):
     bridge.persist_verified_scan('home1', scan())
     assert bridge.get_tasks('other-household') == []
+
+
+def test_verified_room_label_and_image_evidence_are_preserved(bridge):
+    submitted = scan().model_copy(update={"room_category": "walk-in closet"})
+    bridge.persist_verified_scan('home1', submitted)
+    persisted = bridge.get_tasks('home1')[0]
+    assert persisted['room_category'] == 'walk-in closet'
+    assert persisted['evidence_summary'] == 'Clothes scattered across the floor'
+    assert persisted['effort_min'] is None
+    assert persisted['effort_max'] is None

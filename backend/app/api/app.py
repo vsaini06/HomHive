@@ -43,6 +43,19 @@ def create_app(
     entity_session_factory: sessionmaker[Session] | None = None,
 ) -> FastAPI:
     load_local_environment()
+    # An enabled queue without a complete reviewer stack must fail at startup,
+    # not silently create jobs no worker can process.
+    if os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "").lower() == "true":
+        required = ("DATABASE_URL", "HOMHIVE_MEDIA_ROOT", "HOMHIVE_HOUSEHOLD_TOKENS",
+                    "NEBIUS_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
+                    "HOMHIVE_OPENAI_REVIEW_MODEL", "HOMHIVE_ANTHROPIC_REVIEW_MODEL")
+        missing = [name for name in required if not os.environ.get(name)]
+        if os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_SCAN", "").lower() != "true":
+            missing.append("HOMHIVE_ENABLE_AUTONOMOUS_SCAN=true")
+        if os.environ.get("HOMHIVE_ENABLE_OPEN_WORLD_PREVIEW", "").lower() != "true":
+            missing.append("HOMHIVE_ENABLE_OPEN_WORLD_PREVIEW=true")
+        if missing:
+            raise ValueError("Autonomous scanning configuration incomplete: " + ", ".join(missing))
     repository, owned_engine = build_entity_storage(
         storage_backend=entity_storage_backend,
         session_factory=entity_session_factory,
@@ -148,10 +161,13 @@ def create_app(
     async def graphql_context():
         return {"household_entity_service": household_entity_service}
 
-    app.include_router(
-        GraphQLRouter(create_schema(), context_getter=graphql_context),
-        prefix="/graphql",
-    )
+    # The original GraphQL entity service has no household boundary. Never
+    # expose it alongside private household accounts until it is scoped.
+    if media_engine is None:
+        app.include_router(
+            GraphQLRouter(create_schema(), context_getter=graphql_context),
+            prefix="/graphql",
+        )
 
     if media_engine is not None:
         vision_service = None
@@ -220,12 +236,16 @@ def create_app(
                 def open_world_pipeline():
                     import httpx
                     from openai import OpenAI
-                    primary = OpenAIJsonClient(OpenAI(timeout=45, max_retries=1),
+                    primary = OpenAIJsonClient(OpenAI(
+                        base_url="https://api.tokenfactory.nebius.com/v1/",
+                        api_key=os.environ["NEBIUS_API_KEY"], timeout=45, max_retries=1),
+                        os.environ.get("HOMHIVE_NEBIUS_VISION_MODEL", "openbmb/MiniCPM-V-4_5"))
+                    openai_reviewer = OpenAIJsonClient(OpenAI(timeout=45, max_retries=1),
                         os.environ["HOMHIVE_OPENAI_REVIEW_MODEL"])
                     independent = AnthropicJsonClient(httpx.Client(timeout=60),
                         os.environ["HOMHIVE_ANTHROPIC_REVIEW_MODEL"], os.environ["ANTHROPIC_API_KEY"])
-                    return (OpenWorldVision(primary, independent),
-                            OpenWorldPlanner(primary), OpenWorldActionReviewer(independent))
+                    return (OpenWorldVision(primary, independent, openai_reviewer),
+                            OpenWorldPlanner(openai_reviewer), OpenWorldActionReviewer(independent))
                 app.include_router(build_open_world_preview_router(media_service, tokens, open_world_pipeline))
                 if os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_SCAN", "").lower() == "true":
                     from app.vision.autonomous_api import build_autonomous_router

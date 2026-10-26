@@ -4,6 +4,8 @@ import os
 import time
 
 def main():
+    from app.config import load_local_environment
+    load_local_environment()
     if os.environ.get('HOMHIVE_ENABLE_AUTONOMOUS_QUEUE','').lower() != 'true' or os.environ.get('HOMHIVE_ENABLE_AUTONOMOUS_SCAN','').lower() != 'true':
         raise SystemExit('Both autonomous feature flags must be true')
     from app.api.app import app

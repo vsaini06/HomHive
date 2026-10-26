@@ -1,120 +1,51 @@
 # HomHive Current State
 
-## Implemented system
+## Runtime architecture
 
-HomHive currently includes:
+HomHive stores household-scoped media, observations, tasks and evidence in PostgreSQL and a private media store. The backend exposes authenticated upload, history and account interfaces. A separate, opt-in autonomous queue can process new uploads in a worker. The current schema head is `0012_autonomous_room_category`; a running local database must be checked independently with `python -m alembic current`.
 
-- typed Pydantic domain models for observations, state, entities, tasks, forecasts, decisions, and plans
-- confidence- and recency-aware state aggregation with temporal history
-- deterministic reactive task discovery and active-task deduplication
-- deterministic task scoring and ranking
-- conservative household-entity candidate matching and resolution
-- condition forecasting, threshold crossing, action decisions, and predictive task reconciliation
-- FastAPI application boundaries and Strawberry GraphQL entity operations
-- household-scoped PostgreSQL repositories through SQLAlchemy and Alembic
-- authenticated private media upload/retrieval with JPEG, PNG, and WebP validation
-- Nebius MiniCPM-V-4_5 image-to-observation inference with strict evidence validation
-- explicit unknown AI confidence stored as `None` / SQL `NULL`
-- user confirmation that creates separate user evidence
-- scene-inventory evaluation with detection-only object discovery and completeness scoring
-- household intelligence refresh over persisted observations and tasks
-- Tavily research with normalized evidence and durable household-scoped cache storage
-- deterministic feasibility planning for time, presence, quiet-hours, and task-count constraints
-- NVIDIA Nemotron planning through Nebius with strict structured-output validation and deterministic fallback
-- mobile-first Next.js client for the main product loop
-- Docker Compose runtime with PostgreSQL 17, FastAPI, Next.js, migrations, and persistent database/media volumes
+The autonomous path uses open-vocabulary image analysis rather than fixed household chore categories. When enabled and configured, Nebius performs primary scene extraction, Claude reviews visual claims against the original image, and OpenAI independently reviews them as well. Only claims supported by both independent reviews enter the open-world planner. The planner proposes an action only from those claims, and a separate image-aware action reviewer decides if the action is justified. Verified room *category* is separate from persistent physical-room identity. When a household has no enrolled rooms, an independently corroborated first photograph with a supported room category establishes its first physical-room reference automatically. Later photographs require independently reviewed continuity; uncertain matches are held.
 
-## Persistent storage
+Action records preserve a verified scene category, an excerpt of the image-grounded evidence, task-specific completion criteria and an effort range only when one is justified. An unknown duration remains `null`, never an invented default. Open-world actions use database-backed deduplication and fresh-image completion verification.
 
-SQLAlchemy 2.x and Alembic support PostgreSQL storage for household entities, observations, tasks, media metadata, and research cache records.
+## Autonomous activation
 
-Important storage boundaries:
+The backend requires the appropriate API credentials and selected model names, plus the following flags in its local private configuration:
 
-- observation and task access is household-scoped
-- observation history remains durable and can reconstruct current household state
-- derived snapshots and forecasts are recomputed rather than treated as authoritative stored truth
-- media bytes live under a private media root while PostgreSQL stores media metadata
-- media lookup uses both household ID and media ID
-- research cache records are household-scoped
-- ORM records remain separate from Pydantic domain models
-
-The current migration head is `0006_research_cache`.
-
-## Verified runtime behavior
-
-The following paths have been exercised with real runtime dependencies:
-
-- authenticated media upload and retrieval
-- Nebius MiniCPM perception and observation persistence
-- explicit observation confirmation
-- household intelligence refresh
-- Tavily live research
-- NVIDIA Nemotron live planning through Nebius
-- context replanning from 20 available active minutes to 5 minutes
-- Docker Compose startup with PostgreSQL healthy
-- Alembic migration during backend-container startup
-- FastAPI `/health` returning HTTP 200
-- Next.js production container returning HTTP 200
-
-The browser scenario produced a 76% `dish_load` value, required confirmation, produced reactive and predictive work, and then generated different plans from the same stored household state as the available-time constraint changed.
-
-## Automated verification
-
-The current full backend regression baseline is:
-
-```text
-348 passed
+```env
+HOMHIVE_ENABLE_OPEN_WORLD_PREVIEW=true
+HOMHIVE_ENABLE_AUTONOMOUS_SCAN=true
+HOMHIVE_ENABLE_AUTONOMOUS_QUEUE=true
+HOMHIVE_OPENAI_REVIEW_MODEL=<supported-image-review-model>
+HOMHIVE_ANTHROPIC_REVIEW_MODEL=<supported-Claude-model>
+HOMHIVE_NEBIUS_VISION_MODEL=openbmb/MiniCPM-V-4_5
 ```
 
-Frontend verification also passes:
+Provide `NEBIUS_API_KEY`, `OPENAI_API_KEY`, and `ANTHROPIC_API_KEY` privately, not in Git. The supported image model and the service's live output contract must be checked in the target environment. A worker is started separately via `python -m app.vision.autonomous_worker_cli`; merely starting FastAPI does not execute durable scans.
 
-```text
-npm run typecheck
-npm run build
-```
+If the queue is enabled, `refresh_household_intelligence` retains existing legacy tasks and observation history but stops creating **new** fixed-template reactive/predictive chores. This prevents a clothing pile from becoming a 45-minute laundry recommendation due to a legacy mapping. New image uploads enqueue for independent open-world processing. If queueing is not available the frontend should report that condition rather than silently switch to the preset analysis path.
 
-The test suite covers domain rules, forecasting, persistence, repository contracts, household isolation, media validation/authorization, scene evaluation, observation review, household intelligence, Tavily research/cache behavior, planning feasibility, and planning APIs. Test count is a regression metric, not a product-accuracy metric.
+## Known product limitations
 
-## Scene-completeness evaluation
+- The first independently verified photograph can automatically establish the household's first room reference. Further unrecognized rooms may require a consumer's confirmation to avoid merging physically distinct rooms.
+- Existing previously saved legacy tasks and notifications are preserved; hiding legacy suggestions in autonomous mode is not database deletion. Existing misinformation should be individually reviewed/dismissed, not silently rewritten.
+- Accept, Decline, Snooze, and Done actions are database-backed. Snooze records a due time and hides the task in the browser until it becomes due; it does not deliver OS push or email. Done records user-reported completion, not visual proof.
+- This source package does not demonstrate live Nebius/OpenAI/Claude inference, precise work duration calibration, real manufacturer-research attribution or calendar OAuth.
+- Production worker concurrency, browser/mobile push, background camera access and full deployment operations require separately verified environment setup.
 
-A human-reviewed kitchen development set contains 59 reference entities across four scenes.
+## Verification
 
-```text
-Joint micro recall:       47.46%
-Joint micro precision:    75.68%
-Joint micro F1:           58.33%
+The runnable test subset and current verification results are documented in `implementation-audit.md`. Three GraphQL-related modules cannot collect without the Strawberry dependency in this sandbox. TypeScript parsing is verified, but production typechecking/building and live provider/database operations require a network-enabled environment. These checks do not establish successful live inference or deployment.
 
-Detection micro recall:   71.19%
-Detection micro precision:72.41%
-Detection micro F1:       71.79%
-```
+The source package uses file preimage and payload SHA-256 validation. Apply it only against a compatible checkout and validate on Windows before treating it as usable.
 
-Detection-first inference improved recall by 23.73 percentage points, or 50.0% relative, and improved micro-F1 by 13.46 percentage points.
 
-These results remain development measurements. The scorer has label/granularity limitations, the evaluation covers only four kitchen scenes, and a heavy joint request required one retry after strict output validation rejected the first response.
+## Current consumer task workflow
 
-## Current limitations
+When the autonomous queue and scan worker are enabled, new photo uploads use the durable open-world scan workflow. Tasks shown in the main consumer task view come from `autonomous_tasks`, not the legacy fixed-category suggestion list. Task cards show persisted creation/update times, independently reviewed evidence, estimated effort only when grounded, and server-backed decisions. The historical fixed-category tasks remain in the database but are not silently deleted.
 
-- video ingestion and frame sampling are not implemented
-- scene completeness is not yet evaluated across broad household domains
-- persistent cross-image physical-entity identity remains incomplete
-- reactive and predictive work can still represent the same underlying condition with different task keys
-- full task-transition and plan audit history is not persisted
-- concurrency-safe atomic deduplication across the complete observation-to-task workflow is not implemented
-- calendar, email, richer presence, and work-status integrations are not implemented
-- background job execution for long-running model/media work is not implemented
-- development household bearer tokens are not production user authentication
-- public production deployment is not claimed; the current deployment verification is a local Docker runtime smoke test
-- LangSmith, Toloka, and Tandem are not required for the verified core flow and are not currently integrated
+The first independently corroborated photograph of a household now automatically establishes an initial physical room reference when the room category is supported. Further previously unseen physical spaces may require a user decision after matching fails. A room category such as *walk-in closet* is not proof that two photographs show the same exact closet. The app must hold uncertain room continuity rather than assign a random room.
 
-## System boundaries
+The autonomous task decision endpoint accepts `accept`, `decline`, `remind`, and `done`. A reminder request records a 30-minute due timestamp; the browser suppresses that task until its due time on a later refresh. Actual out-of-app notification delivery still requires a scheduler and notifier. Reporting Done records a claim only and remains subject to independently reviewed fresh evidence. Do not claim that new task notifications, reminder delivery, calendar OAuth, or live three-model calls have been tested without corresponding runtime evidence.
 
-Raw observations, derived state, forecasts, action decisions, tasks, ranking, feasibility, research evidence, and final plans remain separate concepts. External provider output is parsed and validated before it can influence stable domain state or executable work.
-
-## October 23 integration findings
-
-A live image was processed by Nebius and independently reviewed by OpenAI and Anthropic; a `plant_condition=0.0` observation was persisted with claim-level corroboration and unresolved room identity. Reprocessing returned the same observation ID. A subsequent intelligence refresh retained it without creating a plant-care task. Numeric confidence remained null, so the confidence-qualified snapshot/forecast pipeline did not include that condition.
-
-The interface now distinguishes corroborated AI evidence from unverified evidence. A refresh advances due completion-verification obligations using stored follow-up evidence only. Existing household test data revealed older observation-backed and predictive dishwashing tasks that may remain active despite newer clear-sink evidence: safe cross-entity reconciliation still needs a deliberate design, not destructive cleanup. No claim is made that old tasks are automatically resolved.
-
-The last user-reported Windows baseline before this update was 402 passing tests. The updated package adds focused tests; run the full Windows suite again before committing.
+For a local three-model run, `HOMHIVE_ENABLE_AUTONOMOUS_QUEUE=true` and `HOMHIVE_ENABLE_AUTONOMOUS_SCAN=true` must be set, the database must be at `0012_autonomous_room_category`, and one `python -m app.vision.autonomous_worker_cli` process must be active with permitted provider credentials. Existing household media and task state should be preserved; repeat image uploads must not be used as a substitute for diagnosing queue status.

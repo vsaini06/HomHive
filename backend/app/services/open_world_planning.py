@@ -46,6 +46,7 @@ class EffortEstimate(BaseModel):
     rationale: str = Field(min_length=12, max_length=500)
     evidence_ids: list[str] = Field(min_length=1, max_length=12)
     externally_verified: bool = False
+    source_urls: list[str] = Field(default_factory=list, max_length=5)
 
     @model_validator(mode="after")
     def ordered(self):
@@ -85,6 +86,7 @@ class ActionReview(BaseModel):
     no_unsupported_assumptions: bool
     safety_appropriate: bool
     explanation: str = Field(min_length=4, max_length=400)
+    failed_gates: list[str] = Field(default_factory=list, max_length=8)
 
 
 class IndependentPlanReview(BaseModel):
@@ -118,20 +120,17 @@ def evaluate_proposals(plan: ProposedPlan, review: IndependentPlanReview,
             raise ValueError("Duplicate proposed action identifiers")
         seen.add(action.action_id)
         cited = set(action.supporting_evidence_ids)
-        estimate_ids = set(action.estimated_effort.evidence_ids) if action.estimated_effort else set()
         if len(cited) != len(action.supporting_evidence_ids) or not cited.issubset(evidence):
             rejected[action.action_id] = "missing_or_duplicate_evidence"
             continue
-        if action.estimated_effort and estimate_ids.issubset(evidence) and not estimate_ids.issubset(cited):
-            rejected[action.action_id] = "effort_not_supported_by_action_evidence"
-            continue
-        if estimate_ids and not estimate_ids.issubset(evidence):
-            rejected[action.action_id] = "unsupported_effort_estimate"
-            continue
+        if action.estimated_effort and not set(action.estimated_effort.evidence_ids).issubset(cited):
+            action = action.model_copy(update={"estimated_effort": None})
         r = review_by_id.get(action.action_id)
         if r is None or not all((r.directly_supported, r.feasible,
                                  r.no_unsupported_assumptions, r.safety_appropriate)):
-            rejected[action.action_id] = "independent_review_rejected_or_missing"
+            gates = ",".join(r.failed_gates) if r is not None and r.failed_gates else ""
+            rejected[action.action_id] = ("independent_review_rejected:" + gates) if gates \
+                else "independent_review_rejected_or_missing"
             continue
         if action.hazard_or_professional_help and not action.requires_user_confirmation:
             rejected[action.action_id] = "safety_confirmation_required"

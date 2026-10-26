@@ -91,3 +91,35 @@ def test_completed_does_not_reset_on_repeat(lifecycle):
     service.verify_fresh_scene('h1',room(),[outcome(task_id)])
     service.discover('h1',room(),[action('photo3')])
     assert service.list_tasks('h1')[0]['status']=='completed'
+
+
+def test_snoozed_task_keeps_creation_timestamp(lifecycle):
+    service, _ = lifecycle
+    task_id = service.discover('h1', room(), [action()])['created'][0]
+    created_at = service.list_tasks('h1')[0]['created_at']
+    response = service.decide('h1', task_id, 'remind')
+    task = service.list_tasks('h1')[0]
+    assert task['created_at'] == created_at
+    assert task['remind_at'] == response['remind_at']
+    assert task['status'] == 'pending'
+    service.decide('h1', task_id, 'accept')
+    assert service.list_tasks('h1')[0]['remind_at'] is None
+
+
+def test_optional_task_can_be_reported_done_without_acceptance(lifecycle):
+    service, _ = lifecycle
+    task_id = service.discover('h1', room(), [action()])['created'][0]
+    result = service.decide('h1', task_id, 'done')
+    assert result['status'] == 'in_progress'
+    assert service.list_tasks('h1')[0]['status'] != 'completed'
+
+
+def test_high_risk_work_requires_explicit_approval(lifecycle):
+    service, _ = lifecycle
+    risky = action().model_copy(update={'confirmation_required': True})
+    task_id = service.discover('h1', room(), [risky])['created'][0]
+    assert service.list_tasks('h1')[0]['status'] == 'proposed'
+    with pytest.raises(ValueError, match='current state'):
+        service.decide('h1', task_id, 'done')
+    service.decide('h1', task_id, 'accept')
+    assert service.decide('h1', task_id, 'done')['status'] == 'in_progress'

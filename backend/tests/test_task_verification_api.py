@@ -1,3 +1,4 @@
+import pytest
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -103,3 +104,9 @@ def test_persistent_condition_does_not_create_new_task():
     assert response.json()['status'] != 'completed'
     client.post('/households/home/intelligence/refresh', headers=HEADERS)
     assert sum(t.task_key == 'kitchen:dish_load' for t in tasks.list_tasks('home')) == 1
+
+
+@pytest.fixture(autouse=True)
+def _use_legacy_intelligence_mode(monkeypatch):
+    """Legacy task tests remain deterministic when local autonomous mode is enabled."""
+    monkeypatch.setenv("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "false")

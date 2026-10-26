@@ -1,3 +1,4 @@
+import pytest
 """GraphQL storage wiring and persistence between API instances."""
 
 from pathlib import Path
@@ -59,3 +60,12 @@ def test_graphql_persists_renames_between_app_instances(tmp_path: Path):
             }}}
     finally:
         engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def _use_standalone_graphql_mode(monkeypatch):
+    """GraphQL entity tests exercise the standalone, non-household API."""
+    monkeypatch.setenv("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "false")
+    monkeypatch.setenv("HOMHIVE_MEDIA_ROOT", "")
+    monkeypatch.setenv("HOMHIVE_HOUSEHOLD_TOKENS", "")
+    monkeypatch.setenv("HOMHIVE_ENTITY_STORAGE", "memory")

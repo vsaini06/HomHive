@@ -1,69 +1,28 @@
 # HomHive frontend
 
-The frontend is a mobile-first Next.js interface for the household intelligence API.
+Next.js consumer client for household uploads and intelligent task review.
 
-## Product flow
-
-```text
-household connection
--> private image upload
--> vision extraction
--> evidence review / confirmation
--> household intelligence refresh
--> optional research question
--> context-aware plan
--> replan when constraints change
-```
-
-The development bearer token is entered in the interface and remains in the current page state. This is not production authentication.
-
-## Local setup
+## Local development
 
 ```powershell
-npm install
-$env:NEXT_PUBLIC_HOMHIVE_API_URL="http://127.0.0.1:8000"
-npm run typecheck
-npm run dev -- -H 127.0.0.1 -p 3001
-```
-
-The backend must include the frontend origin in `HOMHIVE_ALLOWED_ORIGINS`.
-
-## Production build
-
-```powershell
+cd 'C:\AI Projects\homhive\frontend'
+$env:NEXT_PUBLIC_HOMHIVE_API_URL = 'http://127.0.0.1:8000'
+npm ci
 npm run typecheck
 npm run build
+npm run dev -- -p 3001 -H 0.0.0.0
 ```
 
-Both commands have been verified successfully for the current client.
+The backend's `HOMHIVE_ALLOWED_ORIGINS` must include the actual frontend origin. For local-device access also configure the LAN API host, firewall and Next.js `allowedDevOrigins` deliberately. Do not use permissive CORS or expose development credentials to the internet.
 
-## Docker
+## Scan behavior
 
-The Compose stack publishes the production frontend at:
+Image uploads are saved and are expected to enqueue durable open-world processing. The client observes background job status instead of automatically invoking the old fixed-condition `/observations` analysis endpoint. An independently corroborated first image automatically establishes the household's initial physical-room reference. Subsequent images must pass same-room comparison; uncertain new rooms can be confirmed from the consumer interface. An `unverified_room` status is not a completed scan. No task is created solely to populate an empty screen.
 
-```text
-http://localhost:3001
-```
+New autonomous suggestions retain image-grounded explanations and a recognized room category when verified. The registered physical-room identity is separate. Where no justified estimate exists the UI shows unknown duration rather than a default number.
 
-The production container has been verified to return HTTP 200 while connected to the Dockerized FastAPI/PostgreSQL stack.
+Legacy observations and tasks remain accessible in the existing backend for compatibility; the autonomous experience suppresses new fixed-template recommendations when the autonomous queue is active. Historical legacy records are not automatically deleted.
 
-## Current UI behavior
+## Product completeness
 
-The interface exposes:
-
-- API URL, household ID, and bearer token connection fields
-- room/location selection and private image upload
-- extracted household evidence and explicit confirmation
-- current intelligence and ranked work
-- available active minutes, at-home state, and quiet-hours context
-- optional research question
-- plan generation and deferred-work explanations
-
-A live browser scenario verified that changing only available active time from 20 minutes to 5 minutes changed the plan while preserving the underlying household work.
-
-
-### Demo image library
-
-The Scan dialog includes a searchable library of sample scenes. Static demo assets live in `frontend/public/demo-library/`, and `catalog.json` lists provenance and source SHA-256 hashes. Selecting a sample produces a normal JPEG file, which passes through the same household-scoped upload and AI verification APIs as a personal upload. Public demo assets are not user-private media. Source PNG images and frozen evaluation fixtures are unchanged; JPEG display copies must not be substituted for canonical evaluation data.
-
-A valid household connection is still required to persist observations. Account registration and household membership are not included in this gallery update.
+Autonomous task decisions are persisted, including in-app snoozing. Full household membership/invitations, OS/email notifications, integrated open-world manufacturer research, and external sensor integrations remain unfinished or unverified. Do not present mock controls as working features.

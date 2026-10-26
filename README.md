@@ -2,6 +2,8 @@
 
 **The intelligence layer for the autonomous home.**
 
+> **Implementation status (October 2026):** The source includes open-world independent visual review, autonomous task persistence, a room registry and a PostgreSQL-backed scan queue. Migration `0012_autonomous_room_category` and live end-to-end worker operation still require verification on the target installation. The original verification statistics below refer to earlier milestones and must not be mistaken for the latest system acceptance. See [Current state](docs/current-state.md).
+
 HomHive turns household evidence into remembered state, discovered work, forecasts, selective external research, and a context-aware action plan. The goal is not another task list. The goal is a household intelligence layer that can understand what is changing, decide what matters, determine what is executable now, and preserve work that should wait.
 
 ## Product loop
@@ -106,7 +108,7 @@ These are development-set measurements, not production accuracy claims. The scor
 
 ## Verification status
 
-- backend regression suite: **348 passed**
+- historical backend regression suite: **348 passed** (earlier milestone; latest reported Windows baseline: **496 passed**, not reproduced in this environment)
 - frontend typecheck: passed
 - frontend production build: passed
 - npm audit during installation: 0 vulnerabilities
@@ -266,3 +268,11 @@ MIT
 The web client separates **AI-corroborated**, **human-confirmed**, and **unverified** observations. Agreement between independent vision reviewers does not create a synthetic numeric confidence or a human confirmation. Reusing a processed media ID returns the persisted observation rather than initiating another analysis. The household intelligence refresh advances overdue completion checks using existing trusted evidence; it never treats the user's Done action as proof that a condition was resolved.
 
 Local setup uses both root and backend `.env` files. Keep secrets out of version control. Existing process variables may override file values, so verify which terminal starts Uvicorn after rotating a provider credential. The current task estimator still uses deterministic category defaults; evidence-grounded research estimates remain planned work. See `docs/current-state.md` for limitations and `frontend/README.md` for the interface.
+
+## Autonomous consumer workflow
+
+With the autonomous flags and all three provider credentials configured, a saved household photograph enters a durable queue. The worker independently corroborates a scene with Nebius, OpenAI and Claude, reviews evidence-grounded proposed actions and stores justified tasks in PostgreSQL. The household's first independently verified image can establish its first physical-room reference automatically; later images require trustworthy room continuity. User actions and actual creation/update timestamps are persisted. A 30-minute snooze is in-app only; reporting Done is not independent proof of completion.
+
+The queue worker must be running separately and reads `backend/.env` before checking feature flags. Configuration errors stop startup rather than creating unreachable work. Run `python scripts/live_smoke.py --image <path>` from `backend` after starting FastAPI and the worker to verify the real API-to-worker-to-task path in your own network-enabled environment. Use a dedicated test account and avoid production secrets.
+
+See `docs/implementation-audit.md` for verification status, security constraints, remaining gaps and installation instructions.

@@ -47,9 +47,10 @@ def test_unrelated_evidence_cannot_be_cited():
     assert evaluate_proposals(p,r).rejected["a1"]=="missing_or_duplicate_evidence"
 
 
-def test_effort_range_must_be_grounded():
+def test_ungrounded_effort_is_dropped_without_rejecting_a_supported_action():
     p,r=base(); p.actions[0].estimated_effort=EffortEstimate(minimum_minutes=10,maximum_minutes=25,rationale="Visible pile suggests several pieces",evidence_ids=["invented"])
-    assert evaluate_proposals(p,r).rejected["a1"]=="unsupported_effort_estimate"
+    outcome=evaluate_proposals(p,r)
+    assert not outcome.rejected and outcome.approved[0].estimated_effort is None
 
 
 def test_duplicate_work_is_blocked_across_images():

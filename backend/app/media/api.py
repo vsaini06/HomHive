@@ -26,12 +26,12 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
     async def upload_image(household_id: str, file: UploadFile, credentials: HTTPAuthorizationCredentials | None = Depends(bearer), location: str | None = Form(default=None), event_id: str | None = Form(default=None), defer_analysis: bool = Form(default=False)):
         authorize(household_id, credentials)
         if file.content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
-            raise HTTPException(status_code=415, detail='Unsupported image type')
+            raise HTTPException(status_code=415, detail='Unsupported file type. Upload a JPG, PNG, or WebP photo.')
         data = await file.read(MAX_IMAGE_BYTES + 1)
         if not data or len(data) > MAX_IMAGE_BYTES:
-            raise HTTPException(status_code=413, detail='Invalid image size')
+            raise HTTPException(status_code=413, detail='The photo is empty or exceeds the 10 MB size limit.')
         if detected_image_type(data) != file.content_type:
-            raise HTTPException(status_code=415, detail='Image content does not match declared type')
+            raise HTTPException(status_code=415, detail='This image could not be verified as a valid JPG, PNG, or WebP photo.')
         if evidence_ingestion is not None:
             try:
                 response = evidence_ingestion.ingest(household_id, EvidenceInput(
@@ -50,6 +50,8 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
                     import logging
                     logging.getLogger(__name__).exception('Autonomous enqueue failed')
                     response['autonomous_enqueue'] = 'retry_required'
+            if after_upload is None:
+                response['autonomous_enqueue'] = 'disabled'
             return response
         info = service.save_image(household_id, data)
         response = {'id': info.id, 'content_type': info.content_type, 'size_bytes': info.size_bytes}
@@ -78,6 +80,8 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
                 import logging
                 logging.getLogger(__name__).exception('Autonomous enqueue failed')
                 response['autonomous_enqueue'] = 'retry_required'
+        if after_upload is None:
+            response['autonomous_enqueue'] = 'disabled'
         return response
 
     @router.get('/{media_id}')

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import os
 
 from app.models import (
     ConditionForecast,
@@ -73,7 +74,8 @@ def refresh_household_intelligence(
             updated = evaluate(task, household_id, observations, now)
             tasks.save_task(household_id, updated)
 
-    for observation in state.current_observations.values():
+    open_world_only = os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "").lower() == "true"
+    for observation in ([] if open_world_only else state.current_observations.values()):
         key = f"{observation.location}:{observation.category.value}"
         # Keep a human dismissal of this condition, including a re-upload,
         # instead of recreating the same unresolved work on refresh.
@@ -102,6 +104,8 @@ def refresh_household_intelligence(
         if trigger is None:
             continue
 
+        if open_world_only:
+            continue
         crossing = forecast_threshold_crossing(snapshot, history, trigger.trigger_level)
         decision = decide_action(crossing)
         if decision is None:

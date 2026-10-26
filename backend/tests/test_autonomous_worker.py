@@ -1,3 +1,4 @@
+import pytest
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import create_engine
@@ -72,3 +73,9 @@ def test_worker_keeps_persisting_issue_unresolved(tmp_path):
     assert tasks.find_task('household-a', task_id).status.value == 'pending'
     assert len(tasks.list_tasks('household-a')) == 1
     engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def _use_legacy_intelligence_mode(monkeypatch):
+    """Legacy task tests remain deterministic when local autonomous mode is enabled."""
+    monkeypatch.setenv("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "false")

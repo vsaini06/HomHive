@@ -1,3 +1,4 @@
+import pytest
 from datetime import datetime, timedelta, timezone
 
 from app.models import ConditionType, Observation, ObservationSource, TaskStatus
@@ -114,3 +115,35 @@ def test_refresh_keeps_not_yet_due_verification_intact():
     refresh_household_intelligence('home', observations, tasks)
     assert tasks.find_task('home', task.id).metadata['verification_status'] == 'not_due'
     assert tasks.find_task('home', task.id).metadata['verification_attempts'] == 0
+
+
+def test_autonomous_queue_disables_preset_photo_chore_discovery(monkeypatch):
+    monkeypatch.setenv("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "true")
+    observations = InMemoryObservationRepository()
+    tasks = InMemoryTaskRepository()
+    observations.add_observation(
+        "home", observation("closet-photo", 0.95, 0.99, datetime.now(timezone.utc))
+    )
+    report = refresh_household_intelligence("home", observations, tasks)
+    assert report.tasks == []
+    assert report.state.current_observations
+
+
+def test_autonomous_queue_preserves_existing_legacy_tasks(monkeypatch):
+    observations = InMemoryObservationRepository()
+    tasks = InMemoryTaskRepository()
+    observations.add_observation(
+        "home", observation("existing-photo", 0.9, 1.0, datetime.now(timezone.utc))
+    )
+    previous = refresh_household_intelligence("home", observations, tasks)
+    assert len(previous.tasks) == 1
+    monkeypatch.setenv("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "true")
+    report = refresh_household_intelligence("home", observations, tasks)
+    assert len(report.tasks) == 1
+    assert report.tasks[0].id == previous.tasks[0].id
+
+
+@pytest.fixture(autouse=True)
+def _use_legacy_intelligence_mode(monkeypatch):
+    """Legacy task tests remain deterministic when local autonomous mode is enabled."""
+    monkeypatch.setenv("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "false")

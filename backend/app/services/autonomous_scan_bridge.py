@@ -24,6 +24,7 @@ class VerifiedScan(BaseModel):
     independently_reviewed: bool
     original_media_reviewed: bool
     room: RoomContinuity
+    room_category: str | None = Field(default=None, max_length=120)
 
     @model_validator(mode="after")
     def check_evidence(self):
@@ -73,6 +74,9 @@ def to_verified_action(action: ActionProposal, scan: VerifiedScan) -> VerifiedAc
     return VerifiedAction(
         action_key=stable_action_key(action), title=action.title, action=action.action,
         observed_location=action.observation_location,
+        room_category=scan.room_category,
+        evidence_summary=" ".join(item.description for item in scan.corroborated_evidence
+                                  if item.id in action.supporting_evidence_ids)[:800] or None,
         action_location=action.action_location,
         verification_criteria=action.verification_criteria,
         evidence=EvidenceReference(

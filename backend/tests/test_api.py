@@ -508,3 +508,24 @@ def test_separate_app_instances_have_isolated_state(
             }
         }
     }
+
+@pytest.fixture(autouse=True)
+def _use_standalone_graphql_mode(monkeypatch):
+    """GraphQL entity tests exercise the standalone, non-household API."""
+    monkeypatch.setenv("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "false")
+    monkeypatch.setenv("HOMHIVE_MEDIA_ROOT", "")
+    monkeypatch.setenv("HOMHIVE_HOUSEHOLD_TOKENS", "")
+    monkeypatch.setenv("HOMHIVE_ENTITY_STORAGE", "memory")
+
+
+
+def test_private_household_mode_does_not_expose_unscoped_graphql(monkeypatch, tmp_path):
+    """Standalone entity mutations must not be available to private households."""
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+pysqlite:///{tmp_path / 'private.sqlite'}")
+    monkeypatch.setenv("HOMHIVE_MEDIA_ROOT", str(tmp_path / "media"))
+    monkeypatch.setenv("HOMHIVE_HOUSEHOLD_TOKENS", '{"home":"test-token"}')
+    monkeypatch.setenv("HOMHIVE_ACCOUNT_SIGNING_SECRET", "")
+    monkeypatch.setenv("NEBIUS_API_KEY", "")
+    monkeypatch.setenv("TAVILY_API_KEY", "")
+    app = create_app()
+    assert not any(getattr(route, "path", None) == "/graphql" for route in app.routes)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationError
@@ -39,7 +40,20 @@ class ClaimVerdict(BaseModel):
 class VisualReview(BaseModel):
     model_config = ConfigDict(extra="forbid")
     room_supported: bool
+    room_category: str | None = Field(default=None, max_length=120)
+    category_by_reviewers: bool = False
     claims: list[ClaimVerdict]
+
+
+def _category_tokens(value: str) -> set[str]:
+    words = {w for w in re.sub(r"[^a-z0-9]+", " ", value.lower()).split() if w not in {"room", "space", "area", "walk", "in"}}
+    return {w[:-1] if len(w) > 3 and w.endswith("s") else w for w in words}
+
+
+def categories_agree(proposed: str, reviewed: str | None) -> bool:
+    if reviewed is None:
+        return True
+    return bool(_category_tokens(proposed) & _category_tokens(reviewed))
 
 
 class PreviewResult(BaseModel):
@@ -50,6 +64,8 @@ class PreviewResult(BaseModel):
     rejected_actions: dict[str, str]
     verification: str
     saved: bool = False
+    proposed_count: int = 0
+    proposal_reviews: list[dict] = Field(default_factory=list)
 
 
 class VisionModel(Protocol):
@@ -67,12 +83,19 @@ def corroborate_scene(scene: VisualScene, review: VisualReview, media_id: str) -
     valid = {v.id for v in review.claims if v.supported}
     evidence = [Evidence(id=c.id, description=c.description, provenance="visible", source_id=media_id)
                 for c in scene.claims if c.id in valid]
-    category = scene.room_category if review.room_supported and scene.room_category else None
+    if review.category_by_reviewers and review.room_category:
+        category = review.room_category
+    else:
+        category = scene.room_category if review.room_supported and scene.room_category else None
+        if category and not categories_agree(category, review.room_category):
+            category = None
     return SceneContext(category=category, category_supported=bool(category)), evidence
 
 
 def preview_verified_scene(*, image: bytes, media_type: str, media_id: str,
-                           vision: VisionModel, planner, reviewer) -> PreviewResult:
+                           vision: VisionModel, planner, reviewer,
+                           existing_tasks: list[dict] | None = None,
+                           active_task_keys: set[str] | None = None) -> PreviewResult:
     if not image or media_type not in {"image/jpeg", "image/png", "image/webp"}:
         raise ValueError("Unsupported media")
     scene = vision.extract(image, media_type)
@@ -84,10 +107,13 @@ def preview_verified_scene(*, image: bytes, media_type: str, media_id: str,
     planned = plan_verified_scene(corroborated_evidence=evidence,
                                   independently_supported_scene=confirmed_scene,
                                   original_media=image, media_type=media_type,
-                                  planner=planner, reviewer=reviewer)
+                                  planner=planner, reviewer=reviewer,
+                                  existing_tasks=existing_tasks, active_task_keys=active_task_keys)
     return PreviewResult(room_category=confirmed_scene.category, corroborated_evidence=evidence,
                          approved_actions=[a.model_dump(mode="json") for a in planned.outcome.approved],
-                         rejected_actions=planned.outcome.rejected, verification="reviewed")
+                         rejected_actions=planned.outcome.rejected, verification="reviewed",
+                         proposed_count=planned.proposed_count,
+                         proposal_reviews=planned.proposal_reviews)
 
 
 def _read_json_text(raw: str):
@@ -147,14 +173,21 @@ class AnthropicJsonClient:
 
 
 class OpenWorldVision:
-    def __init__(self, primary: OpenAIJsonClient, independent: AnthropicJsonClient):
-        self.primary, self.independent = primary, independent
+    def __init__(self, primary: OpenAIJsonClient, independent: AnthropicJsonClient,
+                 additional: OpenAIJsonClient | None = None):
+        self.primary, self.independent, self.additional = primary, independent, additional
 
     def extract(self, image: bytes, media_type: str) -> VisualScene:
         result = self.primary.ask(instruction=(
             "Analyze household image. Return ONLY JSON {room_category:string|null,claims:[{id:string,description:string}]}. "
             "No fixed taxonomy: describe at most 12 directly visible actionable conditions in plain language, "
             "one concrete fact per claim. Identify likely room CATEGORY, not exact identity. "
+            "Determine space category from the built-in arrangement and defining architectural fixtures, "
+            "not just the loose objects present. Storage rails, built-in shelving, appliances, and plumbing "
+            "are different kinds of evidence; clothes alone never prove a laundry room. "
+            "If the room category is unclear, use null. "
+            "Explicitly describe any visible blocked access, scattered belongings, disorganized storage, "
+            "or items obstructing walkable floor areas as observations when they are apparent. "
             "Do not assume clothing is dirty, infer unseen conditions, or make recommendations. "
             "When nothing actionable is visible, use empty claims. Use unique IDs e1,e2,..."),
             image=image, media_type=media_type)
@@ -162,12 +195,46 @@ class OpenWorldVision:
 
     def verify(self, scene: VisualScene, image: bytes, media_type: str) -> VisualReview:
         result = self.independent.ask(instruction=(
-            "Independent image verifier. Return ONLY JSON {room_supported:boolean,claims:[{id:string,supported:boolean}]}. "
+            "Independent image verifier. Return ONLY JSON {room_supported:boolean,room_category:string|null,claims:[{id:string,supported:boolean}]}. "
+            "room_category is YOUR OWN name for this space judged from fixed fixtures; use null if unclear. "
             "Review EACH claim against ORIGINAL image. Each id exactly once. Mark unsupported if objects, condition, "
             "clean/dirty status, or quantity cannot actually be seen. room_supported only if the proposed room category "
-            "is supported by visual evidence. Do not create new claims."),
+            "is supported by visual evidence, considering fixed room layout and fixtures rather than "
+            "movable objects alone. A cluttered room cannot be classified as a laundry room merely "
+            "because clothes are visible. Do not create new claims."),
             payload=scene.model_dump(mode="json"), image=image, media_type=media_type)
-        return VisualReview.model_validate(result)
+        reviewed = VisualReview.model_validate(result)
+        if self.additional is None:
+            return reviewed
+        second_result = self.additional.ask(instruction=(
+            "Independently verify the proposed scene from the ORIGINAL image. "
+            "Return ONLY JSON {room_supported:boolean,room_category:string|null,claims:[{id:string,supported:boolean}]}. "
+            "room_category is YOUR OWN name for this space judged from fixed fixtures; use null if unclear. "
+            "Check every supplied claim ID exactly once. Withhold unsupported visual assertions "
+            "such as a pile of clothes proving that washing is needed."
+        ), payload=scene.model_dump(mode="json"), image=image, media_type=media_type)
+        second = VisualReview.model_validate(second_result)
+        claimed = {claim.id for claim in scene.claims}
+        first_ids = [claim.id for claim in reviewed.claims]
+        second_ids = [claim.id for claim in second.claims]
+        if set(first_ids) != claimed or len(first_ids) != len(claimed):
+            raise ValueError("First independent review did not address every claim")
+        if set(second_ids) != claimed or len(second_ids) != len(claimed):
+            raise ValueError("Second independent review did not address every claim")
+        validated = {item.id: item.supported for item in second.claims}
+        labels = [x for x in (reviewed.room_category, second.room_category) if x]
+        reviewers_agree = len(labels) == 2 and categories_agree(labels[0], labels[1])
+        proposal_agrees = (scene.room_category is not None
+                           and all(categories_agree(scene.room_category, x) for x in labels))
+        override = reviewers_agree and not proposal_agrees
+        return VisualReview(
+            room_supported=override or (reviewed.room_supported and second.room_supported
+                                        and (reviewers_agree or not labels)),
+            room_category=labels[0] if labels else None,
+            category_by_reviewers=override,
+            claims=[ClaimVerdict(id=item.id, supported=item.supported and validated[item.id])
+                    for item in reviewed.claims],
+        )
 
 
 class OpenWorldPlanner:
@@ -180,15 +247,19 @@ class OpenWorldPlanner:
     def __init__(self, client: OpenAIJsonClient):
         self.client = client
 
-    def propose(self, evidence: list[Evidence], scene: SceneContext) -> ProposedPlan:
+    def propose(self, evidence: list[Evidence], scene: SceneContext,
+                existing_tasks: list[dict] | None = None) -> ProposedPlan:
         payload = {
             "scene": scene.model_dump(mode="json"),
             "evidence": [item.model_dump(mode="json") for item in evidence],
         }
+        if existing_tasks:
+            payload["existing_tasks"] = existing_tasks
         instruction = (
-            "You are a general-purpose household planner. Return ONLY a JSON object with keys "
-            "scene, evidence, actions. Copy scene and evidence EXACTLY from the supplied input. "
-            "The actions value must be an array. Each action must include: action_id (string), "
+            "You are a general-purpose household planner. Return ONLY a JSON object with the single key "
+            "actions. Scene and evidence are context and must not be returned. "
+            "If existing_tasks is supplied, never propose work that an existing task already covers, "
+            "even in different words. The actions value must be an array. Each action must include: action_id (string), "
             "title (string), action (string), observation_location (string or null), "
             "action_location (string or null), supporting_evidence_ids (array of existing evidence IDs), "
             "prerequisites (array of strings), assumptions (array of strings), "
@@ -201,7 +272,18 @@ class OpenWorldPlanner:
             "and the explanation and evidence IDs must support the estimate; otherwise use JSON null. "
             "Do not invent minutes or evidence. No predetermined room or task taxonomy. "
             "Propose only a justified, useful, proportionate action supported by visible evidence; "
-            "consider that object placement, open/closed state or clutter might be intentional. "
+            "Evaluate whether visible obstruction, lack of accessible storage, or scattered belongings "
+            "support a useful, optional, reversible action. Task proposals are suggestions a person "
+            "may accept or decline, not claims that a chore is mandatory. "
+            "When a person's intended use or destination for visible items is unknown, propose only "
+            "intent-neutral work: for example, check whether loose items are intentionally staged "
+            "and, only if the person wants the area cleared, sort them by the person's chosen "
+            "destination. Do not command putting items away, washing, donating, or discarding "
+            "based solely on seeing them out of storage. Set requires_user_confirmation=true "
+            "if deciding what to do with belongings depends on that person's preference. "
+            "Verification criteria must separate observable change from user-confirmed intent; "
+            "do not claim a photo verifies what a person intended. "
+            "Consider that object placement, open/closed state, or clutter might be intentional. "
             "Do not infer dirt, damage, danger, expiration, or user intent from appearance alone. "
             "Do not invent a physical room identity, create overlapping chores, or require action "
             "without sufficient evidence. Prefer minimal reversible work, and suggest no actions "
@@ -219,12 +301,19 @@ class OpenWorldPlanner:
                 prompt += (
                     " Your previous response failed schema validation. Generate a NEW COMPLETE "
                     "response and correct these errors: " + json.dumps(summary) +
-                    ". Copy the original scene and evidence unchanged. Do not fabricate time "
-                    "estimates to satisfy the schema."
+                    ". Do not fabricate time estimates to satisfy the schema."
                 )
             try:
                 response = self.client.ask(instruction=prompt, payload=payload)
-                return ProposedPlan.model_validate(response)
+                if not isinstance(response, dict) or "actions" not in response:
+                    raise ValueError("Planner response missing required actions field")
+                if not isinstance(response["actions"], list):
+                    raise ValueError("Planner actions must be an array")
+                return ProposedPlan.model_validate({
+                    "scene": scene.model_dump(mode="json"),
+                    "evidence": [item.model_dump(mode="json") for item in evidence],
+                    "actions": response["actions"],
+                })
             except (ValidationError, ValueError) as exc:
                 last_error = exc
         raise last_error
@@ -271,6 +360,15 @@ def gate_action_necessity(plan: ProposedPlan, result: StrictIndependentReview) -
         raise ValueError("Independent necessity review must cover each action exactly once")
     return IndependentPlanReview(reviews=[ActionReview(
         action_id=review.action_id,
+        failed_gates=[name for name, passed in (
+            ("not_directly_supported", review.directly_supported),
+            ("not_necessary", review.necessary_or_useful),
+            ("not_proportionate", review.proportionate),
+            ("redundant", review.nonredundant),
+            ("intent_or_state_presumed", review.intent_and_state_respected),
+            ("not_feasible", review.feasible),
+            ("unsupported_assumptions", review.no_unsupported_assumptions),
+            ("unsafe", review.safety_appropriate)) if not passed],
         directly_supported=(review.directly_supported and review.necessary_or_useful
                             and review.proportionate and review.nonredundant
                             and review.intent_and_state_respected),
@@ -295,12 +393,22 @@ class OpenWorldActionReviewer:
             "Do not confuse a visually true observation with an action that needs doing. "
             "Set necessary_or_useful=false for arbitrary chores with no credible benefit, such as closing a washer "
             "lid that could intentionally be open for ventilation or loading. "
-            "Set intent_and_state_respected=false if the action presumes intent, cleanliness, ownership, "
-            "machine state or an unseen condition. Recommend conditional sorting instead of washing "
-            "unless dirtiness is established. Set proportionate=false when the action is unnecessarily "
-            "invasive, costly, or disruptive; nonredundant=false when another proposal covers the same work. "
+            "Set intent_and_state_respected=false if an action presumes intent, cleanliness, ownership, "
+            "machine state, a required storage destination, or another unseen condition. "
+            "Distinguish a potentially useful, optional suggestion from a mandatory chore: "
+            "necessary_or_useful is true if the action has credible user benefit even when not necessary. "
+            "An intent-neutral check or conditional sorting suggestion may be useful when loose "
+            "belongings or an obstruction are actually visible, provided it asks the user before "
+            "choosing the items' destination and changes nothing until the user agrees. "
+            "Do not reject such an action ONLY because the objects might be intentionally staged; "
+            "reject commands that presume the objects must be stored, laundered, donated or discarded. "
+            "Do not assume dirtiness from clothes being on the floor. "
+            "Set proportionate=false when the action is unnecessarily invasive, costly, or disruptive; "
+            "nonredundant=false when another proposal covers the same work. "
             "Judge EACH action independently against corroborated evidence and the original image; "
-            "explain failed gates specifically. Do not assume all visible objects require interaction. "
-            "Never accept dangerous actions without appropriate confirmation. When uncertain, reject."
+            "explain failed gates specifically, citing the action's unsupported step rather than "
+            "a hypothetical not asserted by the action. Do not assume all visible objects require interaction. "
+            "Never accept dangerous actions without appropriate confirmation. "
+            "When the proposed action itself is unsupported or safety is uncertain, reject."
         ), payload=plan.model_dump(mode="json"), image=original_media, media_type=media_type)
         return gate_action_necessity(plan, StrictIndependentReview.model_validate(result))

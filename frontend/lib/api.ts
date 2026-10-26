@@ -22,6 +22,7 @@ export type MediaRecord = {
   created_at: string;
   processing?: "processed" | "needs_review" | "retry_required" | "unavailable" | "pending_provider";
   observations?: Observation[];
+  autonomous_enqueue?: "disabled" | "retry_required";
 };
 
 export type HouseholdNotification = {
@@ -88,6 +89,45 @@ export type PlanResponse = {
 export type AutonomousTask = {
   id: string; room_id: string; title: string; action: string;
   status: string; effort_min: number | null; effort_max: number | null; criteria: string;
+  room_category?: string | null; evidence_summary?: string | null;
+  created_at: string; updated_at: string; remind_at?: string | null;
+  confirmation_required?: boolean;
+  recommended_at?: string | null;
+  recommendation_basis?: string | null;
+  estimate_rationale?: string | null;
+  estimate_sources?: string[];
+  progress?: {percent: number; media_id: string; explanation: string; next_step?: string | null; reviewed_at: string; estimated: boolean} | null;
+};
+export type AutonomousAlert = {
+  id: string; task_id: string; kind: "suggestion" | "progress" | "completed";
+  title: string; detail: string; created_at: string; read_at: string | null;
+};
+export type WorkWindow = {
+  timezone: string; start_time: string; end_time: string; weekdays: number[];
+};
+export type AutonomousRoom = {
+  room_id: string; reference_media_id: string; room_category: string | null;
+  room_category_source?: "ai_reviewed" | "user_confirmed"; created_at: string;
+};
+export type AutonomousReviewSummary = {
+  room_category?: string | null;
+  verification?: string;
+  evidence?: string[];
+  proposed_count?: number;
+  approved_count?: number;
+  created_count?: number;
+  existing_count?: number;
+  proposal_reviews?: Array<{
+    title: string;
+    decision: "approved" | "rejected";
+    reason?: string | null;
+    reviewer_explanation?: string | null;
+  }>;
+};
+export type AutonomousScanJob = {
+  id: string; media_id: string; room_id: string | null;
+  state: string; attempts: number; message: string;
+  updated_at?: string; review_summary?: AutonomousReviewSummary | null;
 };
 export type AutonomousScanResult = {
   status: string; saved: boolean; created: string[]; existing: string[];
@@ -109,6 +149,15 @@ export class HomHiveApi {
     return headers;
   }
 
+  private failureMessage(status: number, detail?: string): string {
+    if (status === 401 || status === 403) return "Your session isn't authorized for this household. Sign in again.";
+    if (status === 413) return "This photo is too large. Choose an image under 10 MB.";
+    if (status === 415) return "Unsupported image. Choose a JPG, PNG, or WebP photo.";
+    if (status === 429) return "Too many requests right now. Wait a moment before retrying.";
+    if (status >= 500) return "HomHive couldn't complete the request because a service is unavailable. Please try again.";
+    return detail?.trim() || `The request could not be completed (HTTP ${status}).`;
+  }
+
   private async parse<T>(response: Response): Promise<T> {
     if (!response.ok) {
       let message = `Request failed with HTTP ${response.status}`;
@@ -116,15 +165,85 @@ export class HomHiveApi {
         const body = await response.json();
         if (typeof body.detail === "string") message = body.detail;
       } catch {}
-      throw new Error(message);
+      throw new Error(this.failureMessage(response.status, message));
     }
     return response.json() as Promise<T>;
+  }
+
+  async autonomousRooms(): Promise<AutonomousRoom[]> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-rooms`,
+      { headers: this.headers(), cache: "no-store" });
+    return (await this.parse<{rooms: AutonomousRoom[]}>(response)).rooms;
+  }
+
+  async correctAutonomousRoom(roomId: string, category: string): Promise<AutonomousRoom> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-rooms/${encodeURIComponent(roomId)}/category`, {
+      method: "PUT", headers: this.headers(), body: JSON.stringify({room_category: category}),
+    });
+    return this.parse(response);
+  }
+
+  async recheckAutonomousScan(mediaId: string): Promise<{job_id: string}> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/media/${encodeURIComponent(mediaId)}/autonomous-recheck`, {
+      method: "POST", headers: this.headers(),
+    });
+    return this.parse(response);
+  }
+
+  async autonomousScanJobs(): Promise<AutonomousScanJob[]> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-scan-jobs`,
+      { headers: this.headers(), cache: "no-store" });
+    return (await this.parse<{jobs: AutonomousScanJob[]}>(response)).jobs;
+  }
+
+  async enrollAutonomousRoom(mediaId: string): Promise<AutonomousRoom> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-rooms/${encodeURIComponent(mediaId)}`,
+      { method: "POST", headers: this.headers() });
+    return this.parse(response);
+  }
+
+  async decideAutonomousTask(taskId: string, decision: "accept" | "decline" | "remind" | "done"): Promise<{id: string; status: string}> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-tasks/${encodeURIComponent(taskId)}/decisions/${decision}`, {
+      method: "POST", headers: this.headers(),
+    });
+    return this.parse(response);
+  }
+
+  async autonomousAlerts(): Promise<AutonomousAlert[]> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-alerts`,
+      {headers: this.headers(), cache: "no-store"});
+    return (await this.parse<{alerts: AutonomousAlert[]}>(response)).alerts;
+  }
+
+  async acknowledgeAutonomousAlert(alertId: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-alerts/${encodeURIComponent(alertId)}/read`,
+      {method: "POST", headers: this.headers()});
+    await this.parse(response);
+  }
+
+  async workWindow(): Promise<WorkWindow | null> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-work-window`,
+      {headers: this.headers(), cache: "no-store"});
+    return (await this.parse<{window: WorkWindow | null}>(response)).window;
+  }
+
+  async setWorkWindow(window: WorkWindow): Promise<WorkWindow> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-work-window`,
+      {method: "PUT", headers: this.headers(), body: JSON.stringify(window)});
+    return (await this.parse<{window: WorkWindow}>(response)).window;
   }
 
   async autonomousTasks(): Promise<AutonomousTask[]> {
     const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-tasks`,
       { headers: this.headers(), cache: "no-store" });
     return (await this.parse<{tasks: AutonomousTask[]}>(response)).tasks;
+  }
+
+  async retryAutonomousScan(mediaId: string): Promise<{job_id: string}> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/media/${encodeURIComponent(mediaId)}/autonomous-queue`, {
+      method: "POST", headers: this.headers(),
+    });
+    return this.parse(response);
   }
 
   async autonomousScan(mediaId: string, referenceMediaId: string): Promise<AutonomousScanResult> {
@@ -155,7 +274,7 @@ export class HomHiveApi {
         try { body = JSON.parse(xhr.responseText) as Record<string, unknown>; }
         catch { reject(new Error(`Unexpected upload response (HTTP ${xhr.status}).`)); return; }
         if (xhr.status < 200 || xhr.status >= 300) {
-          reject(new Error(typeof body.detail === "string" ? body.detail : `Upload failed (HTTP ${xhr.status}).`));
+          reject(new Error(this.failureMessage(xhr.status, typeof body.detail === "string" ? body.detail : undefined)));
           return;
         }
         resolve(body as unknown as MediaRecord);

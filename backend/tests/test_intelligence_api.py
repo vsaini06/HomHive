@@ -1,3 +1,4 @@
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -175,3 +176,9 @@ def test_observation_history_is_household_scoped_and_persistent():
     assert response.json()[0]["id"] == "history-1"
     assert response.json()[0]["timestamp"]
     assert response.json()[0]["metadata"]["visible_evidence"] == "Dishes"
+
+
+@pytest.fixture(autouse=True)
+def _use_legacy_intelligence_mode(monkeypatch):
+    """Legacy task tests remain deterministic when local autonomous mode is enabled."""
+    monkeypatch.setenv("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "false")

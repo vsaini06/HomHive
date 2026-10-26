@@ -29,6 +29,17 @@ class ScanRequest(BaseModel):
     reference_media_id: str = Field(min_length=1, max_length=128)
 
 
+class RoomCategoryCorrection(BaseModel):
+    room_category: str = Field(min_length=2, max_length=120)
+
+
+class WorkWindowRequest(BaseModel):
+    timezone: str = Field(min_length=1, max_length=80)
+    start_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    end_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    weekdays: list[int] = Field(min_length=1, max_length=7)
+
+
 def _image_url(image: bytes, media_type: str):
     return {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{base64.b64encode(image).decode('ascii')}"}}
 
@@ -75,9 +86,17 @@ def review_completion(independent, *, task: dict, image: bytes, media_type: str,
     instruction = ("Independently audit ONE existing household task against the CURRENT original photograph "
       "and corroborated visual facts. Respond ONLY JSON "
       '{"verdict":"completed|still_needed|partially_completed|inconclusive",'
-      '"criterion_verified":boolean,"claim_ids":["e1"],"explanation":"..."}. '
-      "Complete ONLY if this new photograph visibly proves the SPECIFIC criterion; clean-looking "
-      "surroundings alone are not proof. cite at least one corroborated claim ID. "
+      '"criterion_verified":boolean,"claim_ids":["e1"],"explanation":"...",'
+      '"progress_percent":null,"next_step":null}. '
+      "Track the task as a changing condition, not a done/undone toggle. Compare current evidence "
+      "against the ORIGINAL task criteria, describe what remains, and estimate rough completion "
+      "percentage 0-100 only when the relevant scene is sufficiently visible. For partial improvement "
+      "return partially_completed and an evidence-supported integer 1-99 (prefer cautious rounded 10% "
+      "increments such as 20%), with next_step grounded in what remains. For completed return 100; "
+      "for still_needed use 0-99 only if assessable; for inconclusive use null and retain old progress. "
+      "Percentages are approximate, NOT measured quantities. Never manufacture coverage or infer "
+      "invisible changes. Complete ONLY if a new photograph proves the SPECIFIC criterion; clean-looking "
+      "surroundings alone are not proof. Cite at least one corroborated claim ID. "
       "If the relevant area is not visible, use inconclusive. If uncertain, do not complete.")
     result = independent.ask(instruction=instruction, payload={"task":task,
        "corroborated_evidence":[e.model_dump(mode="json") for e in evidence]},
@@ -94,13 +113,21 @@ def review_completion(independent, *, task: dict, image: bytes, media_type: str,
     explanation = result.get('explanation')
     if not isinstance(explanation, str) or len(explanation.strip()) < 12:
         raise ValueError("Missing independent reasoning")
+    percent = result.get('progress_percent')
+    if percent is not None and type(percent) is not int:
+        raise ValueError("Completion progress must be an integer or null")
+    next_step = result.get('next_step')
+    if next_step is not None and (not isinstance(next_step, str) or len(next_step) > 350):
+        raise ValueError("Invalid remaining-work description")
     return ReviewedOutcome(task_id=task['id'], verdict=verdict,
         criterion_verified=result['criterion_verified'], reviewer_explanation=explanation[:1500],
+        progress_percent=percent, next_step=next_step or None,
         evidence=EvidenceReference(media_id=media_id, claim_ids=claim_ids,
             original_image_reviewed=True, independent_review_passed=True))
 
 
-def run_autonomous_scan(*, household_id, media_id, reference_media_id, media, bridge, build_pipeline):
+def run_autonomous_scan(*, household_id, media_id, reference_media_id, media, bridge, build_pipeline,
+                        require_room_category=False):
     current = media.get_image(household_id, media_id)
     reference = media.get_image(household_id, reference_media_id)
     if not current or not reference:
@@ -118,28 +145,51 @@ def run_autonomous_scan(*, household_id, media_id, reference_media_id, media, br
             if not same:
                 return {"status":"held_unverified_room","saved":False,"created":[],"existing":[],"completed":{},"approved_actions":0}
         room = RoomContinuity(physical_room_id=room_id, same_physical_room_verified=True,
-            reason="Reference photograph user enrollment" if media_id == reference_media_id else "Two independent visual room comparisons")
-        preview = preview_verified_scene(image=image, media_type=info.content_type, media_id=media_id,
-            vision=vision, planner=planner, reviewer=reviewer)
-        evidence = preview.corroborated_evidence
-        # Finish outcome verification before ANY writes, including new discoveries.
-        existing_tasks = [task for task in bridge.get_tasks(household_id)
+            reason="First photo establishes a new room reference" if media_id == reference_media_id else "Two independent visual room comparisons")
+        active_tasks = [task for task in bridge.get_tasks(household_id)
             if task['room_id'] == room_id and task['status'] not in ('dismissed', 'completed')]
+        preview = preview_verified_scene(image=image, media_type=info.content_type, media_id=media_id,
+            vision=vision, planner=planner, reviewer=reviewer,
+            existing_tasks=[{"title": t["title"], "action": t["action"]} for t in active_tasks])
+        evidence = preview.corroborated_evidence
+        if require_room_category and not preview.room_category:
+            return {"status": "held_unverified_room", "saved": False, "created": [],
+                    "existing": [], "completed": {}, "approved_actions": 0}
+        # Finish outcome verification before ANY writes, including new discoveries.
         verdicts = []
-        if existing_tasks and evidence:
-            for task in existing_tasks:
+        if active_tasks and evidence:
+            for task in (t for t in active_tasks if t.get("source_media_id") != media_id):
                 verdicts.append(review_completion(independent, task=task, image=image,
                     media_type=info.content_type, evidence=evidence, media_id=media_id))
         completion = bridge.reconcile_verified_scan(household_id, ScanOutcomeReview(
             media_id=media_id, room=room, corroborated_evidence=evidence, outcomes=verdicts)) if verdicts else {}
-        approved = [ActionProposal.model_validate(action) for action in preview.approved_actions]
+        from app.services.effort_research import ground_action_effort
+        approved = [ground_action_effort(ActionProposal.model_validate(action))
+                    for action in preview.approved_actions]
+        review_summary = {
+            "room_category": preview.room_category,
+            "verification": preview.verification,
+            "evidence": [item.description[:350] for item in evidence[:12]],
+            "proposed_count": preview.proposed_count or (len(approved) + len(preview.rejected_actions)),
+            "approved_count": len(approved),
+            "progress_results": completion,
+            "proposal_reviews": [{
+                "title": str(item.get("title", ""))[:180],
+                "decision": str(item.get("decision", ""))[:24],
+                "reason": str(item["reason"])[:120] if item.get("reason") else None,
+                "reviewer_explanation": str(item["reviewer_explanation"])[:400]
+                    if item.get("reviewer_explanation") else None,
+            } for item in preview.proposal_reviews[:20]],
+        }
         discovered = bridge.persist_verified_scan(household_id, VerifiedScan(
             media_id=media_id, corroborated_evidence=evidence, approved_actions=approved,
-            independently_reviewed=True, original_media_reviewed=True, room=room))
+            independently_reviewed=True, original_media_reviewed=True, room=room,
+            room_category=preview.room_category))
         return {"status":"reviewed","saved":True,"created":discovered['created'],
             "existing":discovered['existing'],"completed":completion,
             "approved_actions":len(approved),"rejected_actions":preview.rejected_actions,
-            "room_id":room_id}
+            "room_id":room_id,"room_category":preview.room_category,
+            "review_summary": review_summary}
     finally:
         if independent is not None and hasattr(independent.client, 'close'):
             independent.client.close()
@@ -163,20 +213,105 @@ def build_autonomous_router(media, household_tokens: Mapping[str, str], session_
             raise HTTPException(status_code=404, detail='Media not found')
         return {'room_id': jobs.enroll(household_id, reference_media_id), 'reference_media_id': reference_media_id}
 
+    @router.put('/autonomous-rooms/{room_id}/category')
+    def correct_room_category(household_id: str, room_id: str, correction: RoomCategoryCorrection,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        check(household_id, credentials)
+        if jobs is None:
+            raise HTTPException(status_code=503, detail='Autonomous queue disabled')
+        try:
+            return jobs.correct_room_category(household_id, room_id, correction.room_category)
+        except LookupError:
+            raise HTTPException(status_code=404, detail='Space not found')
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+
     @router.get('/autonomous-rooms')
     def list_rooms(household_id: str, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
         check(household_id, credentials)
         return {'rooms': jobs.rooms(household_id) if jobs is not None else []}
+
+    @router.post('/media/{media_id}/autonomous-queue')
+    def retry_scan(household_id: str, media_id: str,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        check(household_id, credentials)
+        if jobs is None:
+            raise HTTPException(status_code=503, detail="Autonomous queue is not enabled")
+        if media.get_image(household_id, media_id) is None:
+            raise HTTPException(status_code=404, detail="Media not found")
+        try:
+            return {"job_id": jobs.retry(household_id, media_id)}
+        except LookupError as exc:
+            return {"job_id": jobs.enqueue(household_id, media_id)}
+
+    @router.post('/media/{media_id}/autonomous-recheck')
+    def recheck_completed_scan(household_id: str, media_id: str,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        check(household_id, credentials)
+        if jobs is None:
+            raise HTTPException(status_code=503, detail='Autonomous queue disabled')
+        if media.get_image(household_id, media_id) is None:
+            raise HTTPException(status_code=404, detail='Media not found')
+        try:
+            return {'job_id': jobs.recheck_completed(household_id, media_id)}
+        except LookupError:
+            raise HTTPException(status_code=404, detail='Completed scan not found')
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
 
     @router.get('/autonomous-scan-jobs')
     def list_scan_jobs(household_id: str, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
         check(household_id, credentials)
         return {'jobs': jobs.jobs(household_id) if jobs is not None else []}
 
+    @router.get('/autonomous-alerts')
+    def get_alerts(household_id: str,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        check(household_id, credentials)
+        return {"alerts": bridge.lifecycle.alerts(household_id)}
+
+    @router.post('/autonomous-alerts/{alert_id}/read')
+    def mark_alert_read(household_id: str, alert_id: str,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        check(household_id, credentials)
+        try:
+            return bridge.lifecycle.read_alert(household_id, alert_id)
+        except LookupError:
+            raise HTTPException(status_code=404, detail="Notification not found")
+
+    @router.get('/autonomous-work-window')
+    def get_work_window(household_id: str,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        check(household_id, credentials)
+        return {"window": bridge.lifecycle.get_availability(household_id)}
+
+    @router.put('/autonomous-work-window')
+    def update_work_window(household_id: str, request: WorkWindowRequest,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        check(household_id, credentials)
+        try:
+            window = bridge.lifecycle.set_availability(household_id,
+                timezone_name=request.timezone, start_time=request.start_time,
+                end_time=request.end_time, weekdays=request.weekdays)
+            return {"window": window}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+
     @router.get('/autonomous-tasks')
     def list_tasks(household_id: str, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
         check(household_id, credentials)
         return {'tasks': bridge.get_tasks(household_id)}
+    @router.post('/autonomous-tasks/{task_id}/decisions/{decision}')
+    def task_decision(household_id: str, task_id: str, decision: str,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        check(household_id, credentials)
+        try:
+            return bridge.lifecycle.decide(household_id, task_id, decision)
+        except LookupError:
+            raise HTTPException(status_code=404, detail="Task not found")
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+
     @router.post('/media/{media_id}/autonomous-scan')
     def scan(household_id: str, media_id: str, request: ScanRequest,
         credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
