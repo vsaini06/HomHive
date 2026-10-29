@@ -53,8 +53,8 @@ def task_from_action_decision(
             f"in {decision.location}"
         ),
 
-        # This task comes from several observations and a forecast,
-        # so assigning one observation as its source would be misleading.
+
+
         source_observation_id=None,
 
         urgency=task_urgency,
@@ -62,7 +62,7 @@ def task_from_action_decision(
         deadline=None,
         confidence=decision.confidence,
 
-        # Keep the existing metadata keys stable until callers are migrated.
+
         metadata={
             "source": "intervention_prediction",
             "intervention_status": (
@@ -99,7 +99,7 @@ def update_or_create_predictive_task(
     if existing_task is None:
         return candidate_task
 
-    # Forecasts change over time, but the underlying household work is the same.
+
     existing_task.description = (
         candidate_task.description
     )
@@ -148,8 +148,8 @@ def sync_predictive_task(
         if existing_task is None:
             return None
 
-        # Keep the task instead of deleting it so its lifecycle can be
-        # preserved once durable task history is introduced.
+
+
         existing_task.status = (
             TaskStatus.DISMISSED
         )
@@ -177,7 +177,7 @@ def sync_predictive_task(
     if candidate_task is None:
         return None
 
-    # A condition can become actionable again after previously improving.
+
     if existing_task is not None:
         existing_task.status = (
             TaskStatus.PENDING

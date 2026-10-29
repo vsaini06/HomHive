@@ -1,9 +1,9 @@
 from app.models import EntityType
 from app.repositories import HouseholdEntityRepository
 
-#-tests-
 
-#-1-
+
+
 def test_entity_repository_gets_entity_by_id():
     repository = HouseholdEntityRepository()
 
@@ -15,7 +15,7 @@ def test_entity_repository_gets_entity_by_id():
     assert entity.id == "entity_plant_001"
     assert entity.name == "Living Room Plant"
 
-#-2-
+
 def test_entity_repository_returns_none_for_unknown_id():
     repository = HouseholdEntityRepository()
 
@@ -25,7 +25,7 @@ def test_entity_repository_returns_none_for_unknown_id():
 
     assert entity is None
 
-#-3-
+
 def test_entity_repository_filters_by_location():
     repository = HouseholdEntityRepository()
 
@@ -39,7 +39,7 @@ def test_entity_repository_filters_by_location():
         == "entity_washer_001"
     )
 
-#-4-
+
 def test_entity_repository_filters_by_entity_type():
     repository = HouseholdEntityRepository()
 
@@ -53,7 +53,7 @@ def test_entity_repository_filters_by_entity_type():
         == "entity_plant_001"
     )
 
-#-5-
+
 def test_entity_repository_updates_name():
     repository = HouseholdEntityRepository()
     entity = repository.rename_entity(
@@ -69,7 +69,7 @@ def test_entity_repository_updates_name():
     assert stored_entity is not None
     assert stored_entity.name == "My Monstera"
 
-#-6-
+
 def test_entity_repository_update_returns_none_for_unknown_entity():
     repository = HouseholdEntityRepository()
     entity = repository.rename_entity(

@@ -7,8 +7,8 @@ from app.models import (
 )
 
 
-# HomHive only links an observation to a known object when the evidence
-# is strong enough that an automatic match is unlikely to surprise the user.
+
+
 AUTO_MATCH_SCORE_THRESHOLD = 0.80
 
 
@@ -25,7 +25,7 @@ def candidate_can_match_entity(
     if observed_location != entity.location:
         return False
 
-    # Two known identities that disagree should never be treated as the same object.
+
     if (
         candidate.identity is not None
         and entity.identity is not None
@@ -99,8 +99,8 @@ def assess_entity_match(
                 "conflicting entity attributes"
             )
 
-            # Conflicting known details should block an automatic match,
-            # even when the remaining evidence looks strong.
+
+
             match_score = min(
                 match_score,
                 AUTO_MATCH_SCORE_THRESHOLD - 0.01,

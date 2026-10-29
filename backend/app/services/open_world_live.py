@@ -42,6 +42,7 @@ class VisualReview(BaseModel):
     room_supported: bool
     room_category: str | None = Field(default=None, max_length=120)
     category_by_reviewers: bool = False
+    reviewer_votes: dict[str, dict[str, bool]] = Field(default_factory=dict)
     claims: list[ClaimVerdict]
 
 
@@ -66,9 +67,11 @@ class PreviewResult(BaseModel):
     saved: bool = False
     proposed_count: int = 0
     proposal_reviews: list[dict] = Field(default_factory=list)
+    model_audit: dict = Field(default_factory=dict)
 
 
 class VisionModel(Protocol):
+    def compare_changes(self, reference: bytes, reference_type: str, current: bytes, current_type: str) -> tuple[list[VisualClaim], dict]: ...
     def extract(self, image: bytes, media_type: str) -> VisualScene: ...
     def verify(self, scene: VisualScene, image: bytes, media_type: str) -> VisualReview: ...
 
@@ -95,15 +98,41 @@ def corroborate_scene(scene: VisualScene, review: VisualReview, media_id: str) -
 def preview_verified_scene(*, image: bytes, media_type: str, media_id: str,
                            vision: VisionModel, planner, reviewer,
                            existing_tasks: list[dict] | None = None,
-                           active_task_keys: set[str] | None = None) -> PreviewResult:
+                           active_task_keys: set[str] | None = None,
+                           reference_image: bytes | None = None,
+                           reference_media_type: str | None = None) -> PreviewResult:
     if not image or media_type not in {"image/jpeg", "image/png", "image/webp"}:
         raise ValueError("Unsupported media")
     scene = vision.extract(image, media_type)
     review = vision.verify(scene, image, media_type)
     confirmed_scene, evidence = corroborate_scene(scene, review, media_id)
+    model_audit = {"primary_claims": [c.model_dump() for c in scene.claims],
+                   "review_votes": review.reviewer_votes,
+                   "retained_single_image_ids": [e.id for e in evidence]}
+    if reference_image is not None:
+        if reference_media_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise ValueError("Reference media type required for paired scan")
+        if callable(getattr(vision, "compare_changes", None)):
+            try:
+                pair_claims, pair_audit = vision.compare_changes(
+                    reference_image, reference_media_type, image, media_type)
+            except Exception as exc:
+
+
+
+                pair_claims, pair_audit = [], {
+                    "status": "unavailable", "error_type": type(exc).__name__}
+        else:
+            pair_claims, pair_audit = [], {"status": "unsupported_in_current_model_mode"}
+        existing_ids = {e.id for e in evidence}
+        if any(c.id in existing_ids for c in pair_claims):
+            raise ValueError("Paired and single-image claim IDs collided")
+        evidence.extend(Evidence(id=c.id, description=c.description, provenance="visible", source_id=media_id)
+                        for c in pair_claims)
+        model_audit["paired_comparison"] = pair_audit
     if not evidence:
         return PreviewResult(room_category=confirmed_scene.category, corroborated_evidence=[],
-                             approved_actions=[], rejected_actions={}, verification="no_corroborated_evidence")
+                             approved_actions=[], rejected_actions={}, verification="no_corroborated_evidence", model_audit=model_audit)
     planned = plan_verified_scene(corroborated_evidence=evidence,
                                   independently_supported_scene=confirmed_scene,
                                   original_media=image, media_type=media_type,
@@ -113,7 +142,7 @@ def preview_verified_scene(*, image: bytes, media_type: str, media_id: str,
                          approved_actions=[a.model_dump(mode="json") for a in planned.outcome.approved],
                          rejected_actions=planned.outcome.rejected, verification="reviewed",
                          proposed_count=planned.proposed_count,
-                         proposal_reviews=planned.proposal_reviews)
+                         proposal_reviews=planned.proposal_reviews, model_audit=model_audit)
 
 
 def _read_json_text(raw: str):
@@ -152,16 +181,26 @@ class OpenAIJsonClient:
 
 class AnthropicJsonClient:
     """Separate independently image-aware Anthropic reviewer."""
-    def __init__(self, client, model: str, key: str):
+    def __init__(self, client, model: str, key: str, strict_structure: bool = False):
         self.client, self.model, self.key = client, model, key
+        self.strict_structure = strict_structure
 
     def ask(self, *, instruction: str, payload: dict, image: bytes, media_type: str,
-            max_tokens: int = 2400) -> dict:
+            max_tokens: int = 2400, schema_kind: str | None = None) -> dict:
+
+        if self.model.startswith("claude-opus-5-5"):
+            max_tokens = max(6500, max_tokens * 3)
         request = {"model": self.model, "max_tokens": max_tokens, "system": instruction,
                    "messages": [{"role": "user", "content": [
                        {"type": "text", "text": json.dumps(payload, ensure_ascii=False)},
                        {"type": "image", "source": {"type": "base64", "media_type": media_type,
                             "data": base64.b64encode(image).decode("ascii")}}]}]}
+        if self.strict_structure:
+            from app.services.accuracy_models import SCHEMAS
+            if schema_kind not in SCHEMAS:
+                raise ValueError("Anthropic request missing structured schema")
+            request["output_config"] = {"format": {
+                "type": "json_schema", "schema": SCHEMAS[schema_kind]}}
         response = self.client.post("https://api.anthropic.com/v1/messages", json=request,
                                     headers={"x-api-key": self.key, "anthropic-version": "2023-06-01"})
         response.raise_for_status()
@@ -172,10 +211,87 @@ class AnthropicJsonClient:
         return _read_json_text("\n".join(blocks))
 
 
+    def verify_pair_changes(self, reference: bytes, reference_type: str,
+                            current: bytes, current_type: str, claims: list[dict]) -> dict:
+        allowed = {"image/jpeg", "image/png", "image/webp"}
+        if not reference or not current or reference_type not in allowed or current_type not in allowed:
+            raise ValueError("Unsupported comparison media")
+        blocks = [
+            {"type": "text", "text": json.dumps({"proposed_changes": claims}, ensure_ascii=False)},
+            {"type": "text", "text": "REFERENCE photograph:"},
+            {"type": "image", "source": {"type": "base64", "media_type": reference_type,
+                                          "data": base64.b64encode(reference).decode("ascii")}},
+            {"type": "text", "text": "CURRENT photograph:"},
+            {"type": "image", "source": {"type": "base64", "media_type": current_type,
+                                          "data": base64.b64encode(current).decode("ascii")}},
+        ]
+        request = {"model": self.model, "max_tokens": 6500 if self.model.startswith("claude-opus-5-5") else 2400,
+                   "system": (
+                       "INDEPENDENT two-image visual verification. Compare the reference to the current "
+                       "physical room. Return exactly one supported:boolean for each proposed change ID. "
+                       "Only confirm directly observable differences. Physical disappearance is NOT "
+                       "proven when an object may be outside the frame, occluded, behind another object, "
+                       "or represented on a screen or mirror. Condition changes need visible evidence. "
+                       "Reject unsupported claims; do not create new changes."
+                   ), "messages": [{"role": "user", "content": blocks}]}
+        if self.strict_structure:
+            from app.services.accuracy_models import SCHEMAS
+            request["output_config"] = {"format": {"type": "json_schema", "schema": SCHEMAS["pair_review"]}}
+        response = self.client.post("https://api.anthropic.com/v1/messages", json=request,
+                                    headers={"x-api-key": self.key, "anthropic-version": "2023-06-01"})
+        response.raise_for_status()
+        data = response.json()
+        if data.get("stop_reason") == "max_tokens":
+            raise ValueError("Pair review truncated")
+        return _read_json_text("\n".join(part.get("text", "") for part in data.get("content", [])
+                                           if part.get("type") == "text"))
+
+
 class OpenWorldVision:
     def __init__(self, primary: OpenAIJsonClient, independent: AnthropicJsonClient,
                  additional: OpenAIJsonClient | None = None):
         self.primary, self.independent, self.additional = primary, independent, additional
+
+    def compare_changes(self, reference: bytes, reference_type: str,
+                        current: bytes, current_type: str) -> tuple[list[VisualClaim], dict]:
+        """Conservative paired evidence for *already verified* same-room scans.
+
+        Production checks physical room continuity before calling this method.
+        Unverified disappearances and uncertain visibility are never action evidence.
+        """
+        if not (callable(getattr(self.primary, "compare_changes", None))
+                and callable(getattr(self.independent, "verify_pair_changes", None))
+                and self.additional is not None
+                and callable(getattr(self.additional, "compare_changes", None))):
+            return [], {"status": "unsupported_in_current_model_mode"}
+        raw = self.primary.compare_changes(reference, reference_type, current, current_type)
+        proposed = raw.get("changes")
+        if not isinstance(proposed, list) or len(proposed) > 12:
+            raise ValueError("Invalid model-proposed pair changes")
+        ids = [item.get("id") for item in proposed if isinstance(item, dict)]
+        allowed = _PAIR_ACTIONABLE | {"visibility", "lighting"}
+        if (len(ids) != len(proposed) or len(ids) != len(set(ids))
+                or any(not isinstance(item.get("id"), str) or not item["id"].startswith("p")
+                       or len(item["id"]) > 80 or item.get("change_type") not in allowed
+                       or not isinstance(item.get("description"), str)
+                       or not 5 <= len(item["description"]) <= 800 for item in proposed)):
+            raise ValueError("Invalid pair change claim structure")
+        if not proposed:
+            return [], {"status": "no_visible_changes", "proposed": []}
+        first = _checked_pair_votes(proposed, self.independent.verify_pair_changes(
+            reference, reference_type, current, current_type, proposed))
+        second = _checked_pair_votes(proposed, self.additional.compare_changes(
+            reference, reference_type, current, current_type, proposed))
+        accepted = [VisualClaim(id=item["id"], description=item["description"])
+                    for item in proposed if item["change_type"] in _PAIR_ACTIONABLE
+                    and first[item["id"]] and second[item["id"]]]
+        audit = {"status": "reviewed", "proposed": [
+            {"id": item["id"], "change_type": item["change_type"],
+             "description": item["description"], "claude_supported": first[item["id"]],
+             "terra_supported": second[item["id"]],
+             "accepted_as_action_evidence": item["id"] in {c.id for c in accepted}}
+            for item in proposed]}
+        return accepted, audit
 
     def extract(self, image: bytes, media_type: str) -> VisualScene:
         result = self.primary.ask(instruction=(
@@ -190,7 +306,8 @@ class OpenWorldVision:
             "or items obstructing walkable floor areas as observations when they are apparent. "
             "Do not assume clothing is dirty, infer unseen conditions, or make recommendations. "
             "When nothing actionable is visible, use empty claims. Use unique IDs e1,e2,..."),
-            image=image, media_type=media_type)
+            image=image, media_type=media_type,
+            **({"schema_kind": "scene"} if getattr(self.primary, "structured_outputs", False) else {}))
         return VisualScene.model_validate(result)
 
     def verify(self, scene: VisualScene, image: bytes, media_type: str) -> VisualReview:
@@ -202,7 +319,8 @@ class OpenWorldVision:
             "is supported by visual evidence, considering fixed room layout and fixtures rather than "
             "movable objects alone. A cluttered room cannot be classified as a laundry room merely "
             "because clothes are visible. Do not create new claims."),
-            payload=scene.model_dump(mode="json"), image=image, media_type=media_type)
+            payload=scene.model_dump(mode="json"), image=image, media_type=media_type,
+            **({"schema_kind": "review"} if getattr(self.independent, "strict_structure", False) else {}))
         reviewed = VisualReview.model_validate(result)
         if self.additional is None:
             return reviewed
@@ -212,7 +330,8 @@ class OpenWorldVision:
             "room_category is YOUR OWN name for this space judged from fixed fixtures; use null if unclear. "
             "Check every supplied claim ID exactly once. Withhold unsupported visual assertions "
             "such as a pile of clothes proving that washing is needed."
-        ), payload=scene.model_dump(mode="json"), image=image, media_type=media_type)
+        ), payload=scene.model_dump(mode="json"), image=image, media_type=media_type,
+            **({"schema_kind": "review"} if getattr(self.additional, "structured_outputs", False) else {}))
         second = VisualReview.model_validate(second_result)
         claimed = {claim.id for claim in scene.claims}
         first_ids = [claim.id for claim in reviewed.claims]
@@ -232,9 +351,27 @@ class OpenWorldVision:
                                         and (reviewers_agree or not labels)),
             room_category=labels[0] if labels else None,
             category_by_reviewers=override,
+            reviewer_votes={"claude": {c.id: c.supported for c in reviewed.claims},
+                            "terra": {c.id: c.supported for c in second.claims}},
             claims=[ClaimVerdict(id=item.id, supported=item.supported and validated[item.id])
                     for item in reviewed.claims],
         )
+
+
+_PAIR_ACTIONABLE = frozenset({"addition", "removal", "condition", "relocation"})
+
+
+def _checked_pair_votes(changes: list[dict], result: dict) -> dict[str, bool]:
+    """Fail closed on missing, duplicate, extraneous or non-boolean judgments."""
+    decisions = result.get("changes")
+    if not isinstance(decisions, list):
+        raise ValueError("Pair reviewer did not return changes")
+    expected = {item["id"] for item in changes}
+    ids = [item.get("id") for item in decisions if isinstance(item, dict)]
+    if (len(ids) != len(decisions) or len(ids) != len(set(ids)) or set(ids) != expected
+            or any(type(item.get("supported")) is not bool for item in decisions)):
+        raise ValueError("Pair reviewer must assess each proposed change exactly once")
+    return {item["id"]: item["supported"] for item in decisions}
 
 
 class OpenWorldPlanner:
@@ -293,7 +430,7 @@ class OpenWorldPlanner:
         for attempt in range(2):
             prompt = instruction
             if attempt:
-                # Send error locations/types only, not raw invalid response or private media.
+
                 summary = [
                     {"field": ".".join(map(str, error["loc"])), "type": error["type"]}
                     for error in last_error.errors(include_input=False)
@@ -304,7 +441,8 @@ class OpenWorldPlanner:
                     ". Do not fabricate time estimates to satisfy the schema."
                 )
             try:
-                response = self.client.ask(instruction=prompt, payload=payload)
+                response = self.client.ask(instruction=prompt, payload=payload,
+                    **({"schema_kind": "actions"} if getattr(self.client, "structured_outputs", False) else {}))
                 if not isinstance(response, dict) or "actions" not in response:
                     raise ValueError("Planner response missing required actions field")
                 if not isinstance(response["actions"], list):
@@ -336,8 +474,8 @@ class NecessityReview(BaseModel):
     @field_validator("explanation", mode="before")
     @classmethod
     def constrain_review_explanation(cls, value):
-        # Only shorten excess narrative. Never change the review decisions.
-        # The downstream ActionReview already retains at most 400 characters.
+
+
         if isinstance(value, str) and len(value) > 500:
             return value[:400].rstrip()
         return value
@@ -410,5 +548,6 @@ class OpenWorldActionReviewer:
             "a hypothetical not asserted by the action. Do not assume all visible objects require interaction. "
             "Never accept dangerous actions without appropriate confirmation. "
             "When the proposed action itself is unsupported or safety is uncertain, reject."
-        ), payload=plan.model_dump(mode="json"), image=original_media, media_type=media_type)
+        ), payload=plan.model_dump(mode="json"), image=original_media, media_type=media_type,
+            **({"schema_kind": "necessity"} if getattr(self.client, "strict_structure", False) else {}))
         return gate_action_necessity(plan, StrictIndependentReview.model_validate(result))

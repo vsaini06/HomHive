@@ -10,9 +10,9 @@ def client() -> TestClient:
         test_app
     )
 
-#-tests-
 
-#-1-
+
+
 def test_health_check(
     client: TestClient,
 ):
@@ -24,7 +24,7 @@ def test_health_check(
         "status": "ok",
     }
 
-#-2-
+
 def test_graphql_entity_query(
     client: TestClient,
 ):
@@ -56,7 +56,7 @@ def test_graphql_entity_query(
         }
     }
 
-#-3-
+
 def test_graphql_returns_only_requested_fields(
     client: TestClient,
 ):
@@ -82,7 +82,7 @@ def test_graphql_returns_only_requested_fields(
         }
     }
 
-#-4-
+
 def test_graphql_rejects_unknown_field(
     client: TestClient,
 ):
@@ -108,7 +108,7 @@ def test_graphql_rejects_unknown_field(
         in body["errors"][0]["message"]
     )
 
-#-5-
+
 def test_graphql_entity_returns_null_when_not_found(
     client: TestClient,
 ):
@@ -133,7 +133,7 @@ def test_graphql_entity_returns_null_when_not_found(
         }
     }
 
-#-6-
+
 def test_graphql_entity_argument_selects_requested_entity(
     client: TestClient,
 ):
@@ -163,7 +163,7 @@ def test_graphql_entity_argument_selects_requested_entity(
         }
     }
 
-#-7-
+
 def test_graphql_entities_query(
     client: TestClient,
 ):
@@ -197,7 +197,7 @@ def test_graphql_entities_query(
         }
     }
 
-#-8-
+
 def test_graphql_entities_filter_by_location(
     client: TestClient,
 ):
@@ -227,7 +227,7 @@ def test_graphql_entities_filter_by_location(
         }
     }
 
-#-9-
+
 def test_graphql_entities_filter_by_entity_type(
     client: TestClient,
 ):
@@ -259,7 +259,7 @@ def test_graphql_entities_filter_by_entity_type(
         }
     }
 
-#-10-
+
 def test_graphql_entities_filter_by_location_and_type(
     client: TestClient,
 ):
@@ -290,7 +290,7 @@ def test_graphql_entities_filter_by_location_and_type(
         }
     }
 
-#-11-
+
 def test_graphql_rename_entity_mutation(
     client: TestClient,
 ):
@@ -321,7 +321,7 @@ def test_graphql_rename_entity_mutation(
         }
     }
 
-#-12-
+
 def test_graphql_rename_unknown_entity_returns_null(
     client: TestClient,
 ):
@@ -349,7 +349,7 @@ def test_graphql_rename_unknown_entity_returns_null(
         }
     }
 
-#-13-
+
 def test_graphql_rename_entity_rejects_empty_name(
     client: TestClient,
 ):
@@ -381,7 +381,7 @@ def test_graphql_rename_entity_rejects_empty_name(
         in body["errors"][0]["message"]
     )
 
-#-14-
+
 def test_graphql_mutation_changes_shared_state(
     client: TestClient,
 ):
@@ -438,7 +438,7 @@ def test_graphql_mutation_changes_shared_state(
         },
     )
 
-#-15-
+
 def test_separate_app_instances_have_isolated_state(
     client: TestClient,
 ):

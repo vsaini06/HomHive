@@ -12,9 +12,9 @@ from app.models import (
 )
 from app.services import decide_action
 
-#-tests-
 
-#-1-
+
+
 def test_action_policy_acts_now_when_threshold_reached():
     crossing = ThresholdCrossing(
         location="kitchen",
@@ -38,7 +38,7 @@ def test_action_policy_acts_now_when_threshold_reached():
         == ActionState.ACT_NOW
     )
 
-#-2-
+
 def test_action_policy_plans_for_near_confident_prediction():
     crossing = ThresholdCrossing(
         location="kitchen",
@@ -62,7 +62,7 @@ def test_action_policy_plans_for_near_confident_prediction():
         == ActionState.PLAN
     )
 
-#-3-
+
 def test_action_policy_monitors_low_confidence_prediction():
     crossing = ThresholdCrossing(
         location="kitchen",
@@ -86,7 +86,7 @@ def test_action_policy_monitors_low_confidence_prediction():
         == ActionState.MONITOR
     )
 
-#-4-
+
 def test_action_policy_monitors_distant_prediction():
     crossing = ThresholdCrossing(
         location="kitchen",
@@ -110,7 +110,7 @@ def test_action_policy_monitors_distant_prediction():
         == ActionState.MONITOR
     )
 
-#-5-
+
 def test_action_policy_returns_none_without_prediction():
     decision = decide_action(
         None
@@ -118,7 +118,7 @@ def test_action_policy_returns_none_without_prediction():
 
     assert decision is None
 
-#-6-
+
 def test_action_policy_rejects_invalid_minimum_confidence():
     with pytest.raises(
         ValueError,
@@ -131,5 +131,3 @@ def test_action_policy_rejects_invalid_minimum_confidence():
             None,
             min_confidence=1.20,
         )
-
-#-7-

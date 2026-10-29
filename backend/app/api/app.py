@@ -43,8 +43,8 @@ def create_app(
     entity_session_factory: sessionmaker[Session] | None = None,
 ) -> FastAPI:
     load_local_environment()
-    # An enabled queue without a complete reviewer stack must fail at startup,
-    # not silently create jobs no worker can process.
+
+
     if os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "").lower() == "true":
         required = ("DATABASE_URL", "HOMHIVE_MEDIA_ROOT", "HOMHIVE_HOUSEHOLD_TOKENS",
                     "NEBIUS_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
@@ -81,7 +81,7 @@ def create_app(
 
         media_engine = build_engine()
         session_factory = build_session_factory(media_engine)
-        # Account auth is opt-in until database migration and signing secret are configured.
+
         account_secret = os.environ.get("HOMHIVE_ACCOUNT_SIGNING_SECRET", "")
         if account_secret:
             if len(account_secret) < 32:
@@ -131,8 +131,8 @@ def create_app(
 
         @app.middleware("http")
         async def household_session_bridge(request: Request, call_next):
-            # Check membership BEFORE converting a user session to an internal
-            # compatibility credential. Never disclose household credentials.
+
+
             parts = request.url.path.split("/")
             if len(parts) >= 3 and parts[1] == "households":
                 authorization = request.headers.get("authorization", "")
@@ -154,15 +154,15 @@ def create_app(
             CORSMiddleware,
             allow_origins=origins,
             allow_credentials=False,
-            allow_methods=["GET", "POST"],
+            allow_methods=["GET", "POST", "PUT"],
             allow_headers=["Authorization", "Content-Type"],
         )
 
     async def graphql_context():
         return {"household_entity_service": household_entity_service}
 
-    # The original GraphQL entity service has no household boundary. Never
-    # expose it alongside private household accounts until it is scoped.
+
+
     if media_engine is None:
         app.include_router(
             GraphQLRouter(create_schema(), context_getter=graphql_context),
@@ -192,6 +192,7 @@ def create_app(
         evidence_ingestion = EvidenceIngestion(session_factory, media_service, vision_service)
         autonomous_jobs = None
         if os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "").lower() == "true":
+            from app.services.autonomous_objects import AutonomousObjectRecord, AutonomousObjectViewRecord
             from app.services.autonomous_jobs import AutonomousJobService
             autonomous_jobs = AutonomousJobService(session_factory)
         app.include_router(build_media_router(
@@ -207,6 +208,8 @@ def create_app(
         )
         app.include_router(build_planning_router(planning_service, tokens))
         app.include_router(build_automation_router(session_factory, tokens))
+        from app.coordination.api import build_coordination_router
+        app.include_router(build_coordination_router(session_factory, tokens))
 
         if research_provider is not None:
             app.include_router(
@@ -224,8 +227,8 @@ def create_app(
                     household_id, observation_storage, task_storage
                 ),
             ))
-            # Explicit opt-in preview: does not alter legacy observations or tasks.
-            # Any failure is reported as incomplete, never as successful verification.
+
+
             if (os.environ.get("HOMHIVE_ENABLE_OPEN_WORLD_PREVIEW", "").lower() == "true"
                 and os.environ.get("OPENAI_API_KEY") and os.environ.get("ANTHROPIC_API_KEY")
                 and os.environ.get("HOMHIVE_OPENAI_REVIEW_MODEL")
@@ -236,16 +239,30 @@ def create_app(
                 def open_world_pipeline():
                     import httpx
                     from openai import OpenAI
-                    primary = OpenAIJsonClient(OpenAI(
-                        base_url="https://api.tokenfactory.nebius.com/v1/",
-                        api_key=os.environ["NEBIUS_API_KEY"], timeout=45, max_retries=1),
-                        os.environ.get("HOMHIVE_NEBIUS_VISION_MODEL", "openbmb/MiniCPM-V-4_5"))
-                    openai_reviewer = OpenAIJsonClient(OpenAI(timeout=45, max_retries=1),
-                        os.environ["HOMHIVE_OPENAI_REVIEW_MODEL"])
-                    independent = AnthropicJsonClient(httpx.Client(timeout=60),
-                        os.environ["HOMHIVE_ANTHROPIC_REVIEW_MODEL"], os.environ["ANTHROPIC_API_KEY"])
+
+
+                    accuracy_first = os.environ.get("HOMHIVE_ACCURACY_FIRST", "false").lower() == "true"
+                    if accuracy_first:
+                        from app.services.accuracy_models import AccuracyOpenAIJsonClient
+                        openai_client = OpenAI(timeout=180, max_retries=1)
+                        primary = AccuracyOpenAIJsonClient(openai_client,
+                            os.environ.get("HOMHIVE_ACCURACY_PRIMARY_MODEL", "gpt-6-astra"), effort="high")
+                        openai_reviewer = AccuracyOpenAIJsonClient(openai_client,
+                            os.environ.get("HOMHIVE_ACCURACY_REVIEW_MODEL", "gpt-6.1-terra"), effort="high")
+                    else:
+                        primary = OpenAIJsonClient(OpenAI(
+                            base_url="https://api.tokenfactory.nebius.com/v1/",
+                            api_key=os.environ["NEBIUS_API_KEY"], timeout=45, max_retries=1),
+                            os.environ.get("HOMHIVE_NEBIUS_VISION_MODEL", "openbmb/MiniCPM-V-4_5"))
+                        openai_reviewer = OpenAIJsonClient(OpenAI(timeout=45, max_retries=1),
+                            os.environ["HOMHIVE_OPENAI_REVIEW_MODEL"])
+                    independent_model = (os.environ.get("HOMHIVE_ACCURACY_ANTHROPIC_MODEL", "claude-opus-5-5")
+                        if accuracy_first else os.environ["HOMHIVE_ANTHROPIC_REVIEW_MODEL"])
+                    independent = AnthropicJsonClient(httpx.Client(timeout=180 if accuracy_first else 60),
+                        independent_model, os.environ["ANTHROPIC_API_KEY"], strict_structure=accuracy_first)
                     return (OpenWorldVision(primary, independent, openai_reviewer),
-                            OpenWorldPlanner(openai_reviewer), OpenWorldActionReviewer(independent))
+                            OpenWorldPlanner(primary if accuracy_first else openai_reviewer),
+                            OpenWorldActionReviewer(independent))
                 app.include_router(build_open_world_preview_router(media_service, tokens, open_world_pipeline))
                 if os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_SCAN", "").lower() == "true":
                     from app.vision.autonomous_api import build_autonomous_router
@@ -256,9 +273,25 @@ def create_app(
                         from app.services.autonomous_lifecycle import AutonomousLifecycle
                         from app.vision.autonomous_api import run_autonomous_scan
                         scan_bridge = AutonomousScanBridge(AutonomousLifecycle(session_factory))
+                        def coordination_tick():
+                            from app.services.notification_delivery import send_due_alerts
+                            nudges = scan_bridge.lifecycle.generate_due_reminders()
+                            delivered = send_due_alerts(session_factory)
+                            if os.environ.get('HOMHIVE_AUTO_ORCHESTRATION', 'false').lower() == 'true':
+                                recovered = auto_orchestrator.recover_recent_scans(max_scans=2)
+                                if recovered:
+                                    import logging
+                                    logging.getLogger(__name__).info('Recovered %s completed scans for automatic research', recovered)
+                                auto_orchestrator.on_context_tick()
+                            return nudges + delivered
+                        app.state.autonomous_pulse = coordination_tick
+                        from app.coordination.auto_orchestration import HouseholdAutoOrchestrator
+                        auto_orchestrator = HouseholdAutoOrchestrator(session_factory)
                         app.state.autonomous_process_one = lambda: autonomous_jobs.process_one(
                             media=media_service, bridge=scan_bridge, build_pipeline=open_world_pipeline,
-                            scan=run_autonomous_scan)
+                            scan=run_autonomous_scan,
+                            after_completed=auto_orchestrator.after_scan if os.environ.get(
+                                'HOMHIVE_AUTO_ORCHESTRATION', 'false').lower() == 'true' else None)
 
 
     @app.get("/health")

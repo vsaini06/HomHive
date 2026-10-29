@@ -7,9 +7,9 @@ from app.services.reactive_tasks import (
     decide_task_from_observation,
 )
 
-#-tests-
 
-#-1-
+
+
 def test_detailed_result_reports_task_created():
     observation = Observation(
         id="obs_result_001",
@@ -25,7 +25,7 @@ def test_detailed_result_reports_task_created():
     assert result.task is not None
     assert result.reason == TaskDecisionReason.TASK_CREATED
 
-#-2-
+
 def test_detailed_result_reports_below_threshold():
     observation = Observation(
         id="obs_result_002",
@@ -41,7 +41,7 @@ def test_detailed_result_reports_below_threshold():
     assert result.task is None
     assert result.reason == TaskDecisionReason.BELOW_TRIGGER_LEVEL
 
-#-3-
+
 def test_detailed_result_reports_low_confidence():
     observation = Observation(
         id="obs_result_003",
@@ -57,7 +57,7 @@ def test_detailed_result_reports_low_confidence():
     assert result.task is None
     assert result.reason == TaskDecisionReason.LOW_CONFIDENCE
 
-#-4-
+
 def test_detailed_result_reports_unsupported_category():
     observation = Observation(
         id="obs_result_004",
@@ -73,7 +73,7 @@ def test_detailed_result_reports_unsupported_category():
     assert result.task is None
     assert result.reason == TaskDecisionReason.UNSUPPORTED_CONDITION
 
-#-5-
+
 def test_detailed_result_reports_duplicate_active_task():
     first_observation = Observation(
         id="obs_result_005",

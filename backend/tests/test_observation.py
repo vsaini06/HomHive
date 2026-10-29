@@ -8,9 +8,9 @@ from app.models import (
     HouseholdState,
 )
 
-#-tests-
 
-#-1-
+
+
 def test_valid_observation():
     observation = Observation(
         id="obs_001",
@@ -26,7 +26,7 @@ def test_valid_observation():
     assert observation.value == 0.82
     assert observation.confidence == 0.91
 
-#-2-
+
 def test_observation_rejects_invalid_value():
     with pytest.raises(ValidationError):
         Observation(
@@ -38,7 +38,7 @@ def test_observation_rejects_invalid_value():
             confidence=0.91,
         )
 
-#-3-
+
 def test_observation_rejects_invalid_source():
     with pytest.raises(ValidationError):
         Observation(
@@ -50,7 +50,7 @@ def test_observation_rejects_invalid_source():
             confidence=0.91,
         )
 
-#-4-
+
 def test_observation_can_reference_entity():
     observation = Observation(
         id="obs_001",
@@ -64,7 +64,7 @@ def test_observation_can_reference_entity():
 
     assert observation.entity_id == "entity_plant_001"
 
-#-5-
+
 def test_observation_does_not_require_entity():
     observation = Observation(
         id="obs_001",
@@ -77,7 +77,7 @@ def test_observation_does_not_require_entity():
 
     assert observation.entity_id is None
 
-#-6-
+
 def test_observation_state_key_uses_entity():
     observation = Observation(
         id="obs_001",
@@ -94,7 +94,7 @@ def test_observation_state_key_uses_entity():
         == "entity_plant_001:plant_condition"
     )
 
-#-7-
+
 def test_current_observations_use_entity_state_key():
     state = HouseholdState(
         id="home_001"
@@ -119,7 +119,7 @@ def test_current_observations_use_entity_state_key():
         in state.current_observations
     )
 
-#-8-
+
 def test_current_observations_keep_entities_separate():
     state = HouseholdState(
         id="home_001"

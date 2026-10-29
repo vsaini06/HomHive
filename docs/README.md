@@ -1,28 +1,11 @@
-# HomHive Documentation
+# Documentation
 
-This directory separates product, architecture, implementation state, evaluation, and decision history so the root README can stay readable.
+- [Architecture](architecture.md): components, data flow, storage, and evidence boundaries
+- [Product specification](product-spec.md): observed behavior and current limitations
+- [Operations](operations.md): configuration, local demo, smoke tests, and deployment precautions
+- [Evaluation](evaluation.md): regression and development-set methodology
+- [Demo library](demo-library.md): image assets and interpretation safeguards
+- [Hackathon](hackathon.md): public submission checklist and integration roles
+- [Architecture decisions](decisions.md): durable design invariants and tradeoffs
 
-## Read this first
-
-| File | Purpose |
-| --- | --- |
-| `architecture.md` | How the system is structured and how data moves through it |
-| `current-state.md` | What is actually implemented now |
-| `product-spec.md` | Product goal, MVP behavior, scope, and non-goals |
-| `evaluation.md` | Testing and future evaluation strategy |
-| `decisions.md` | Active architecture decisions and open decisions |
-| `hackathon.md` | Submission constraints and planned sponsor integrations |
-
-## Documentation rule
-
-Documentation should distinguish three states clearly:
-
-- **Implemented** - code exists and is covered by the current test suite
-- **Planned** - part of the target architecture but not implemented yet
-- **Open** - design choice intentionally not finalized
-
-Do not describe planned integrations as if they already run in production.
-
-## Current release focus
-
-Read `current-state.md` for the implemented evidence, known confidence-to-intelligence integration gap, and lifecycle behavior. `architecture.md` describes provider separation and trusted evidence boundaries; `product-spec.md` describes the user-facing contract; `evaluation.md` lists validation criteria; `decisions.md` captures the confidence and overdue-verification decisions. Claims of complete production readiness or accessibility certification are not warranted yet.
+Source code and migrations are authoritative for implementation details. The top-level [README](../README.md) provides the shortest local setup path.

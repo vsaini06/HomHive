@@ -1,532 +1,70 @@
-# HomHive Architecture
+# Architecture
 
-## 1. Purpose
+HomHive is a household evidence-processing and decision system, not a direct appliance/robot controller.
 
-HomHive is an intelligence layer that turns household evidence into an evolving plan of work.
-
-The architecture is designed around a simple separation:
+## Data flow
 
 ```text
-Evidence -> State -> Forecast -> Decision -> Work -> Priority
+Authenticated image -> Private media store -> Durable scan job
+                                  |
+                                  v
+                    Nebius multimodal perception
+                                  |
+                                  v
+                   OpenAI + Anthropic image review
+                                  |
+                                  v
+                     Independently checked claims
+                                  |
+                 +----------------+----------------+
+                 |                |                |
+                 v                v                v
+        Room continuity    Persistent objects   Task discovery
+                 |                |                |
+                 +----------------+----------------+
+                                  |
+                                  v
+                       PostgreSQL history
+                                  |
+                         +--------+--------+
+                         |                 |
+                         v                 v
+                 Tavily research     Feasibility rules
+                         |                 |
+                         +--------+--------+
+                                  |
+                                  v
+                          Nemotron advice
+                                  |
+                                  v
+                      Consumer decision interface
 ```
 
-External AI providers are adapters around these contracts rather than the contracts themselves.
+The vision reviewer, task proposer, research provider, and planner have separate roles. A visually supported observation does not automatically establish room identity, object species, task necessity, task completion, or executability.
 
-## 2. Target end-to-end flow
+## Main components
 
-```text
-Phone image (JPEG / PNG / WebP)       Short video
-            |                            |
-            v                            v
-Image authentication, validation,      Video ingestion and
-and private storage [implemented]      frame sampling [planned]
-            |                            |
-            +-------------+--------------+
-                          |
-                          v
-Vision adapter                                  [implemented for images]
-        |
-        v
-Observation                                     [implemented]
-        |
-        v
-HouseholdState + history                        [implemented]
-        |
-        v
-ConditionSnapshot                               [implemented]
-        |
-        +--------------------------+
-        |                          |
-        v                          v
-Reactive task discovery       ConditionForecast [implemented]
-        |                          |
-        |                          v
-        |                    ThresholdCrossing   [implemented]
-        |                          |
-        |                          v
-        |                    ActionDecision      [implemented]
-        |                          |
-        +-------------+------------+
-                      |
-                      v
-                     Task                        [implemented]
-                      |
-                      v
-                  ScoredTask                     [implemented]
-                      |
-                      v
-Selective external research                     [implemented and live-verified]
-                      |
-                      v
-Cross-domain Nemotron planning                  [implemented and live-verified]
-                      |
-                      v
-Mobile plan / executor interface                [implemented and runtime-verified]
-```
+| Component | Code | Responsibility |
+| --- | --- | --- |
+| API | `backend/app/api/` | Authentication, household endpoints, scan and decision routes |
+| Vision | `backend/app/vision/` | Open-world perception, independent review, room comparison, worker |
+| Household objects | `backend/app/services/autonomous_objects.py` | Stable object identities and evidence-linked object records |
+| Task lifecycle | `backend/app/services/autonomous_lifecycle.py` | Persistent tasks, state transitions, and progress evidence |
+| Coordination | `backend/app/coordination/` | Feasibility, Nemotron advice, post-scan orchestration |
+| Research | `backend/app/research/` | Tavily requests, normalization, and cached evidence |
+| Storage | `backend/app/db/`, `backend/alembic/` | PostgreSQL, SQLAlchemy and schema migrations |
+| Consumer client | `frontend/app/`, `frontend/lib/` | Scan, Spaces, Objects, Tasks, and Automation views |
 
-## Persistence boundaries
+## Identity and uncertainty
 
-```text
-PostgreSQL
-  -> SQLAlchemy ORM records
-  -> explicit record/domain mapping
-  -> repository contracts
-  -> Pydantic domain models and application services
-```
+A **room category** (such as Kitchen) is not a **physical room identifier**. Two kitchens in one household are not the same space merely because the classifier returns the same category. A close-up object can persist without being assigned to a room. Uncertain object species and unverified locations should remain explicitly unknown.
 
-Entity, observation, task, and media-metadata tables are managed through Alembic. Observation and task repositories accept `household_id` at the storage boundary, without requiring household ownership fields in the corresponding domain models. Historical observations can be replayed through `reconstruct_household_state()` to restore `HouseholdState`. Derived snapshots and forecasts are recomputed, not stored as authoritative records.
+Observations record evidence; household state summarizes history; tasks represent actionable work; planning chooses among feasible tasks. These cannot be collapsed into a single model response without losing auditability.
 
-The entity API can use SQL storage through `HOMHIVE_ENTITY_STORAGE=sql`. Observation-to-task orchestration is available through the household intelligence refresh service after confidence-qualified evidence exists. Task status is stored; transition-by-transition audit history is not implemented.
+## Research and planning boundaries
 
-Media uses a separate persistence boundary: image bytes live in a configurable private filesystem root, while the `media` table stores a composite `(household_id, id)` key with content type, byte size, and creation time. `MediaService` coordinates the file and metadata write and removes the file if the metadata transaction fails. Stored media remains separate from domain observations. Vision extraction creates separate evidence records, and model observations with unknown confidence require explicit confirmation before they can safely drive confidence-gated task creation.
+Tavily provides third-party evidence rather than a diagnosis or guaranteed household fact. Source links must be associated with the relevant task or object before the interface can claim research-backed guidance. NVIDIA Nemotron makes a recommendation from the currently eligible task set, while deterministic logic blocks infeasible selections. A no-executable-task response can be legitimate.
 
-## Media HTTP boundary
+## Trust and deployment
 
-The optional media router exposes:
-
-```text
-POST /households/{household_id}/media
-  -> HTTP bearer authorization
-  -> size, MIME, and file-signature validation
-  -> MediaService.save_image()
-  -> LocalMediaStorage + PostgreSQL MediaRecord
-
-GET /households/{household_id}/media/{media_id}
-  -> HTTP bearer authorization
-  -> household-scoped MediaRecord lookup
-  -> LocalMediaStorage.read()
-  -> image bytes, Cache-Control: private, no-store
-```
-
-The router is registered only when `HOMHIVE_MEDIA_ROOT` and `HOMHIVE_HOUSEHOLD_TOKENS` are both configured. Either missing setting while the other is present causes startup to fail; when both are absent, media routes are disabled. A valid `DATABASE_URL` is required for SQL-backed media metadata. Household tokens are a temporary development mechanism rather than a complete user identity and membership model. Missing or mismatched tokens return `403`; a media record not present under the authorized household returns `404`.
-
-The implementation accepts JPEG, PNG, and WebP images up to 10 MiB. Authenticated stored images can be analyzed by a Nebius MiniCPM vision adapter. The extraction service validates directly visible candidates, attaches visual evidence and media provenance, then persists accepted observations under the authorized household. Video ingestion and frame sampling remain unimplemented.
-
-## 3. Domain model
-
-### Observation
-
-An `Observation` is one timestamped piece of household evidence.
-
-Important fields include:
-
-- source
-- location
-- optional entity reference
-- condition type
-- normalized value
-- confidence (`float` in `[0, 1]` or `None` when unknown)
-- timestamp
-- metadata
-
-`ConditionType` is the canonical condition vocabulary.
-
-### HouseholdState
-
-`HouseholdState` keeps both:
-
-- observation history
-- current observations
-
-History supports temporal reasoning. Current observations support fast access to the latest evidence.
-
-State identity is owned by `Observation.state_key()`.
-
-Entity identity takes precedence when an `entity_id` exists. Otherwise the key falls back to location plus condition.
-
-### ConditionSnapshot
-
-`ConditionSnapshot` is the system's derived belief about one current condition.
-
-It combines related observations using confidence and recency rather than simply trusting the newest reading.
-
-Current weighting:
-
-```text
-recency_weight = 1 / (1 + age_hours)
-
-observation_weight =
-    confidence * recency_weight  # only when confidence is known
-```
-
-The snapshot also includes a deterministic `ConditionTrend`.
-
-### Task
-
-A `Task` represents work that may need to be performed.
-
-Task identity is separate from the observation that caused it.
-
-Reactive tasks currently use a location/condition-based task key.
-
-Predictive tasks use a predictive key. Unifying reactive and predictive identity is still an open design decision.
-
-### TaskDecision
-
-Reactive task discovery returns a `TaskDecision` so the system can explain why work was or was not created.
-
-Current reasons include:
-
-- task created
-- unsupported condition
-- below trigger level
-- low confidence
-- active task already exists
-
-Serialized reason values remain stable where compatibility matters.
-
-### ScoredTask
-
-A `ScoredTask` pairs a `Task` with its current planning score.
-
-Priority is intentionally not stored as permanent task identity.
-
-### HouseholdEntity
-
-`HouseholdEntity` represents a persistent physical household object or area.
-
-Examples:
-
-- plant
-- appliance
-- fixture
-- area
-
-Entity identity is separate from observations about changing condition.
-
-### EntityCandidate
-
-An `EntityCandidate` is a temporary identification result. It is not automatically persisted as a household entity.
-
-### EntityMatchAssessment
-
-`EntityMatchAssessment` records evidence about whether a candidate may refer to an existing physical entity.
-
-### EntityResolution
-
-`EntityResolution` represents the resolution outcome.
-
-The entity workflow preserves uncertainty instead of forcing every candidate into an existing/new binary.
-
-### ConditionForecast
-
-`ConditionForecast` projects one condition forward.
-
-Forecast confidence is distinct from snapshot confidence.
-
-### ThresholdCrossing
-
-`ThresholdCrossing` represents a forecast that a condition is expected to reach a configured level.
-
-A forecast and a threshold crossing are separate concepts.
-
-### ActionDecision
-
-`ActionDecision` converts a forecasted threshold event into one of the current action states:
-
-- `NONE`
-- `MONITOR`
-- `PLAN`
-- `ACT_NOW`
-
-Low-confidence predictions may remain visible without creating household work.
-
-## 4. Application services
-
-### Condition tracking
-
-`condition_tracking.py`
-
-Responsibilities:
-
-- recency weighting
-- observation weighting
-- trend detection
-- condition snapshot creation
-- household snapshot grouping
-
-### Reactive tasks
-
-`reactive_tasks.py`
-
-Responsibilities:
-
-- deterministic task triggers
-- confidence gates
-- duplicate active-task prevention
-- explainable task decisions
-
-Current configured reactive domains include dishes and laundry.
-
-### Task ranking
-
-`task_ranking.py`
-
-Current score:
-
-```text
-priority =
-    urgency_score * 0.60
-    + confidence * 0.30
-    + effort_score * 0.10
-```
-
-Shorter effort receives a small advantage, but urgency remains dominant.
-
-### State forecasting
-
-`state_forecasting.py`
-
-Responsibilities:
-
-- estimate hourly change
-- project condition level
-- estimate forecast confidence
-- build forecasts
-- estimate time to threshold
-- create threshold-crossing predictions
-
-### Action policy
-
-`action_policy.py`
-
-Responsibilities:
-
-- convert threshold crossings into action states
-- prevent weak forecasts from automatically creating work
-- distinguish monitoring, planning, and immediate action
-
-### Predictive tasks
-
-`predictive_tasks.py`
-
-Responsibilities:
-
-- create tasks from actionable forecast decisions
-- preserve predictive task lifecycle
-- dismiss no-longer-actionable predictive tasks
-- reactivate dismissed predictive work when it becomes actionable again
-
-### Entity resolution
-
-`entity_resolution.py`
-
-Responsibilities:
-
-- filter incompatible entities
-- assess available match evidence
-- resolve candidate identity conservatively
-
-### Household entity service
-
-`household_entity_service.py`
-
-Application layer between the API boundary and repository.
-
-## 5. Repository layer
-
-The repository layer offers in-memory and SQLAlchemy implementations behind explicit storage contracts.
-
-Persisted PostgreSQL data includes:
-
-- household entities
-- household-scoped raw observations and their timestamps/metadata
-- household-scoped tasks and their current lifecycle status
-- household-scoped media metadata (image bytes are stored separately)
-
-Household state is reconstructed from ordered observation history, rather than persisted as an independent authoritative snapshot. Full status-change audit events, derived forecasts, decisions, external evidence, and traces are not yet persisted.
-
-## 6. API boundary
-
-HomHive currently uses FastAPI and Strawberry GraphQL, with HTTP REST endpoints for media transfer.
-
-The GraphQL entity boundary uses Python-facing names that describe the domain cleanly while preserving deliberate public schema names where compatibility matters.
-
-The API should remain thin:
-
-```text
-Request
-  |
-  v
-Query / Mutation
-  |
-  v
-Application Service
-  |
-  v
-Repository / Domain Service
-  |
-  v
-Domain Model
-  |
-  v
-GraphQL view mapping
-```
-
-## 7. AI and research adapters
-
-### Vision
-
-Current behavior:
-
-```text
-media
-  |
-  v
-vision model
-  |
-  v
-structured observations / entity clues
-```
-
-Vision should produce structured evidence. It should not decide the final household plan.
-
-### Tavily
-
-The Tavily search adapter is called conditionally when internal household state is not enough. It normalizes URLs, snippets, scores, and request metadata into validated research evidence before that evidence can be supplied to planning.
-
-Likely use cases:
-
-- unfamiliar plants
-- appliance/model research
-- maintenance guidance
-- external or seasonal lawn context
-- unfamiliar household situations
-
-Routine dish and laundry task discovery should not require a web search.
-
-### Nemotron through Nebius
-
-The planning adapter accepts an explicitly configured NVIDIA Nemotron model ID through Nebius. It reasons over ranked tasks, feasibility constraints, and normalized research evidence. Returned task IDs and execution feasibility are validated before the plan is accepted, and deterministic planning remains the fallback when model output is unavailable or invalid.
-
-## 8. Major invariants
-
-1. Observation is not state.
-2. State is not forecast.
-3. Forecast is not action.
-4. Action is not task identity.
-5. Task identity is not priority.
-6. Entity identity is not condition.
-7. Missing evidence is not contradictory evidence.
-8. Low confidence can block action without deleting evidence.
-9. External providers should not leak into core models.
-10. Durable storage and complete audit history are different capabilities.
-11. Household media access is enforced at the HTTP boundary and data lookup.
-12. Media bytes and domain observations are separate resources.
-
-## 9. Open architecture work
-
-- reactive/predictive task identity unification
-- persistent workflow orchestration and full audit history
-- video ingestion and frame sampling
-- vision benchmark and workload calibration
-- long-term external-evidence retention and provenance policy
-- production user identity and household membership
-- background job execution for long-running provider calls
-- richer user-context integrations such as calendar and presence
-- executor capability model
-- durable plan/audit history
-
-## Implemented image-to-observation path
-
-```text
-Authenticated stored image (household-scoped media lookup)
-  -> Nebius Token Factory MiniCPM vision provider
-  -> structured candidate with category, value, location, visible evidence
-  -> conservative validation / review decision
-  -> Observation(source=photo, confidence=None, metadata={media_id, visible_evidence})
-  -> household-scoped ObservationStorage / PostgreSQL
-```
-
-The endpoint is `POST /households/{household_id}/media/{media_id}/observations` and requires the household bearer token and a JSON location. Inference is opt-in and uses the external `NEBIUS_API_KEY`; credentials and local media bytes are not committed. Absent or unassessable domains must not be represented as zero-valued observations. A review-needed extraction does not create observations. Unknown confidence remains `NULL` in persistence; reactive task triggers do not treat unknown confidence as passing a confidence threshold. A separate confirmation endpoint creates user-sourced evidence rather than rewriting the original model observation, after which the household intelligence refresh can reconstruct state, discover work, forecast, reconcile predictive tasks, and rank active tasks.
-
-## Experimental multi-entity scene path
-
-```text
-Private image / local evaluation image
-    -> Nebius MiniCPM scene-inventory adapter
-    -> JSON parsing and strict Pydantic validation
-    -> visible SceneEntity records (label, area, evidence)
-    -> optional directly evidenced condition
-    -> rejected_assessments + needs_review when condition evidence is missing
-    -> local, read-only JSON evaluation report
-```
-
-This is a separate experimental path, **not** a replacement for the existing authorized media-to-observation persistence endpoint. Trusted scene location originates in HomHive, not the model. The parser permits one complete fenced JSON object and narrowly normalizes the literal string `"null"` to null for unassessed/unknown condition evidence. Missing evidence for a claimed assessed condition is not treated as a verified condition: the entity can be retained with unknown condition and an explicit rejection record. Structurally valid evidence strings are still unverified model statements. Scene inventory creates no stable entity IDs, domain observations, or tasks.
-
-Local settings are loaded from `backend/.env` in application, migration, and standalone vision entry points, with explicit process environment settings taking precedence. The real `.env` is excluded from source control; `.env.example` contains placeholders.
-
-## Household intelligence and planning path
-
-```text
-Persisted observations
-  -> explicit user confirmation when model confidence is unknown
-  -> HouseholdState reconstruction
-  -> condition snapshots and forecasts
-  -> reactive and predictive task reconciliation
-  -> deterministic ranking
-  -> execution feasibility filters
-  -> optional Tavily evidence
-  -> optional NVIDIA Nemotron planning through Nebius
-  -> validated household plan
-```
-
-Planning separates importance from executability. Presence, quiet-hour constraints, active time, and passive time are evaluated before a model is allowed to place a task into an executable plan. The model cannot introduce unknown task IDs or override a hard feasibility block.
-
-The mobile-first Next.js client exercises the household-scoped media, evidence review, intelligence refresh, and planning APIs. Development bearer tokens remain a temporary access mechanism and must be replaced by production user identity and household membership before public deployment.
-
-
-## Runtime validation boundary
-
-The current runtime path has been exercised beyond adapter-level tests:
-
-```text
-Next.js browser client
-  -> FastAPI household API
-  -> PostgreSQL repositories
-  -> Nebius MiniCPM perception
-  -> explicit user confirmation
-  -> household intelligence refresh
-  -> optional Tavily evidence
-  -> deterministic feasibility constraints
-  -> NVIDIA Nemotron planning through Nebius
-  -> validated plan response
-```
-
-Docker Compose packages the frontend, backend, and PostgreSQL services. The backend applies Alembic migrations before starting Uvicorn. Local runtime verification confirmed PostgreSQL health, backend `/health` HTTP 200, and frontend HTTP 200. Persistent volumes hold PostgreSQL data and private media. This is a reproducible local deployment boundary, not a claim of public production hosting.
-
-## Scene discovery before condition assessment
-
-The scene-evaluation path supports a detection-first mode:
-
-```text
-image
-  -> visible object discovery
-  -> evidence-backed SceneEntity inventory
-  -> completeness scoring against human reference inventory
-  -> separate condition assessment where justified
-```
-
-This separation exists because asking one model call to discover objects and assess their conditions can suppress visible-object recall. On the current 59-entity kitchen development set, detection-first inference increased micro recall from 47.46% to 71.19%. The evaluation path remains read-only and does not promote arbitrary scene entities directly into persistent household observations or tasks.
-
-## Planning acceptance boundary
-
-Planning uses deterministic feasibility as a hard boundary around model reasoning:
-
-```text
-ranked tasks + user context
-  -> deterministic feasibility evaluation
-  -> optional normalized research evidence
-  -> Nemotron plan proposal
-  -> validate known task IDs
-  -> validate feasibility again
-  -> accept plan or fall back deterministically
-```
-
-The reasoning model may explain and choose among feasible work, but it cannot create unknown work or override hard execution constraints.
-
-## Evidence trust and refresh semantics
-
-Visual providers produce candidate observations. Two independent vision reviewers corroborate individual claims; the resulting provenance is retained as `ai_verification=multi_model_corroborated`. This provenance does not represent human confirmation or a numeric confidence estimate. Legacy confidence-based forecast and task triggers still require calibrated confidence and intentionally exclude null-confidence data.
-
-`refresh_household_intelligence` reconstructs state, evaluates overdue completion obligations from trusted follow-up observations, then performs existing reactive/forecast decisions and ranking. It does not inspect new photos during refresh and does not assert that a reported completion has been physically verified.
+API credentials and signing secrets stay server-side. Images are stored privately behind household access controls, while demo photos are public static assets. The provided local Docker demonstration is not hardened for public internet exposure. Device control, continuous camera streams, production identity administration, and external calendar sync are out of scope for the current demo.

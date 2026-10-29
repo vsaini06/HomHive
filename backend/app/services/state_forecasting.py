@@ -31,7 +31,7 @@ def estimate_hourly_change(
         - first_observation.timestamp
     ).total_seconds()
 
-    # Two readings at the same timestamp cannot tell us how quickly something changed.
+
     if elapsed_seconds <= 0:
         return 0.0
 
@@ -100,7 +100,7 @@ def estimate_forecast_confidence(
         len(observations) / 5.0,
     )
 
-    # Predictions become less trustworthy as we look farther into the future.
+
     forecast_distance = (
         1.0
         / (
@@ -181,7 +181,7 @@ def estimate_hours_to_threshold(
     if current_level >= threshold:
         return 0.0
 
-    # A flat or improving condition is not moving toward an upper threshold.
+
     if hourly_change <= 0:
         return None
 

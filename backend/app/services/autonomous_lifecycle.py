@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, time as day_time
 from enum import Enum
+import hashlib
+import re
 from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -15,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import JSON, DateTime, ForeignKeyConstraint, Index, Integer, String, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, mapped_column, Session, sessionmaker
 from app.db.base import Base
+from app.services.autonomous_objects import AutonomousObjectRecord, AutonomousObjectViewRecord
 
 
 def utcnow() -> datetime:
@@ -70,12 +73,18 @@ class RoomContinuity(BaseModel):
     model_config = ConfigDict(extra="forbid")
     physical_room_id: str | None = None
     same_physical_room_verified: bool = False
+    physical_object_id: str | None = None
+    same_physical_object_verified: bool = False
     reason: str = Field(min_length=8)
 
     @model_validator(mode="after")
     def checked(self):
         if self.same_physical_room_verified and not self.physical_room_id:
             raise ValueError("A verified room match needs a stable physical room ID")
+        if self.same_physical_object_verified and not self.physical_object_id:
+            raise ValueError("A verified object match needs a stable physical object ID")
+        if self.same_physical_room_verified and self.same_physical_object_verified:
+            raise ValueError("A task's verified subject must be either a room or an object")
         return self
 
 
@@ -102,6 +111,8 @@ class ReviewedOutcome(BaseModel):
             raise ValueError("Completion verdict needs independent original-media review")
         if self.verdict == OutcomeVerdict.completed and not self.criterion_verified:
             raise ValueError("Completion requires proving the task criterion")
+        if self.verdict != OutcomeVerdict.completed and self.criterion_verified:
+            raise ValueError("An uncompleted verdict cannot claim the task criterion is verified")
         if self.verdict == OutcomeVerdict.completed:
             if self.progress_percent is None:
                 self.progress_percent = 100
@@ -122,7 +133,8 @@ class AutonomousTaskRecord(Base):
     __tablename__ = "autonomous_tasks"
     household_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     id: Mapped[str] = mapped_column(String(128), primary_key=True)
-    physical_room_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    physical_room_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    object_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     action_key: Mapped[str] = mapped_column(String(128), nullable=False)
     title: Mapped[str] = mapped_column(String(250), nullable=False)
     action: Mapped[str] = mapped_column(String(2000), nullable=False)
@@ -136,6 +148,7 @@ class AutonomousTaskRecord(Base):
     __table_args__ = (
         UniqueConstraint("household_id", "physical_room_id", "action_key", name="uq_autonomous_task_per_room"),
         Index("ix_autonomous_tasks_room", "household_id", "physical_room_id"),
+        UniqueConstraint("household_id", "object_id", "action_key", name="uq_autonomous_task_per_object"),
     )
 
 
@@ -219,6 +232,20 @@ def recommended_window(profile: dict | None, estimate_max: int | None, *, clock=
     return None
 
 
+def _overlaps_existing_work(new_title: str, old_title: str) -> bool:
+    """Conservative wording-independent overlap check within one verified room."""
+    ignored = {'a', 'an', 'the', 'in', 'on', 'of', 'at', 'to', 'with', 'and', 'for',
+               'from', 'all', 'into', 'off', 'up', 'your', 'these', 'those'}
+    def words(title):
+        return [w for w in re.findall(r"[a-z0-9]+", title.lower()) if w not in ignored]
+    proposed, existing = words(new_title), words(old_title)
+    if len(proposed) < 3 or len(existing) < 3 or proposed[0] != existing[0]:
+        return False
+    a, b = set(proposed), set(existing)
+    overlap = len(a & b)
+    return overlap >= 3 and overlap / min(len(a), len(b)) >= 0.8 and overlap / len(a | b) >= 0.5
+
+
 class AutonomousLifecycle:
     """Transactional task upserts and conservative evidence-based state changes.
 
@@ -275,6 +302,115 @@ class AutonomousLifecycle:
                      "created_at": row.created_at.isoformat(),
                      "read_at": row.read_at.isoformat() if row.read_at else None} for row in rows]
 
+    def task_timeline(self, household_id: str, task_id: str):
+        """Household-scoped evidence and decisions for a particular task."""
+        with self.sessions() as db:
+            task = db.get(AutonomousTaskRecord, (household_id, task_id))
+            if task is None:
+                raise LookupError("Task not found")
+            events = db.scalars(select(AutonomousTaskEventRecord).where(
+                AutonomousTaskEventRecord.household_id == household_id,
+                AutonomousTaskEventRecord.task_id == task_id)
+                .order_by(AutonomousTaskEventRecord.created_at)).all()
+            return {"task_id": task_id, "status": task.state, "events": [
+                {"kind": event.kind, "media_id": event.media_id if not event.media_id.startswith("user-decision:") else None,
+                 "detail": event.detail, "created_at": event.created_at.isoformat()}
+                for event in events]}
+
+    def household_pulse(self, household_id: str):
+        """Proactive recommendations from persisted evidence, without invented conditions."""
+        with self.sessions() as db:
+            tasks = db.scalars(select(AutonomousTaskRecord).where(
+                AutonomousTaskRecord.household_id == household_id)
+                .order_by(AutonomousTaskRecord.created_at)).all()
+            profile_row = db.get(AutonomousAvailabilityRecord, household_id)
+            profile = ({"timezone": profile_row.timezone, "start_time": profile_row.start_time,
+                        "end_time": profile_row.end_time, "weekdays": profile_row.weekdays}
+                       if profile_row else None)
+            findings = []
+            for task in tasks:
+                if task.state in (TaskState.completed.value, TaskState.dismissed.value):
+                    continue
+                payload = task.task_payload or {}
+                progress = payload.get("progress") or {}
+                history = db.scalars(select(AutonomousTaskEventRecord).where(
+                    AutonomousTaskEventRecord.household_id == household_id,
+                    AutonomousTaskEventRecord.task_id == task.id,
+                    AutonomousTaskEventRecord.kind == "verification")
+                    .order_by(AutonomousTaskEventRecord.created_at)).all()
+                visible_count = sum(1 for event in history if event.detail.get("verdict") != "inconclusive")
+                slot = recommended_window(profile, task.effort_max)
+                missing_estimate = task.effort_max is None or len(payload.get("estimate_sources") or []) < 2
+                created_at = task.created_at if task.created_at.tzinfo else task.created_at.replace(tzinfo=timezone.utc)
+                age_days = max(0, int((utcnow() - created_at).total_seconds() // 86400))
+                priority = min(100, 30 + min(age_days, 14) * 3 + (15 if visible_count >= 2 else 0)
+                               + (10 if progress.get("percent", 0) and progress.get("percent", 0) < 100 else 0))
+                reasons = ["Independently reviewed visual evidence"]
+                if visible_count > 1:
+                    reasons.append(f"Condition checked in {visible_count} follow-up photographs")
+                if age_days >= 3:
+                    reasons.append(f"Open for {age_days} days")
+                findings.append({"task_id": task.id, "title": task.title, "room_id": task.physical_room_id,
+                    "priority": priority, "reasons": reasons,
+                    "progress_percent": progress.get("percent"),
+                    "progress_explanation": progress.get("explanation"),
+                    "remaining_work": progress.get("next_step"),
+                    "follow_up_reviews": len(history), "recommended_at": slot,
+                    "estimate_min": task.effort_min if not missing_estimate else None,
+                    "estimate_max": task.effort_max if not missing_estimate else None,
+                    "estimate_sources": payload.get("estimate_sources") or [],
+                    "research_needed": missing_estimate, "status": task.state})
+            findings.sort(key=lambda item: (-item["priority"], item["title"]))
+            return {"active_count": len(findings), "verified_complete_count": sum(
+                task.state == TaskState.completed.value for task in tasks),
+                "work_window_configured": profile is not None,
+                "suggestions": findings[:25]}
+
+    def generate_due_reminders(self, *, clock=None):
+        """Create at most one daily, household-scoped suggestion reminder per task.
+
+        Never claim availability from a calendar: only the saved preferred time window.
+        This method does not call AI providers and is safe to poll repeatedly.
+        """
+        moment = clock or utcnow()
+        count = 0
+        with self.sessions.begin() as db:
+            profiles = db.scalars(select(AutonomousAvailabilityRecord)).all()
+            for profile in profiles:
+                tz, start, end, days = validated_availability(timezone_name=profile.timezone,
+                    start_time=profile.start_time, end_time=profile.end_time, weekdays=profile.weekdays)
+                local = moment.astimezone(tz)
+                if local.weekday() not in days:
+                    continue
+                start_dt = datetime.combine(local.date(), start, tzinfo=tz)
+                end_dt = datetime.combine(local.date(), end, tzinfo=tz)
+
+                if not start_dt <= local < start_dt + timedelta(minutes=30):
+                    continue
+                tasks = db.scalars(select(AutonomousTaskRecord).where(
+                    AutonomousTaskRecord.household_id == profile.household_id,
+                    AutonomousTaskRecord.state.in_([TaskState.pending.value, TaskState.accepted.value,
+                        TaskState.in_progress.value]))).all()
+                for task in tasks:
+                    if task.effort_max is None or local + timedelta(minutes=task.effort_max) > end_dt:
+                        continue
+                    if (task.task_payload or {}).get("remind_at") and moment < datetime.fromisoformat(task.task_payload["remind_at"]):
+                        continue
+                    dedupe_media = "preferred-window:" + local.date().isoformat()
+                    exists = db.scalar(select(AutonomousAlertRecord.id).where(
+                        AutonomousAlertRecord.household_id == profile.household_id,
+                        AutonomousAlertRecord.task_id == task.id,
+                        AutonomousAlertRecord.media_id == dedupe_media,
+                        AutonomousAlertRecord.kind == "reminder"))
+                    if exists:
+                        continue
+                    self._alert(db, task, dedupe_media, "reminder", f"A good time for: {task.title}",
+                        f"Your preferred household-work window is open. Estimated duration: "
+                        f"{task.effort_min}–{task.effort_max} minutes. "
+                        "Check your real calendar before starting; availability isn't synchronized.")
+                    count += 1
+        return count
+
     def read_alert(self, household_id: str, alert_id: str):
         with self.sessions.begin() as db:
             item = db.scalar(select(AutonomousAlertRecord).where(
@@ -311,19 +447,45 @@ class AutonomousLifecycle:
         """Create or preserve tasks; a repeat image cannot reset accepted/completed states."""
         if not household_id:
             raise ValueError("Missing household")
-        if not room.same_physical_room_verified or not room.physical_room_id:
+        object_scope = room.same_physical_object_verified and bool(room.physical_object_id)
+        room_scope = room.same_physical_room_verified and bool(room.physical_room_id)
+        if not (object_scope or room_scope):
             return {"created": [], "existing": [], "held_for_room_identity": len(actions)}
         created, existing = [], []
         with self.sessions.begin() as db:
             for action in actions:
                 record = db.scalar(select(AutonomousTaskRecord).where(
                     AutonomousTaskRecord.household_id == household_id,
-                    AutonomousTaskRecord.physical_room_id == room.physical_room_id,
+                    AutonomousTaskRecord.physical_room_id == (room.physical_room_id if room_scope else None),
+                    AutonomousTaskRecord.object_id == (room.physical_object_id if object_scope else None),
                     AutonomousTaskRecord.action_key == action.action_key).with_for_update())
+                persist_key = action.action_key
+                if record is not None and record.state == TaskState.completed.value:
+                    previous_media = (record.task_payload or {}).get('evidence', {}).get('media_id')
+                    if previous_media != action.evidence.media_id:
+                        suffix = hashlib.sha256(action.evidence.media_id.encode()).hexdigest()[:12]
+                        persist_key = action.action_key[:115] + ':' + suffix
+                        record = db.scalar(select(AutonomousTaskRecord).where(
+                            AutonomousTaskRecord.household_id == household_id,
+                            AutonomousTaskRecord.physical_room_id == (room.physical_room_id if room_scope else None),
+                            AutonomousTaskRecord.object_id == (room.physical_object_id if object_scope else None),
+                            AutonomousTaskRecord.action_key == persist_key).with_for_update())
+                if record is None:
+                    room_tasks = db.scalars(select(AutonomousTaskRecord).where(
+                        AutonomousTaskRecord.household_id == household_id,
+                        AutonomousTaskRecord.physical_room_id == (room.physical_room_id if room_scope else None),
+                        AutonomousTaskRecord.object_id == (room.physical_object_id if object_scope else None),
+                        AutonomousTaskRecord.state.in_([
+                            TaskState.proposed.value, TaskState.pending.value,
+                            TaskState.accepted.value, TaskState.in_progress.value]))).all()
+                    record = next((existing_task for existing_task in room_tasks
+                        if _overlaps_existing_work(action.title, existing_task.title)), None)
                 if record is None:
                     record = AutonomousTaskRecord(
-                        household_id=household_id, id=str(uuid4()), physical_room_id=room.physical_room_id,
-                        action_key=action.action_key, title=action.title, action=action.action,
+                        household_id=household_id, id=str(uuid4()),
+                        physical_room_id=room.physical_room_id if room_scope else None,
+                        object_id=room.physical_object_id if object_scope else None,
+                        action_key=persist_key, title=action.title, action=action.action,
                         criteria=action.verification_criteria, state=TaskState.proposed.value if action.confirmation_required else TaskState.pending.value,
                         effort_min=action.estimate_min, effort_max=action.estimate_max,
                         task_payload=action.model_dump(mode="json"), created_at=utcnow(), updated_at=utcnow())
@@ -345,12 +507,15 @@ class AutonomousLifecycle:
     def verify_fresh_scene(self, household_id: str, room: RoomContinuity, verdicts: list[ReviewedOutcome]):
         """Conservatively reconcile tasks against a separately reviewed new image."""
         results = {}
-        if not room.same_physical_room_verified or not room.physical_room_id:
+        object_scope = room.same_physical_object_verified and bool(room.physical_object_id)
+        room_scope = room.same_physical_room_verified and bool(room.physical_room_id)
+        if not (object_scope or room_scope):
             return {v.task_id: "held_unverified_room" for v in verdicts}
         with self.sessions.begin() as db:
             for verdict in verdicts:
                 task = db.get(AutonomousTaskRecord, (household_id, verdict.task_id))
-                if task is None or task.physical_room_id != room.physical_room_id:
+                if task is None or (task.object_id != room.physical_object_id if object_scope
+                    else task.object_id is not None or task.physical_room_id != room.physical_room_id):
                     results[verdict.task_id] = "unmatched_task_or_room"
                     continue
                 source_media = task.task_payload["evidence"]["media_id"]
@@ -392,7 +557,7 @@ class AutonomousLifecycle:
                             f"Verified complete: {task.title}",
                             "A later photo of the same space supports the completion criteria.")
                     else:
-                        # A fresh visual assessment can show progress or regression.
+
                         if verdict.progress_percent is not None and verdict.progress_percent > 0:
                             task.state = TaskState.in_progress.value
                             results[task.id] = "progress_updated"
@@ -448,7 +613,12 @@ class AutonomousLifecycle:
                         "end_time":pref.end_time, "weekdays":pref.weekdays} if pref else None)
             records = db.scalars(select(AutonomousTaskRecord).where(
                 AutonomousTaskRecord.household_id == household_id).order_by(AutonomousTaskRecord.created_at)).all()
-            return [{"id": r.id, "room_id": r.physical_room_id, "title": r.title,
+            from app.services.autonomous_objects import ObjectRegistry
+            object_names = {o["id"]: o["name"] for o in ObjectRegistry(self.sessions).list(household_id)}
+            return [{"id": r.id, "room_id": r.physical_room_id or f"object:{r.object_id}",
+                     "object_id": r.object_id, "subject_type": "object" if r.object_id else "space",
+                     "object_name": object_names.get(r.object_id) if r.object_id else None,
+                     "title": r.title,
                      "action": r.action, "status": r.state, "effort_min": r.effort_min,
                      "effort_max": r.effort_max, "criteria": r.criteria,
                      "room_category": r.task_payload.get("room_category"),
@@ -459,6 +629,8 @@ class AutonomousLifecycle:
                      "remind_at": r.task_payload.get("remind_at"),
                      "estimate_rationale": r.task_payload.get("estimate_rationale"),
                      "estimate_sources": r.task_payload.get("estimate_sources", []),
+                     "automatic_guidance": r.task_payload.get("automatic_guidance"),
+                     "observed_object": r.task_payload.get("observed_object"),
                      "confirmation_required": r.task_payload.get("confirmation_required", False),
                      "progress": r.task_payload.get("progress"),
                      "recommended_at": recommended_window(profile, r.effort_max)

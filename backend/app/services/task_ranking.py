@@ -5,14 +5,14 @@ from app.models import (
 )
 
 
-# Urgency carries most of the score because time-sensitive work
-# should generally outrank convenience.
+
+
 URGENCY_WEIGHT = 0.60
 
-# Confidence matters, but uncertain evidence should not overpower urgency.
+
 CONFIDENCE_WEIGHT = 0.30
 
-# Shorter tasks get a small advantage when everything else is similar.
+
 EFFORT_WEIGHT = 0.10
 
 
@@ -80,7 +80,7 @@ def rank_tasks(
         for task in tasks
     ]
 
-    # Task ID gives us a stable order when two tasks receive the same score.
+
     return sorted(
         scored_tasks,
         key=lambda scored_task: (

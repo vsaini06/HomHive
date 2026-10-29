@@ -1,11 +1,7 @@
 # Demo image library
 
-The scan dialog supports choosing a public sample image. Samples were generated from the available HomHive original-scene, base-scene, and controlled-variant archives. The gallery contains 220 indexed entries (153 originals, 32 bases, 35 variants); candidate eligibility and duplicates must be checked against the canonical dataset audit before publication. Do not interpret archive membership as final human approval.
+The web client offers a curated set of household scenes from `frontend/public/demo-library/`. `catalog.json` provides asset names and grouping metadata. Original photos and controlled variations can demonstrate changes across a scene, while independent samples illustrate household diversity.
 
-Static gallery files are JPEG derivatives for display and trial analysis. `frontend/public/demo-library/catalog.json` preserves original names and SHA-256 digests. Canonical PNG evaluation assets are not modified or replaced by these derivatives.
+Gallery metadata helps visitors browse samples. **It is not visual model output, a verified plant species, or evidence that an object and room identity have been matched.** The scan workflow must still perform the normal evidence checks before using a sample to create tasks.
 
-Public gallery samples are not private household photos. Selecting one creates a normal File and uses existing authenticated upload/vision APIs; no predetermined task outcomes or mock observations are supplied. Avoid placing confidential or externally licensed images into the public directory.
-
-## Pending product work
-
-This slice does not change household bearer-token authentication. Production user login, password recovery, sessions, household memberships, server-side authorization, persistent room identity, automatic task lifecycle, and research-grounded task estimates require separate schema, migration, access-control, and integration testing.
+Demo photos are public repository assets. Do not add private household photographs or photos without appropriate rights. The human-reviewed evaluation images and annotations under `backend/evaluation/` remain separate from public gallery derivatives.

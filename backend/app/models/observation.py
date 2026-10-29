@@ -40,14 +40,14 @@ class Observation(BaseModel):
 
     def state_key(self) -> str:
         """Return the key used to keep this condition's history together."""
-        # Once we know the physical object, its ID is more precise than its room.
+
         if self.entity_id is not None:
             return (
                 f"{self.entity_id}:"
                 f"{self.category.value}"
             )
 
-        # Location is the fallback when this condition is not tied to a known entity.
+
         return (
             f"{self.location}:"
             f"{self.category.value}"

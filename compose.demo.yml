@@ -1,0 +1,71 @@
+
+services:
+  database:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: homhive_dev
+      POSTGRES_USER: homhive
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in a private .env file}
+    volumes:
+      - homhive_db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homhive -d homhive_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://homhive:${POSTGRES_PASSWORD}@database:5432/homhive_dev
+      HOMHIVE_MEDIA_ROOT: /data/media
+      HOMHIVE_ALLOWED_ORIGINS: http://localhost:3001,http://127.0.0.1:3001
+    volumes:
+      - homhive_media:/data/media
+    ports:
+      - "127.0.0.1:8000:8000"
+    command: ["sh", "-c", "python -m alembic upgrade head && python -m uvicorn app.api.app:app --host 0.0.0.0 --port 8000"]
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health',timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://homhive:${POSTGRES_PASSWORD}@database:5432/homhive_dev
+      HOMHIVE_MEDIA_ROOT: /data/media
+      HOMHIVE_ENTITY_STORAGE: sql
+    volumes:
+      - homhive_media:/data/media
+    command: ["python", "-m", "app.vision.autonomous_worker_cli"]
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_HOMHIVE_API_URL: http://localhost:8000
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  homhive_db:
+  homhive_media:

@@ -78,7 +78,7 @@ class EvidenceIngestion:
                 session.add(record)
                 session.flush()
         except IntegrityError:
-            # Another worker won the same event ID. It owns processing.
+
             with self._sessions() as session:
                 existing = session.get(EvidenceRecord, identity)
                 if existing is None or existing.content_sha256 != digest:

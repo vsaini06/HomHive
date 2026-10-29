@@ -1,9 +1,9 @@
 from app.models import HouseholdState, Observation, TaskStatus
 from app.services.reactive_tasks import task_from_observation
 
-#-tests-
 
-#-1-
+
+
 def test_household_observation_to_task_flow():
     state = HouseholdState(id="home_001")
     active_tasks = []
@@ -88,7 +88,7 @@ def test_household_observation_to_task_flow():
         == "obs_004"
     )
 
-#-2-
+
 def test_low_confidence_observations_are_preserved_without_task():
     state = HouseholdState(id="home_002")
     active_tasks = []
@@ -137,7 +137,7 @@ def test_low_confidence_observations_are_preserved_without_task():
     assert current.value == 0.88
     assert current.confidence == 0.60
 
-#-3-
+
 def test_high_confidence_observation_after_uncertain_evidence_creates_task():
     state = HouseholdState(id="home_003")
     active_tasks = []

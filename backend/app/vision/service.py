@@ -53,8 +53,8 @@ class VisionObservationService:
         if stored is None:
             return None
         info, image = stored
-        # Once an image has been extracted, reuse the original unconfirmed evidence.
-        # Do not silently convert those predictions to trusted household state.
+
+
         previous = [o for o in self._observations.list_observations(household_id)
                     if o.metadata.get("media_id") == media_id]
         if previous:
@@ -69,8 +69,8 @@ class VisionObservationService:
                 space_category=known_category,
             ), previous
         result = self._provider.extract(image, info.content_type, location)
-        # Every configured reviewer independently receives the original image. Never
-        # infer agreement from a failed call or from another reviewer's verdict.
+
+
         if not result.candidates:
             result._verification_diagnostics = {
                 "primary": "no_candidates", "openai": "not_called",
@@ -81,7 +81,7 @@ class VisionObservationService:
         reviewers = (("openai", self._verifier), ("anthropic", self._additional_verifier))
         diagnostics = {"primary": "candidates_present", "openai": "not_configured",
                        "anthropic": "not_configured", "claims": []}
-        # Avoid any paid reviewer call when required provider configuration is incomplete.
+
         if self._require_verification and (self._verifier is None or self._additional_verifier is None):
             diagnostics["overall"] = "missing_required_reviewers"
             result._verification_diagnostics = diagnostics
@@ -93,8 +93,8 @@ class VisionObservationService:
             try:
                 review = reviewer.review(image, info.content_type, result)
             except Exception as exc:
-                # Log only the stable exception class, never provider responses,
-                # credentials, user images, exception messages or prompts.
+
+
                 import logging
                 logging.getLogger(__name__).warning(
                     "Vision reviewer failure: provider=%s error_type=%s",
@@ -106,8 +106,8 @@ class VisionObservationService:
                 successful_reviews.append(review)
                 diagnostics[name] = "completed"
 
-        # Production requires both independent providers; service-only callers
-        # retain the original single-reviewer compatibility for existing tests.
+
+
         required = [name for name, provider in reviewers if provider is not None]
         if self._require_verification and len(required) != 2:
             diagnostics["overall"] = "missing_required_reviewers"
@@ -132,8 +132,8 @@ class VisionObservationService:
             else "partially_corroborated" if accepted_candidates else "unresolved"
         )
         if not room_supported:
-            # Preserve the candidate conditions, but do not claim a particular
-            # room category when the two judges cannot substantiate it.
+
+
             from .provider import SpaceCategory
             result = result.model_copy(update={"space_category": SpaceCategory.UNKNOWN})
         result = result.model_copy(update={
@@ -143,15 +143,15 @@ class VisionObservationService:
         result._verification_diagnostics = diagnostics
         if not accepted_candidates:
             return result, []
-        # Category and physical room identity are distinct. A category is safe
-        # to display as a provisional space, but never verifies which room it is.
+
+
         inferred = (result.space_category.value if result.space_category and
                     result.space_category.value != "unknown" else None)
         supplied = location.strip() if location.strip() != "unknown" else None
         display_location = supplied or inferred or "unknown"
         created = []
         for candidate in result.candidates:
-            # Stable identity per media/category protects retries from duplicating evidence.
+
             observation_id = str(uuid5(NAMESPACE_URL, f"{household_id}:{media_id}:{candidate.category.value}"))
             prior = self._observations.find_observation(household_id, observation_id)
             if prior is not None:

@@ -7,9 +7,9 @@ from app.models import (
 from app.services.reactive_tasks import task_from_observation
 from app.services.task_ranking import rank_tasks
 
-#-tests-
 
-#-1-
+
+
 def test_observations_become_prioritized_action_plan():
     state = HouseholdState(id="home_priority_001")
 

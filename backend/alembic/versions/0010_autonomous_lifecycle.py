@@ -42,7 +42,7 @@ def upgrade():
 
 
 def downgrade():
-    # Explicit downgrade is destructive to task history; use only after backup.
+
     op.drop_index("ix_autonomous_event_task", table_name="autonomous_task_events")
     op.drop_table("autonomous_task_events")
     op.drop_index("ix_autonomous_tasks_room", table_name="autonomous_tasks")

@@ -68,17 +68,17 @@ from .intelligence import (
 
 
 __all__ = [
-    # Household evidence
+
     "Observation",
     "ObservationSource",
     "ConditionType",
 
-    # Household state
+
     "HouseholdState",
     "ConditionSnapshot",
     "ConditionTrend",
 
-    # Tasks
+
     "Task",
     "TaskStatus",
     "TaskUrgency",
@@ -86,7 +86,7 @@ __all__ = [
     "TaskDecisionReason",
     "ScoredTask",
 
-    # Household entities
+
     "EntityType",
     "HouseholdEntity",
     "EntityCandidate",
@@ -94,11 +94,11 @@ __all__ = [
     "EntityResolution",
     "EntityMatchAssessment",
 
-    # Forecasting
+
     "ConditionForecast",
     "ThresholdCrossing",
 
-    # Predictive action
+
     "ActionState",
     "ActionDecision",
     "HouseholdIntelligence",

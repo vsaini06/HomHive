@@ -39,15 +39,46 @@ def reported_minutes(content: str) -> int | None:
     return None
 
 
-def ground_action_effort(action: ActionProposal, *, provider=None) -> ActionProposal:
-    """Never manufacture effort: two independent published domains must explicitly report time.
+_CONTEXT_TERMS = {
+    "closet": {"closet", "wardrobe"}, "pantry": {"pantry", "cupboard"},
+    "kitchen": {"kitchen"}, "bathroom": {"bathroom"},
+    "garage": {"garage"}, "laundry": {"laundry", "washing"},
+    "garden": {"garden", "yard"}, "lawn": {"lawn", "yard"},
+    "fridge": {"fridge", "refrigerator"}, "dishwasher": {"dishwasher"},
+}
 
-    Search is optional and failure never blocks a safe approved task. Model-only estimates
-    are deliberately discarded until corroborated by external material.
+
+def relevant_duration_excerpt(action: ActionProposal, source_text: str) -> bool:
+    """Require the source to discuss the action's named household context."""
+    task = (action.title + ' ' + action.action).lower()
+    mentioned = [alternates for key, alternates in _CONTEXT_TERMS.items()
+                 if re.search(r"\b" + re.escape(key) + r"\b", task)]
+    snippet = source_text.lower()[:2500]
+    if mentioned:
+        return any(any(re.search(r"\b" + re.escape(term) + r"\b", snippet)
+                       for term in alternates) for alternates in mentioned)
+    task_terms = {part for part in re.findall(r"[a-z]{5,}", task)
+                  if part not in {"items", "things", "household", "visible", "usually", "minutes", "floor"}}
+    return bool(task_terms) and bool(task_terms.intersection(set(re.findall(r"[a-z]{5,}", snippet))))
+
+
+def research_existing_task_duration(title: str, action: str, *, provider=None) -> EffortEstimate | None:
+    """Re-research persisted tasks whose URLs were lost; never trust an unsupported narrative.
+
+    Shared duration evidence checks apply to both new and historical tasks.
     """
-    cleaned = action.model_copy(update={"estimated_effort": None})
+    from types import SimpleNamespace
+    from app.services.open_world_planning import ActionProposal
+    proxy = SimpleNamespace(title=title, action=action,
+                            hazard_or_professional_help=False,
+                            supporting_evidence_ids=["verified_task"])
+    return _ground_duration(proxy, provider=provider)
+
+
+def _ground_duration(action, *, provider=None) -> EffortEstimate | None:
+    """Return an externally verified duration, or None. Own/close only new providers."""
     if action.hazard_or_professional_help:
-        return cleaned
+        return None
     owned = provider is None
     try:
         if owned:
@@ -64,37 +95,42 @@ def ground_action_effort(action: ActionProposal, *, provider=None) -> ActionProp
             domain = (parsed.hostname or '').lower().removeprefix('www.')
             if parsed.scheme != 'https' or not domain or domain in per_domain:
                 continue
+            if not relevant_duration_excerpt(action, item.content):
+                continue
             minutes = reported_minutes(item.content)
             if minutes is not None:
                 per_domain[domain] = (minutes, url)
         if len(per_domain) < 2:
-            return cleaned
+            return None
         sampled = list(per_domain.values())[:5]
         values = [minutes for minutes, _ in sampled]
         if max(values) > min(values) * 3:
-            return cleaned
+            return None
         mid = round(median(values))
-        low = min(values)
-        high = max(values)
-        estimate = EffortEstimate(
-            minimum_minutes=low, maximum_minutes=high,
+        return EffortEstimate(
+            minimum_minutes=min(values), maximum_minutes=max(values),
             rationale=f'Approximate published task durations from {len(sampled)} independent sources; median {mid} min. Actual time depends on scope and preferences.',
-            evidence_ids=action.supporting_evidence_ids,
-            externally_verified=True,
+            evidence_ids=action.supporting_evidence_ids, externally_verified=True,
             source_urls=[url for _, url in sampled],
         )
-        return action.model_copy(update={"estimated_effort": estimate})
     except ValidationError as exc:
-        # Report only schema locations and error codes, never provider text or credentials.
-        fields = [
-            '.'.join(map(str, issue['loc'])) + ':' + issue['type']
-            for issue in exc.errors(include_url=False, include_context=False, include_input=False)[:5]
-        ]
+        fields = ['.'.join(map(str, issue['loc'])) + ':' + issue['type']
+                  for issue in exc.errors(include_url=False, include_context=False, include_input=False)[:5]]
         logger.warning('Task duration research invalid: %s', ', '.join(fields))
-        return cleaned
+        return None
     except Exception as exc:
         logger.warning('Task duration research unavailable: %s', type(exc).__name__)
-        return cleaned
+        return None
     finally:
         if owned and provider is not None:
             provider.close()
+
+
+def ground_action_effort(action: ActionProposal, *, provider=None) -> ActionProposal:
+    """Never manufacture effort: two independent published domains must explicitly report time.
+
+    Search is optional and failure never blocks a safe approved task. Model-only estimates
+    are deliberately discarded until corroborated by external material.
+    """
+    estimate = _ground_duration(action, provider=provider)
+    return action.model_copy(update={"estimated_effort": estimate})

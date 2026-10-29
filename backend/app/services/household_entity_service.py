@@ -48,8 +48,8 @@ class HouseholdEntityService:
     ) -> HouseholdEntity | None:
         """Rename an entity after cleaning and validating the supplied name."""
 
-        # new_name is the preferred argument. name remains temporarily for
-        # callers using the original service interface.
+
+
         requested_name = (
             new_name
             if new_name is not None

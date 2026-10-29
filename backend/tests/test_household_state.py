@@ -1,15 +1,15 @@
 from app.models import HouseholdState, Observation
 
-#-tests-
 
-#-1-
+
+
 def test_household_state_starts_empty():
     state = HouseholdState(id="home_001")
 
     assert state.observation_history == []
     assert state.current_observations == {}
 
-#-2-
+
 def test_add_observation_updates_state():
     state = HouseholdState(id="home_001")
 
@@ -31,7 +31,7 @@ def test_add_observation_updates_state():
         == 0.82
     )
 
-#-3-
+
 def test_new_observation_replaces_current_but_preserves_history():
     state = HouseholdState(id="home_001")
 

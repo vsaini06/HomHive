@@ -2,277 +2,121 @@
 
 **The intelligence layer for the autonomous home.**
 
-> **Implementation status (October 2026):** The source includes open-world independent visual review, autonomous task persistence, a room registry and a PostgreSQL-backed scan queue. Migration `0012_autonomous_room_category` and live end-to-end worker operation still require verification on the target installation. The original verification statistics below refer to earlier milestones and must not be mistaken for the latest system acceptance. See [Current state](docs/current-state.md).
+HomHive turns household photographs into verified observations, persistent room and object context, evidence-based tasks, and context-aware plans. Rather than requiring someone to enter every chore, HomHive discovers work from changes in the home and helps decide what is worth doing next.
 
-HomHive turns household evidence into remembered state, discovered work, forecasts, selective external research, and a context-aware action plan. The goal is not another task list. The goal is a household intelligence layer that can understand what is changing, decide what matters, determine what is executable now, and preserve work that should wait.
+## What HomHive does
 
-## Product loop
-
-```text
-Phone photo / short video
-        |
-        v
-Environmental perception
-        |
-        v
-Structured observations
-        |
-        v
-Household state + temporal history
-        |
-        +--------------------+
-        |                    |
-        v                    v
-Reactive task discovery   Forecasting
-        |                    |
-        +----------+---------+
-                   |
-                   v
-             Task ranking
-                   |
-                   v
-      Selective Tavily research
-                   |
-                   v
- Deterministic feasibility constraints
-                   |
-                   v
- NVIDIA Nemotron cross-domain planning
-                   |
-                   v
-      Human / future executor plan
-```
-
-HomHive keeps perception, state, forecasting, work discovery, executability, and planning as separate responsibilities. External AI providers sit behind adapters and never become the source of truth for durable household state.
-
-## Verified current capabilities
-
-- typed Pydantic domain models for observations, state, entities, forecasts, tasks, decisions, and plans
-- confidence- and recency-aware household-state reconstruction from persisted observation history
-- deterministic reactive task discovery and duplicate active-task prevention
-- condition forecasting, threshold-crossing prediction, and predictive task lifecycle handling
-- deterministic task scoring and ranking
-- household-scoped PostgreSQL persistence through SQLAlchemy and Alembic
-- authenticated private image upload and retrieval with media metadata stored separately from media bytes
-- Nebius Token Factory multimodal perception using `openbmb/MiniCPM-V-4_5`
-- explicit unknown model confidence using `None` / SQL `NULL`
-- user confirmation that creates separate user evidence instead of rewriting AI evidence
-- detection-first scene inventory with human-reviewed completeness scoring
-- Tavily research with normalized source evidence and household-scoped research caching
-- deterministic feasibility filtering for active time, passive time, at-home requirements, and quiet hours
-- NVIDIA Nemotron planning through Nebius using `nvidia/Nemotron-3_5-Lightning`
-- strict planner validation that rejects unknown task IDs and infeasible selections
-- deterministic planning fallback when model output is unavailable or invalid
-- mobile-first Next.js client for upload, evidence review, intelligence refresh, research-aware planning, and replanning
-- Docker Compose runtime with Next.js, FastAPI, PostgreSQL 17, Alembic startup migrations, and persistent database/media volumes
-
-## Verified end-to-end behavior
-
-The browser flow has been exercised through the real API stack:
+1. **Observe:** Upload a household photo, or select an example from the demo library.
+2. **Verify:** Nebius-powered vision proposes visible evidence. Independent image reviews using OpenAI and Anthropic check claims before they influence household decisions.
+3. **Remember:** Store scan history, distinguish physical rooms, and retain object identity and task state in PostgreSQL.
+4. **Discover:** Create and update justified household tasks; avoid duplicates and preserve uncertainty when evidence is insufficient.
+5. **Research:** Use Tavily selectively for unfamiliar objects, care questions, and grounded effort research.
+6. **Coordinate:** Apply availability, quiet-hours, duration, presence, and other deterministic restrictions before requesting a plan from NVIDIA Nemotron through Nebius Token Factory.
+7. **Reassess:** Compare later evidence with previous observations and report supported visible progress, without treating disappearance from a photo as proof that work was physically completed.
 
 ```text
-private image upload
--> Nebius perception
--> structured household observation
--> explicit user confirmation when required
--> persisted household state
--> reactive + predictive work
--> ranking
--> NVIDIA Nemotron plan
--> context change
--> replanned result
+Photograph -> Nebius vision -> Independent review -> Verified evidence
+     -> Persistent rooms / objects / task history
+     -> Task discovery + progress evaluation
+     -> Selective Tavily research
+     -> Feasibility checks -> NVIDIA Nemotron advice
+     -> Household decision interface
 ```
 
-A live kitchen run produced a `dish_load` observation, required user confirmation, refreshed persistent household intelligence, and generated a Nemotron plan. With 20 available active minutes, one 15-minute task was selected and the remaining work was deferred. With the same household state and only 5 available active minutes, no 15-minute task was selected and both tasks were preserved as deferred work.
+## Demo highlights
 
-This demonstrates a central HomHive invariant:
+- **Space continuity:** A recognized room category is not treated as proof that two images show the same physical room.
+- **Object-first views:** Close-up objects can have an independent identity without a confirmed room assignment.
+- **Evidence-grounded progress:** Original and changed images can update task progress when a valid relationship has been established.
+- **Autonomous coordination:** A background worker can trigger research and replanning after meaningful completed scans.
+- **Human control:** Users review recommendations, task history, and reasons; HomHive does not control real appliances or robots.
 
-```text
-importance != executability != fit
-```
+The product also includes a curated demonstration image gallery. Its descriptive filenames are catalog metadata, **not** model predictions or verified object/species labels.
 
-## Evaluation snapshot
+## Stack
 
-Scene completeness is evaluated separately from schema validity and household-condition extraction.
+| Layer | Technology |
+| --- | --- |
+| Web application | Next.js 16, React, TypeScript |
+| API and background worker | FastAPI, Python, Pydantic |
+| Persistence | PostgreSQL, SQLAlchemy 2, Alembic |
+| Multimodal perception | Nebius Token Factory, with independent OpenAI and Anthropic review |
+| Decision advice | NVIDIA Nemotron via Nebius Token Factory |
+| External research | Tavily |
+| Local deployment | PowerShell or Docker Compose |
 
-A human-reviewed kitchen development set contains **59 reference entities across four scenes**.
+## Run locally
 
-| Pipeline | Matched | Predictions | Micro recall | Micro precision | Micro F1 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Joint object + condition prompt | 28 | 37 | 47.46% | 75.68% | 58.33% |
-| Detection-first object discovery | 42 | 58 | 71.19% | 72.41% | 71.79% |
+Requirements: Python 3.12+, Node.js, PostgreSQL, and credentials for the AI services used by the chosen workflow. The application's autonomous mode requires separately configured providers and a worker process.
 
-Detection-first inference improved scene-entity recall by **23.73 percentage points**, a **50.0% relative improvement**, while micro-F1 improved by **13.46 percentage points**. Precision decreased by 3.27 percentage points.
-
-These are development-set measurements, not production accuracy claims. The scorer also has known vocabulary/granularity limitations, and one heavy-scene joint request required a retry after strict output validation rejected the first response.
-
-## Verification status
-
-- historical backend regression suite: **348 passed** (earlier milestone; latest reported Windows baseline: **496 passed**, not reproduced in this environment)
-- frontend typecheck: passed
-- frontend production build: passed
-- npm audit during installation: 0 vulnerabilities
-- live Nebius MiniCPM perception: verified
-- live Tavily research: verified
-- live NVIDIA Nemotron planning: verified
-- live 20-minute to 5-minute context replan: verified
-- Docker backend image build: verified
-- Docker frontend image build: verified
-- PostgreSQL container health: verified
-- Alembic migration on container startup: verified
-- FastAPI `/health`: HTTP 200
-- Next.js production container: HTTP 200
-
-## Architecture principles
-
-1. Observation is not state.
-2. State is not forecast.
-3. Forecast is not action.
-4. Task existence is not priority.
-5. Importance is not executability.
-6. Entity identity is not condition.
-7. Unknown confidence remains unknown.
-8. Raw evidence is preserved even when it cannot trigger action.
-9. Deterministic rules handle obvious constraints before model reasoning.
-10. AI output is parsed and validated before it can influence domain state or a plan.
-11. Web content is evidence, not trusted authority.
-12. Provider-specific objects stay outside stable domain contracts.
-
-## Technology stack
-
-**Backend:** Python, FastAPI, Pydantic, SQLAlchemy 2.x, Alembic, Strawberry GraphQL, PostgreSQL
-
-**Frontend:** Next.js, React, TypeScript
-
-**AI and research:** Nebius Token Factory, MiniCPM-V-4_5, NVIDIA Nemotron, Tavily
-
-**Runtime:** Docker, Docker Compose, PostgreSQL 17
-
-## Repository layout
-
-```text
-homhive/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── db/
-│   │   ├── evaluation/
-│   │   ├── media/
-│   │   ├── models/
-│   │   ├── planning/
-│   │   ├── repositories/
-│   │   ├── research/
-│   │   ├── services/
-│   │   └── vision/
-│   ├── alembic/
-│   ├── evaluation/
-│   └── tests/
-├── docs/
-├── frontend/
-├── docker-compose.yml
-├── LICENSE
-└── README.md
-```
-
-## Local backend setup
-
-From `backend`:
+**Backend**, from `backend/` in PowerShell:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
+# Configure backend/.env privately, then create/update the PostgreSQL database.
 python -m alembic upgrade head
+python -m uvicorn app.api.app:app --reload --host 127.0.0.1 --port 8000
+```
+
+**Worker**, in a separate activated backend terminal:
+
+```powershell
+$env:HOMHIVE_ACCURACY_FIRST = 'true'
+$env:HOMHIVE_AUTO_ORCHESTRATION = 'true'
+python -m app.vision.autonomous_worker_cli
+```
+
+These flags control accuracy-first review and automatic post-scan coordination. The backend and worker must also have the autonomous feature flags, household/media settings, and the appropriate API keys configured; see [backend setup](backend/README.md). The worker does not run merely because the API is running.
+
+**Frontend**, from `frontend/` in another terminal:
+
+```powershell
+npm ci
+$env:NEXT_PUBLIC_HOMHIVE_API_URL = 'http://127.0.0.1:8000'
+npm run dev -- -p 3001
+```
+
+Open `http://localhost:3001`. Backend health check: `http://127.0.0.1:8000/health`. Keep account and provider credentials out of the browser bundle and Git.
+
+Alternatively, `compose.demo.yml` defines an **optional localhost-only** PostgreSQL/API/worker/web stack. It creates separate database volumes and does not import the existing Windows demo database. See [operations](docs/operations.md).
+
+## Tests
+
+```powershell
+cd backend
 python -m pytest -q
-python -m uvicorn app.api.app:app --reload
 ```
 
-Real credentials belong only in ignored local environment files or deployment-provided secrets.
-
-## Local frontend setup
-
-From `frontend`:
-
 ```powershell
-npm install
-$env:NEXT_PUBLIC_HOMHIVE_API_URL="http://127.0.0.1:8000"
+cd frontend
 npm run typecheck
-npm run dev -- -H 127.0.0.1 -p 3001
+npm run build
 ```
 
-The backend must allow the frontend origin through `HOMHIVE_ALLOWED_ORIGINS`.
+The latest Windows working-copy report before this documentation cleanup was **684 passing backend tests**, plus successful frontend typecheck and build. Run the checks in your own checkout after applying cleanup changes. Model inference and live-provider credentials require separate end-to-end verification.
 
-## Docker Compose
+A small development evaluation compared joint and detection-first scene inventory on four labeled kitchen scenes with 59 reference entities. Detection-first micro recall increased from **47.46% to 71.19%**; this is not a production accuracy claim. [Evaluation details](docs/evaluation.md).
 
-Create a root `.env` from the example and provide local values for the database password, household token mapping, Nebius credentials/model, and Tavily key. Do not commit the real `.env`.
+## Known limitations
 
-```powershell
-docker compose config --quiet
-docker compose build
-docker compose up -d
-docker compose ps
-```
-
-Verified local endpoints:
-
-```text
-Frontend: http://localhost:3001
-Backend:  http://localhost:8000
-Health:   http://localhost:8000/health
-```
-
-The Compose stack uses persistent volumes for PostgreSQL data and private media files.
-
-## Main household API flow
-
-```text
-POST /households/{household_id}/media
-POST /households/{household_id}/media/{media_id}/observations
-POST /households/{household_id}/observations/{observation_id}/confirm
-POST /households/{household_id}/intelligence/refresh
-POST /households/{household_id}/research
-POST /households/{household_id}/plan
-```
-
-The development bearer-token mapping is a local authentication mechanism, not a production identity system.
-
-## Current limitations
-
-- video ingestion and frame sampling are not yet implemented
-- scene completeness has improved but is still evaluated on a small kitchen development set
-- persistent cross-image physical-entity identity is not production-ready
-- reactive and predictive tasks can still represent the same underlying household work with different task keys
-- historical plan/audit events are not fully persisted
-- the full observation-to-task workflow is not transactionally atomic under concurrent processing
-- calendar, email, richer presence, and work-status integrations are not implemented
-- background execution for long-running provider calls is not implemented
-- production user accounts, household membership, and production-grade media authorization are not implemented
-- local Docker runtime is verified, but public production deployment is not claimed
+- Independent plant species identification and object-specific Tavily source display are **not yet verified end-to-end**. A successful Tavily API response does not guarantee an object card receives sources.
+- Room and object matching preserve uncertainty, and ambiguous images can need confirmation.
+- Task durations and completion percentages can be unknown or approximate. Visual change is not independent proof a physical task was performed.
+- Video ingestion, continuous camera sensing, autonomous robot/appliance control, and direct calendar management are future directions, not implemented demo capabilities.
+- Local development authentication and Docker settings are not a production security deployment.
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md) - system boundaries and data flow
-- [`docs/current-state.md`](docs/current-state.md) - verified implementation state
-- [`docs/evaluation.md`](docs/evaluation.md) - measured evaluation and testing strategy
-- [`docs/decisions.md`](docs/decisions.md) - architecture decisions and open design questions
-- [`docs/hackathon.md`](docs/hackathon.md) - submission-oriented integration status
-- [`docs/product-spec.md`](docs/product-spec.md) - product scope and behavior
+- [Architecture](docs/architecture.md)
+- [Product behavior](docs/product-spec.md)
+- [Local operation and demo walkthrough](docs/operations.md)
+- [Evaluation](docs/evaluation.md)
+- [Demo image library](docs/demo-library.md)
+- [Hackathon submission notes](docs/hackathon.md)
 
 ## License
 
-MIT
-
-## Interface and verification integration (October 2026)
-
-The web client separates **AI-corroborated**, **human-confirmed**, and **unverified** observations. Agreement between independent vision reviewers does not create a synthetic numeric confidence or a human confirmation. Reusing a processed media ID returns the persisted observation rather than initiating another analysis. The household intelligence refresh advances overdue completion checks using existing trusted evidence; it never treats the user's Done action as proof that a condition was resolved.
-
-Local setup uses both root and backend `.env` files. Keep secrets out of version control. Existing process variables may override file values, so verify which terminal starts Uvicorn after rotating a provider credential. The current task estimator still uses deterministic category defaults; evidence-grounded research estimates remain planned work. See `docs/current-state.md` for limitations and `frontend/README.md` for the interface.
-
-## Autonomous consumer workflow
-
-With the autonomous flags and all three provider credentials configured, a saved household photograph enters a durable queue. The worker independently corroborates a scene with Nebius, OpenAI and Claude, reviews evidence-grounded proposed actions and stores justified tasks in PostgreSQL. The household's first independently verified image can establish its first physical-room reference automatically; later images require trustworthy room continuity. User actions and actual creation/update timestamps are persisted. A 30-minute snooze is in-app only; reporting Done is not independent proof of completion.
-
-The queue worker must be running separately and reads `backend/.env` before checking feature flags. Configuration errors stop startup rather than creating unreachable work. Run `python scripts/live_smoke.py --image <path>` from `backend` after starting FastAPI and the worker to verify the real API-to-worker-to-task path in your own network-enabled environment. Use a dedicated test account and avoid production secrets.
-
-See `docs/implementation-audit.md` for verification status, security constraints, remaining gaps and installation instructions.
+MIT. See [LICENSE](LICENSE).

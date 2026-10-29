@@ -49,7 +49,7 @@ def test_both_reviewers_run_when_first_disagrees_and_partial_claim_survives():
     assert observations[0].confidence is None
     assert result._verification_diagnostics['overall'] == 'partially_corroborated'
     assert [x['status'] for x in result._verification_diagnostics['claims']] == ['corroborated', 'disputed']
-    # Durable idempotency: retry reads the existing evidence rather than charging models again.
+
     service.extract_and_store('household', 'photo', 'unknown')
     assert (a.calls, b.calls) == (1, 1)
 

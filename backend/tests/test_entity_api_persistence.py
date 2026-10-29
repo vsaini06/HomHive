@@ -21,7 +21,7 @@ def test_graphql_persists_renames_between_app_instances(tmp_path: Path):
     engine = create_engine(database_url)
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", database_url)
-    # Alembic obtains its URL from the environment for both migration modes.
+
     import os
     old_url = os.environ.get("DATABASE_URL")
     os.environ["DATABASE_URL"] = database_url

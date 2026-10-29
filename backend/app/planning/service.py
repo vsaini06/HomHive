@@ -36,8 +36,8 @@ class PlanningService:
         context: PlanningContext,
         research_requests: list[ResearchRequest] | None = None,
     ) -> tuple[HouseholdPlan, list[TaskFeasibility], list[ResearchResult]]:
-        # Planning is a commitment workflow. Discovery proposals are not
-        # executable until explicitly accepted by the household member.
+
+
         now = datetime.now(timezone.utc)
         eligible = [
             task for task in self._tasks.list_tasks(household_id)
@@ -45,8 +45,8 @@ class PlanningService:
             and bool(task.metadata.get("accepted_at"))
             and not _is_deferred(task.metadata.get("deferred_until"), now)
         ]
-        # Forecast and observed proposals may represent the same chore.
-        # Keep the observed task when both are committed, deterministically.
+
+
         unique = {}
         for task in sorted(eligible, key=lambda item: (item.task_key.startswith("predictive:"), item.created_at, item.id)):
             condition_key = task.task_key.removeprefix("predictive:")

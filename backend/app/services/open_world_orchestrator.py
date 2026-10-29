@@ -52,8 +52,8 @@ def plan_verified_scene(*, corroborated_evidence: list[Evidence],
     proposal = (planner.propose(corroborated_evidence, independently_supported_scene,
                                 existing_tasks=existing_tasks)
                 if existing_tasks else planner.propose(corroborated_evidence, independently_supported_scene))
-    # An LLM cannot authoritatively add evidence, rewrite source IDs, or turn an
-    # unverified room into a supported category merely by asserting it.
+
+
     if proposal.evidence != corroborated_evidence or proposal.scene != independently_supported_scene:
         raise ValueError("Planner altered corroborated evidence or room provenance")
     independent_review = reviewer.review(proposal, original_media, media_type)

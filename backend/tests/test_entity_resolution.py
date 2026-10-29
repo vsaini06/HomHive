@@ -17,9 +17,9 @@ from app.services import (
     resolve_entity_candidate,
 )
 
-#-tests-
 
-#-1-
+
+
 def test_entity_resolution_match():
     result = EntityResolution(
         status=EntityResolutionStatus.MATCH,
@@ -35,7 +35,7 @@ def test_entity_resolution_match():
     assert result.matched_entity_id == "entity_plant_001"
     assert result.confidence == 0.94
 
-#-2-
+
 def test_entity_resolution_create():
     result = EntityResolution(
         status=EntityResolutionStatus.CREATE,
@@ -48,7 +48,7 @@ def test_entity_resolution_create():
     assert result.status == EntityResolutionStatus.CREATE
     assert result.matched_entity_id is None
 
-#-3-
+
 def test_entity_resolution_uncertain():
     result = EntityResolution(
         status=EntityResolutionStatus.UNCERTAIN,
@@ -61,7 +61,7 @@ def test_entity_resolution_uncertain():
     assert result.status == EntityResolutionStatus.UNCERTAIN
     assert result.matched_entity_id is None
 
-#-4-
+
 def test_resolution_rejects_confidence_above_one():
     with pytest.raises(ValidationError):
         EntityResolution(
@@ -70,7 +70,7 @@ def test_resolution_rejects_confidence_above_one():
             confidence=1.1,
         )
 
-#-5-
+
 def test_resolution_rejects_negative_confidence():
     with pytest.raises(ValidationError):
         EntityResolution(
@@ -78,7 +78,7 @@ def test_resolution_rejects_negative_confidence():
             confidence=-0.1,
         )
 
-#-6-
+
 def test_matching_entity_is_compatible():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -99,7 +99,7 @@ def test_matching_entity_is_compatible():
         entity,
     )
 
-#-7-
+
 def test_different_entity_type_is_incompatible():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -119,7 +119,7 @@ def test_different_entity_type_is_incompatible():
         entity,
     )
 
-#-8-
+
 def test_different_entity_type_is_incompatible():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -139,7 +139,7 @@ def test_different_entity_type_is_incompatible():
         entity,
     )
 
-#-9-
+
 def test_different_location_is_incompatible():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -160,7 +160,7 @@ def test_different_location_is_incompatible():
         entity,
     )
 
-#-10-
+
 def test_conflicting_identity_is_incompatible():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -181,7 +181,7 @@ def test_conflicting_identity_is_incompatible():
         entity,
     )
 
-#-11-
+
 def test_unknown_candidate_identity_can_be_compatible():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -202,7 +202,7 @@ def test_unknown_candidate_identity_can_be_compatible():
         entity,
     )
 
-#-12-
+
 def test_resolve_entity_creates_when_no_compatible_entity():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -219,7 +219,7 @@ def test_resolve_entity_creates_when_no_compatible_entity():
     assert result.matched_entity_id is None
     assert result.confidence == 0.90
 
-#-13-
+
 def test_single_compatible_entity_without_evidence_is_uncertain():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -247,7 +247,7 @@ def test_single_compatible_entity_without_evidence_is_uncertain():
     )
     assert result.matched_entity_id is None
 
-#-14-
+
 def test_resolve_entity_is_uncertain_with_multiple_compatible_entities():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -283,7 +283,7 @@ def test_resolve_entity_is_uncertain_with_multiple_compatible_entities():
     )
     assert result.matched_entity_id is None
 
-#-15-
+
 def test_resolve_entity_ignores_incompatible_entities():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -332,7 +332,7 @@ def test_resolve_entity_ignores_incompatible_entities():
         == "entity_plant_001"
     )
 
-#-16-
+
 def test_strong_match_evidence_resolves_entity():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -368,7 +368,7 @@ def test_strong_match_evidence_resolves_entity():
     )
     assert result.confidence == 0.92
 
-#-17-
+
 def test_weak_match_evidence_remains_uncertain():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -402,7 +402,7 @@ def test_weak_match_evidence_remains_uncertain():
     )
     assert result.matched_entity_id is None
 
-#-18-
+
 def test_multiple_strong_matches_remain_uncertain():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -449,7 +449,7 @@ def test_multiple_strong_matches_remain_uncertain():
     )
     assert result.matched_entity_id is None
 
-#-19-
+
 def test_match_evidence_scores_exact_identity():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -474,7 +474,7 @@ def test_match_evidence_scores_exact_identity():
         in evidence.reasons
     )
 
-#-20-
+
 def test_match_evidence_scores_matching_attributes():
     candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
@@ -503,7 +503,7 @@ def test_match_evidence_scores_matching_attributes():
 
     assert evidence.score == 1.0
 
-#-21-
+
 def test_match_evidence_scores_partial_attribute_match():
     candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
@@ -531,7 +531,7 @@ def test_match_evidence_scores_partial_attribute_match():
 
     assert evidence.score == 0.25
 
-#-22-
+
 def test_match_evidence_is_zero_without_shared_evidence():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -557,7 +557,7 @@ def test_match_evidence_is_zero_without_shared_evidence():
     assert evidence.score == 0.0
     assert evidence.reasons == []
 
-#-23-
+
 def test_automatic_resolution_creates_when_no_entity_is_compatible():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -576,7 +576,7 @@ def test_automatic_resolution_creates_when_no_entity_is_compatible():
     )
     assert result.matched_entity_id is None
 
-#-24-
+
 def test_automatic_resolution_matches_with_strong_evidence():
     candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
@@ -614,7 +614,7 @@ def test_automatic_resolution_matches_with_strong_evidence():
     )
     assert result.confidence == 1.0
 
-#-25-
+
 def test_automatic_resolution_does_not_match_on_identity_alone():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -640,7 +640,7 @@ def test_automatic_resolution_does_not_match_on_identity_alone():
     )
     assert result.matched_entity_id is None
 
-#-26-
+
 def test_automatic_resolution_is_uncertain_for_multiple_strong_matches():
     candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
@@ -688,7 +688,7 @@ def test_automatic_resolution_is_uncertain_for_multiple_strong_matches():
     )
     assert result.matched_entity_id is None
 
-#-27-
+
 def test_conflicting_attributes_prevent_strong_match():
     candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
@@ -723,7 +723,7 @@ def test_conflicting_attributes_prevent_strong_match():
         in evidence.reasons
     )
 
-#-28-
+
 def test_conflicting_attributes_keep_automatic_resolution_uncertain():
     candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,

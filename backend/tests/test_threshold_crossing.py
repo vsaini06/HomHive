@@ -12,9 +12,9 @@ from app.models import (
 )
 from app.services import decide_action
 
-#-tests-
 
-#-1-
+
+
 def test_threshold_crossing_can_be_created():
     now = datetime.now(timezone.utc)
 
@@ -35,7 +35,7 @@ def test_threshold_crossing_can_be_created():
     assert prediction.hours_to_threshold == 3.0
     assert prediction.confidence == 0.90
 
-#-2-
+
 def test_threshold_crossing_rejects_invalid_threshold():
     now = datetime.now(timezone.utc)
 
@@ -51,7 +51,7 @@ def test_threshold_crossing_rejects_invalid_threshold():
             confidence=0.90,
         )
 
-#-3-
+
 def test_threshold_crossing_rejects_negative_hours():
     now = datetime.now(timezone.utc)
 
@@ -67,7 +67,7 @@ def test_threshold_crossing_rejects_negative_hours():
             confidence=0.90,
         )
 
-#-4-
+
 def test_action_policy_rejects_invalid_planning_window():
     with pytest.raises(
         ValueError,

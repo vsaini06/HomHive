@@ -1,10 +1,10 @@
 # HomHive backend
 
-The backend is a FastAPI application built around explicit domain, service, repository, provider, and persistence boundaries.
+FastAPI, PostgreSQL persistence, multimodal evidence review, and the durable autonomous worker.
 
 ## Local setup
 
-From `backend` on Windows PowerShell:
+From `backend/` in PowerShell:
 
 ```powershell
 python -m venv .venv
@@ -13,93 +13,27 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 python -m alembic upgrade head
 python -m pytest -q
-python -m uvicorn app.api.app:app --reload
+python -m uvicorn app.api.app:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Explicit process environment variables override values loaded from `backend/.env`. Real secrets must not be committed or printed.
+Keep all provider credentials, account secrets, and household bearer tokens in `backend/.env` or private process environment variables. Inherited environment variables take precedence over local `.env` values.
 
-The current Alembic head is `0006_research_cache`.
+The autonomous scan route requires `HOMHIVE_ENABLE_OPEN_WORLD_PREVIEW`, `HOMHIVE_ENABLE_AUTONOMOUS_SCAN`, and `HOMHIVE_ENABLE_AUTONOMOUS_QUEUE` set to `true`. It also requires a valid PostgreSQL `DATABASE_URL`, private media root, household-token mapping, `NEBIUS_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and supported `HOMHIVE_OPENAI_REVIEW_MODEL` / `HOMHIVE_ANTHROPIC_REVIEW_MODEL` values. Set `HOMHIVE_ACCURACY_FIRST=true` where the accuracy-first path is desired.
 
-## Verified regression baseline
-
-```text
-348 passed
-```
-
-The suite covers domain rules, persistence, household isolation, media authorization, vision validation, scene completeness scoring, evidence confirmation, intelligence refresh, Tavily research/cache behavior, planning feasibility, and planning APIs.
-
-## Image and observation path
-
-Authenticated JPEG, PNG, and WebP uploads are stored privately. PostgreSQL stores household-scoped media metadata separately from file bytes.
-
-```text
-stored household image
--> Nebius MiniCPM-V-4_5
--> validated candidate observation
--> explicit review when confidence is unknown
--> household-scoped ObservationStorage
--> PostgreSQL
-```
-
-The vision provider does not invent a calibrated confidence value. Unknown confidence is preserved as `None` / SQL `NULL`. Explicit confirmation creates separate user evidence rather than rewriting the original AI observation.
-
-## Scene inventory and completeness
-
-`evaluation.run_scene` supports joint and detection-only scene inventory. `evaluation.run_scene_completeness` scores predictions against human-reviewed reference inventories.
-
-Across four kitchen scenes with 59 reference entities:
-
-```text
-Joint micro recall:       47.46%
-Joint micro F1:           58.33%
-Detection micro recall:   71.19%
-Detection micro F1:       71.79%
-Relative recall gain:     50.0%
-```
-
-These are development-set measurements. Detection-only inference is intentionally separated from condition assessment so object discovery can be evaluated independently.
-
-## Intelligence and planning
-
-`POST /households/{household_id}/intelligence/refresh` reconstructs household state from durable observations, discovers reactive work, calculates forecasts, reconciles predictive work, and ranks active tasks.
-
-`POST /households/{household_id}/plan` applies deterministic feasibility constraints before accepting an executable plan. Active time, passive time, at-home requirements, quiet hours, and task limits are handled separately from task importance.
-
-When `NEBIUS_REASONING_MODEL` is configured with an NVIDIA Nemotron model, the planner can use Nebius reasoning. Model output is strictly validated for known task IDs and feasibility, with deterministic fallback if provider output is unavailable or invalid.
-
-A live run with `nvidia/Nemotron-3_5-Lightning` was verified. The same persisted task set produced one selected task with 20 available active minutes and no selected tasks with 5 available active minutes.
-
-## Research
-
-When `TAVILY_API_KEY` is configured, `POST /households/{household_id}/research` performs household-authorized Tavily search. Results are normalized into source evidence before they can be used by planning. Research records can be cached in PostgreSQL through the `research_cache` table.
-
-Live Tavily runtime search has been verified. Cache behavior is covered by automated tests; a separate live cache-hit reuse claim is not required for the current runtime evidence.
-
-## Docker runtime
-
-The backend image starts by applying Alembic migrations and then serving FastAPI on port 8000. The Docker Compose stack has been verified with PostgreSQL 17 reporting healthy and `/health` returning HTTP 200.
-
-From the repository root:
+Run the worker in its own terminal with the same configuration:
 
 ```powershell
-docker compose config --quiet
-docker compose build
-docker compose up -d
-docker compose ps
+$env:HOMHIVE_ACCURACY_FIRST = 'true'
+$env:HOMHIVE_AUTO_ORCHESTRATION = 'true'
+python -m app.vision.autonomous_worker_cli
 ```
 
-## Important boundaries
+The worker handles scans, optional Tavily research, and Nemotron advice following supported state changes. For automatic advice use an available NVIDIA model such as `nvidia/nemotron-3-super-120b-a12b` through Nebius Token Factory, configured with `NEBIUS_ADVICE_MODEL` if necessary.
 
-- observations are evidence, not tasks
-- derived state is reconstructable from persisted observations
-- forecasts do not directly imply actions
-- task identity is separate from ranking
-- provider output is never persisted or executed without parsing and validation
-- web research is untrusted evidence
-- development household bearer tokens are not production authentication
+## Safety and evidence
 
-## Evidence-to-task safeguards
+Visual claims undergo independent review before they can justify autonomous tasks. Evidence is separate from task state and user-reported completion; no synthetic confidence is assigned when calibration is unavailable. Research text and model output are validated before use. Inaccessible providers should not result in invented observations.
 
-Independent multimodal reviewers must corroborate a proposed visual claim before the observation is promoted. AI-corroborated visual evidence retains `confidence=None`: model agreement is a provenance fact, not a calibrated numeric confidence. The current numeric-confidence-only aggregator may omit those observations from condition snapshots and forecasts. This remains an explicit limitation, not something to fix by inventing a score.
+## Verification
 
-Refreshing household intelligence now evaluates **overdue** verification obligations against available, trusted follow-up evidence. No follow-up means `awaiting_evidence`, not automatic completion; future-due obligations stay unchanged. Task durations currently use condition-specific defaults; richer evidence-grounded time estimates are not yet implemented. Run `python -m pytest -q` from `backend/` with the project's dependencies installed.
+Run `python -m pytest -q` in the activated backend environment. Run `python -m alembic current` to confirm the local database is migrated. The migration files include `0017_autonomous_object_identity` and must not be deleted or skipped.

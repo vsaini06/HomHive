@@ -61,8 +61,8 @@ def refresh_household_intelligence(
 ) -> HouseholdIntelligence:
     state = reconstruct_household_state(household_id, observations)
     existing_tasks = tasks.list_tasks(household_id)
-    # An explicit refresh advances overdue verification using only available
-    # trusted evidence; a user's completion report never counts as proof.
+
+
     from app.automation.verification import evaluate, parse_time
     now = datetime.now(timezone.utc)
     for task in existing_tasks:
@@ -77,8 +77,8 @@ def refresh_household_intelligence(
     open_world_only = os.environ.get("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "").lower() == "true"
     for observation in ([] if open_world_only else state.current_observations.values()):
         key = f"{observation.location}:{observation.category.value}"
-        # Keep a human dismissal of this condition, including a re-upload,
-        # instead of recreating the same unresolved work on refresh.
+
+
         if any(
             task.task_key == key and task.status == TaskStatus.DISMISSED
             and task.metadata.get("dismissed_at")
@@ -112,8 +112,8 @@ def refresh_household_intelligence(
             continue
 
         action_decisions.append(decision)
-        # One household condition represents one physical chore. Forecasts
-        # still exist, but do not create a competing actionable proposal.
+
+
         key = f"{decision.location}:{decision.category.value}"
         if any(
             task.task_key == key and task.status in {TaskStatus.PENDING, TaskStatus.IN_PROGRESS}
@@ -133,8 +133,8 @@ def refresh_household_intelligence(
 
     all_tasks = tasks.list_tasks(household_id)
     now = datetime.now(timezone.utc)
-    # Preserve predictive history, but show only one actionable task per
-    # household condition. Prefer an observation-backed task when present.
+
+
     observation_keys = {
         task.task_key for task in all_tasks
         if task.status in {TaskStatus.PENDING, TaskStatus.IN_PROGRESS}

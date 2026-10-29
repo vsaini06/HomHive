@@ -137,8 +137,8 @@ class AnthropicImageVerifier:
                 if attempt == 1:
                     raise
             except ValueError as exc:
-                # Only truncated replies are retried. Other structural failures
-                # remain failures rather than being treated as verified evidence.
+
+
                 if str(exc) != "Anthropic review output truncated" or attempt == 1:
                     raise
                 logger.warning("Anthropic reviewer truncated output: retrying once")
@@ -235,14 +235,14 @@ class AnthropicImageVerifier:
             if not texts:
                 raise ValueError("Anthropic reviewer returned no text")
 
-            # Response metadata only: never log raw model text or user imagery.
+
             raw = "".join(texts)
             logger.info(
                 "Anthropic reviewer response metadata: attempt=%d "
                 "stop_reason=%s block_count=%d text_length=%d",
                 attempt + 1, str(stop_reason)[:32], len(texts), len(raw),
             )
-            # Multiple text blocks can represent one JSON reply.
+
             result = parse_review_json(raw)
 
             logger.info(

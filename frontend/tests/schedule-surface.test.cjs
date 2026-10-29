@@ -10,9 +10,9 @@ test('schedule is primary navigation and visible on the Home screen', () => {
   assert.match(page, /setView\("schedule"\)/);
 });
 
-test('schedule editor shows distinct day buttons and avoids native time wheels', () => {
+test('schedule editor shows distinct day buttons and a custom minute-level picker', () => {
   assert.match(page, /aria-pressed=\{windowWeekdays\.includes\(index\)\}/);
-  assert.match(page, /WORK_TIME_OPTIONS/);
+  assert.match(page, /TimeWheelField/);
   assert.match(page, /hh-window-from/);
   assert.match(page, /hh-window-until/);
   assert.doesNotMatch(page, /type="time"/);

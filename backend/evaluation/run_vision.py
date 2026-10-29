@@ -68,7 +68,7 @@ def run_evaluation(cases, images: Path, provider=None, saved_predictions=None, d
                     "schema_valid": True,
                 }
         except Exception as exc:
-            # Only record an exception class and optional allowlisted category.
+
             failures[case.id] = type(exc).__name__
             if diagnostics is not None:
                 diagnostics[case.id] = {

@@ -35,7 +35,7 @@ def parse_review_json(raw: str) -> IndependentReview:
         lines = text.splitlines()
         if len(lines) >= 3 and lines[0].strip().lower() in {"```", "```json"} and lines[-1].strip() == "```":
             text = "\n".join(lines[1:-1]).strip()
-    # No scanning arbitrary prose for braces: keep invalid model responses invalid.
+
     value = json.loads(text)
     if not isinstance(value, dict):
         raise ValueError("Independent reviewer did not return a JSON object")
@@ -123,7 +123,7 @@ class OpenAIImageVerifier:
                 if not isinstance(raw, str):
                     raise ValueError("OpenAI reviewer returned no text")
                 review = parse_review_json(raw)
-                # Truncated responses cannot be trusted even if a JSON fragment parsed.
+
                 if finish_reason == "length":
                     raise ValueError("OpenAI reviewer response was truncated")
                 return review

@@ -86,6 +86,7 @@ def to_verified_action(action: ActionProposal, scan: VerifiedScan) -> VerifiedAc
         estimate_min=estimate.minimum_minutes if estimate else None,
         estimate_max=estimate.maximum_minutes if estimate else None,
         estimate_rationale=estimate.rationale if estimate else None,
+        estimate_sources=list(estimate.source_urls) if estimate and estimate.externally_verified and len(estimate.source_urls) >= 2 else [],
         confirmation_required=action.requires_user_confirmation or action.hazard_or_professional_help,
     )
 

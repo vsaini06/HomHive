@@ -75,7 +75,7 @@ def test_enrolling_one_held_photo_does_not_requeue_other_household_scans():
         claimed = jobs.claim()
         assert claimed is not None
         jobs.finish(claimed['id'], 'held_unverified_room', 'No unique verified room match')
-    # claim order follows enqueue order on an in-memory DB.
+
     room_id = jobs.enroll('home', 'new-closet')
     assert room_id == 'reference:new-closet'
     by_home = {row['media_id']: row for row in jobs.jobs('home')}
@@ -144,7 +144,7 @@ def test_failed_scan_stores_actionable_non_sensitive_cause():
     jobs = AutonomousJobService(sessionmaker(e, expire_on_commit=False))
     jobs.enqueue('home', 'missing-image')
     from types import SimpleNamespace
-    # A missing photograph has its own explicit and accurate failure message.
+
     assert jobs.process_one(media=SimpleNamespace(get_image=lambda *_: None),
         bridge=None, build_pipeline=None, scan=None) == 'failed'
     result = jobs.jobs('home')[0]

@@ -11,9 +11,9 @@ from app.services import (
     update_or_create_predictive_task,
 )
 
-#-tests-
 
-#-1-
+
+
 def test_monitor_action_does_not_create_task():
     decision = ActionDecision(
         location="kitchen",
@@ -30,7 +30,7 @@ def test_monitor_action_does_not_create_task():
 
     assert task is None
 
-#-2-
+
 def test_plan_action_creates_task():
     decision = ActionDecision(
         location="kitchen",
@@ -66,7 +66,7 @@ def test_plan_action_creates_task():
 
     assert task.source_observation_id is None
 
-#-3-
+
 def test_act_now_action_creates_high_urgency_task():
     decision = ActionDecision(
         location="kitchen",
@@ -93,7 +93,7 @@ def test_act_now_action_creates_high_urgency_task():
         == "act_now"
     )
 
-#-4-
+
 def test_predictive_task_id_is_deterministic():
     decision = ActionDecision(
         location="kitchen",
@@ -117,7 +117,7 @@ def test_predictive_task_id_is_deterministic():
 
     assert first_task.id == second_task.id
 
-#-5-
+
 def test_same_state_produces_same_task_key():
     first_decision = ActionDecision(
         location="kitchen",
@@ -156,7 +156,7 @@ def test_same_state_produces_same_task_key():
         == second_task.id
     )
 
-#-6-
+
 def test_different_states_produce_different_task_keys():
     dish_decision = ActionDecision(
         location="kitchen",
@@ -191,7 +191,7 @@ def test_different_states_produce_different_task_keys():
         != laundry_task.task_key
     )
 
-#-7-
+
 def test_predictive_task_sync_returns_new_task_when_no_matching_task_exists():
     decision = ActionDecision(
         location="kitchen",
@@ -218,7 +218,7 @@ def test_predictive_task_sync_returns_new_task_when_no_matching_task_exists():
         == "predictive:kitchen:dish_load"
     )
 
-#-8-
+
 def test_predictive_task_sync_updates_existing_predictive_task():
     initial_decision = ActionDecision(
         location="kitchen",
@@ -276,7 +276,7 @@ def test_predictive_task_sync_updates_existing_predictive_task():
         == 0.0
     )
 
-#-9-
+
 def test_predictive_task_sync_does_not_update_unrelated_task():
     laundry_decision = ActionDecision(
         location="laundry_room",
@@ -330,7 +330,7 @@ def test_predictive_task_sync_does_not_update_unrelated_task():
         == 0.75
     )
 
-#-10-
+
 def test_predictive_task_sync_returns_none_without_candidate_task():
     result = update_or_create_predictive_task(
         candidate_task=None,
@@ -339,7 +339,7 @@ def test_predictive_task_sync_returns_none_without_candidate_task():
 
     assert result is None
 
-#-11-
+
 def test_monitor_dismisses_existing_predictive_task():
     plan_decision = ActionDecision(
         location="kitchen",
@@ -385,7 +385,7 @@ def test_monitor_dismisses_existing_predictive_task():
         == 12.0
     )
 
-#-12-
+
 def test_monitor_does_not_create_new_task():
     decision = ActionDecision(
         location="kitchen",
@@ -403,7 +403,7 @@ def test_monitor_does_not_create_new_task():
 
     assert result is None
 
-#-13-
+
 def test_actionable_decision_reactivates_dismissed_task():
     plan_decision = ActionDecision(
         location="kitchen",
@@ -453,7 +453,7 @@ def test_actionable_decision_reactivates_dismissed_task():
         == "act_now"
     )
 
-#-14-
+
 def test_monitor_does_not_dismiss_unrelated_task():
     laundry_decision = ActionDecision(
         location="laundry_room",
@@ -492,7 +492,3 @@ def test_monitor_does_not_dismiss_unrelated_task():
         laundry_task.status
         == TaskStatus.PENDING
     )
-
-#-15-
-
-

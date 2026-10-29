@@ -6,9 +6,9 @@ from app.models import (
     HouseholdEntity,
 )
 
-#-tests-
 
-#-1-
+
+
 def test_household_entity_creation():
     entity = HouseholdEntity(
         id="entity_001",
@@ -25,7 +25,7 @@ def test_household_entity_creation():
     assert entity.identification_confidence is None
     assert entity.attributes == {}
 
-#-2-
+
 def test_household_entity_with_identity():
     entity = HouseholdEntity(
         id="entity_001",
@@ -39,7 +39,7 @@ def test_household_entity_with_identity():
     assert entity.identity == "Monstera deliciosa"
     assert entity.identification_confidence == 0.94
 
-#-3-
+
 def test_household_entity_supports_attributes():
     entity = HouseholdEntity(
         id="entity_001",
@@ -57,7 +57,7 @@ def test_household_entity_supports_attributes():
     assert entity.attributes["brand"] == "LG"
     assert entity.attributes["model"] == "WM4000HWA"
 
-#-4-
+
 def test_identification_confidence_cannot_exceed_one():
     with pytest.raises(ValidationError):
         HouseholdEntity(
@@ -69,7 +69,7 @@ def test_identification_confidence_cannot_exceed_one():
             identification_confidence=1.1,
         )
 
-#-5-
+
 def test_identification_confidence_cannot_be_negative():
     with pytest.raises(ValidationError):
         HouseholdEntity(
@@ -81,7 +81,7 @@ def test_identification_confidence_cannot_be_negative():
             identification_confidence=-0.1,
         )
 
-#-6-
+
 def test_household_entity_name_cannot_be_empty():
     with pytest.raises(ValidationError):
         HouseholdEntity(
@@ -91,7 +91,7 @@ def test_household_entity_name_cannot_be_empty():
             location="living_room",
         )
 
-#-7-
+
 def test_household_entity_location_cannot_be_empty():
     with pytest.raises(ValidationError):
         HouseholdEntity(
@@ -101,7 +101,7 @@ def test_household_entity_location_cannot_be_empty():
             location="",
         )
 
-#-8-
+
 def test_household_entities_have_independent_attributes():
     first_entity = HouseholdEntity(
         id="entity_001",

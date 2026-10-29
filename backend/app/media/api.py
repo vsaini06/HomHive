@@ -46,7 +46,7 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
                 try:
                     after_upload(household_id, response['id'])
                 except Exception:
-                    # Media is already durable; queue failure must be observable in server logs.
+
                     import logging
                     logging.getLogger(__name__).exception('Autonomous enqueue failed')
                     response['autonomous_enqueue'] = 'retry_required'
@@ -56,8 +56,8 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
         info = service.save_image(household_id, data)
         response = {'id': info.id, 'content_type': info.content_type, 'size_bytes': info.size_bytes}
         if observation_processor is not None and not defer_analysis:
-            # A room label supplied by the user is context, not inferred identity.
-            # Unknown is explicit when no location has been verified.
+
+
             resolved_location = (location or '').strip() or 'unknown'
             try:
                 outcome = observation_processor.extract_and_store(household_id, info.id, resolved_location)
@@ -68,8 +68,8 @@ def build_media_router(service: MediaService, household_tokens: Mapping[str, str
                     response['processing'] = 'needs_review' if result.needs_review else 'processed'
                     response['observations'] = [o.model_dump(mode='json') for o in observations]
             except Exception:
-                # The uploaded evidence remains persisted and can be retried by
-                # the existing extraction endpoint. Never expose provider errors.
+
+
                 response['processing'] = 'retry_required'
         if defer_analysis:
             response['processing'] = 'received'

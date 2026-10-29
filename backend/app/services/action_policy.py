@@ -25,7 +25,7 @@ def decide_action(
     if crossing is None:
         return None
 
-    # Once the threshold is already reached, waiting no longer helps.
+
     if crossing.hours_to_threshold == 0:
         return ActionDecision(
             location=crossing.location,
@@ -36,7 +36,7 @@ def decide_action(
             reason="threshold already reached",
         )
 
-    # Weak forecasts stay visible, but they should not create work yet.
+
     if crossing.confidence < min_confidence:
         return ActionDecision(
             location=crossing.location,

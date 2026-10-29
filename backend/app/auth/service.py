@@ -66,8 +66,8 @@ class AccountService:
         with self.sessions() as db:
             try:
                 db.add(UserRecord(id=user_id, email=email, password_hash=hash_password(password)))
-                # Flush the parent before inserting its membership, including on databases
-                # where ORM dependency ordering is not inferred from a relationship.
+
+
                 db.flush()
                 db.add(HouseholdMembershipRecord(user_id=user_id, household_id=household, role="owner"))
                 db.commit()
@@ -77,8 +77,8 @@ class AccountService:
                 sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None)
                 diag = getattr(orig, "diag", None)
                 constraint = getattr(diag, "constraint_name", None) if diag is not None else None
-                # Return a conflict only for actual duplicate-email violations.
-                # Do not log SQL parameters or email addresses.
+
+
                 sqlite_duplicate = (
                     sqlstate is None
                     and "UNIQUE constraint failed: users.email" in str(orig)

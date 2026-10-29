@@ -14,8 +14,8 @@ def confirm_observation(
     if original is None:
         return None
 
-    # A confirmation is a separate trusted event, not a mutation of model evidence.
-    # Repeated requests for the same original must reuse the first confirmation.
+
+
     for existing in storage.list_observations(household_id):
         if (existing.source == ObservationSource.USER_INPUT
                 and existing.metadata.get("confirmed_observation_id") == original.id):

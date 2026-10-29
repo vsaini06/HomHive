@@ -6,9 +6,9 @@ from app.models import (
     EntityType,
 )
 
-#-Rules-
 
-#-1-
+
+
 def test_identification_candidate_creation():
     candidate = EntityCandidate(
         entity_type=EntityType.PLANT,
@@ -30,7 +30,7 @@ def test_identification_candidate_creation():
         "large split leaves"
     ]
 
-#-2-
+
 def test_identification_candidate_allows_unknown_identity():
     candidate = EntityCandidate(
         entity_type=EntityType.APPLIANCE,
@@ -41,7 +41,7 @@ def test_identification_candidate_allows_unknown_identity():
     assert candidate.identity is None
     assert candidate.confidence == 0.75
 
-#-3-
+
 def test_identification_candidate_rejects_confidence_above_one():
     with pytest.raises(ValidationError):
         EntityCandidate(
@@ -50,7 +50,7 @@ def test_identification_candidate_rejects_confidence_above_one():
             confidence=1.1,
         )
 
-#-4-
+
 def test_identification_candidate_rejects_negative_confidence():
     with pytest.raises(ValidationError):
         EntityCandidate(

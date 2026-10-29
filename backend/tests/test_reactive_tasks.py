@@ -1,9 +1,9 @@
 from app.models import Observation, TaskStatus
 from app.services.reactive_tasks import task_from_observation
 
-#-tests-
 
-#-1-
+
+
 def test_high_dish_load_creates_task():
     observation = Observation(
         id="obs_001",
@@ -20,7 +20,7 @@ def test_high_dish_load_creates_task():
     assert task.description == "Clear the dishes in kitchen"
     assert task.estimated_effort_minutes == 15
 
-#-2-
+
 def test_low_dish_load_does_not_create_task():
     observation = Observation(
         id="obs_002",
@@ -33,7 +33,7 @@ def test_low_dish_load_does_not_create_task():
     task = task_from_observation(observation)
     assert task is None
 
-#-3-
+
 def test_high_laundry_load_creates_task():
     observation = Observation(
         id="obs_003",
@@ -49,7 +49,7 @@ def test_high_laundry_load_creates_task():
     assert task.description == "Do the laundry in laundry_room"
     assert task.estimated_effort_minutes == 45
 
-#-4-
+
 def test_low_laundry_load_does_not_create_task():
     observation = Observation(
         id="obs_004",
@@ -61,7 +61,7 @@ def test_low_laundry_load_does_not_create_task():
     )
     assert task_from_observation(observation) is None
 
-#-5-
+
 def test_category_without_rule_does_not_create_task():
     observation = Observation(
         id="obs_005",
@@ -73,7 +73,7 @@ def test_category_without_rule_does_not_create_task():
     )
     assert task_from_observation(observation) is None
 
-#-6-
+
 def test_pending_duplicate_task_is_blocked():
     observation = Observation(
         id="obs_006",
@@ -98,7 +98,7 @@ def test_pending_duplicate_task_is_blocked():
     )
     assert new_task is None
 
-#-7-
+
 def test_in_progress_duplicate_task_is_blocked():
     observation = Observation(
         id="obs_008",
@@ -123,7 +123,7 @@ def test_in_progress_duplicate_task_is_blocked():
         existing_tasks=[existing_task],
     ) is None
 
-#-8-
+
 def test_completed_task_allows_new_task():
     observation = Observation(
         id="obs_010",
@@ -150,7 +150,7 @@ def test_completed_task_allows_new_task():
     assert new_task is not None
     assert new_task.id == "task_obs_011"
 
-#-9-
+
 def test_different_task_key_is_allowed():
     existing_observation = Observation(
         id="obs_012",
@@ -177,7 +177,7 @@ def test_different_task_key_is_allowed():
     assert new_task is not None
     assert new_task.task_key == "laundry_room:laundry_load"
 
-#-10-
+
 def test_high_value_high_confidence_creates_task():
     observation = Observation(
         id="obs_conf_001",
@@ -192,7 +192,7 @@ def test_high_value_high_confidence_creates_task():
 
     assert task is not None
 
-#-11-
+
 def test_high_value_low_confidence_does_not_create_task():
     observation = Observation(
         id="obs_conf_002",
@@ -207,7 +207,7 @@ def test_high_value_low_confidence_does_not_create_task():
 
     assert task is None
 
-#-12-
+
 def test_low_value_high_confidence_does_not_create_task():
     observation = Observation(
         id="obs_conf_003",
@@ -221,7 +221,7 @@ def test_low_value_high_confidence_does_not_create_task():
     task = task_from_observation(observation)
     assert task is None
 
-#-13-
+
 def test_confidence_at_minimum_threshold_creates_task():
     observation = Observation(
         id="obs_conf_004",

@@ -7,9 +7,9 @@ from app.models import (
     HouseholdEntity,
 )
 
-#-tests-
 
-#-1-
+
+
 def test_to_household_entity_view():
     entity = HouseholdEntity(
         id="entity_plant_001",

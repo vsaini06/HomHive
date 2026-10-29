@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { inspectHouseholdPhoto, type PhotoInspection } from "../lib/photo-check";
 import { clearAccountSession, readAccountSession, saveAccountSession } from "../lib/account-session";
-import { WORK_DAYS, WORK_TIME_OPTIONS, readableWorkDays, readableWorkTime, workWindowError } from "../lib/work-schedule";
+import { WORK_DAYS, readableWorkDays, readableWorkTime, workWindowError } from "../lib/work-schedule";
+import { TimeWheelField } from "../lib/time-wheel";
+import { HomHiveSelect } from "../lib/hh-select";
 import demoCatalog from "../public/demo-library/catalog.json";
 import {
   HomHiveApi,
@@ -17,12 +19,133 @@ import {
   AutonomousTask,
   AutonomousScanJob,
   AutonomousRoom,
+  AutonomousObject,
   AutonomousScanResult,
   AutonomousAlert,
   WorkWindow,
+  HouseholdPulse,
+  TaskTimeline,
+  CoordinationPlan,
+  NemotronAdvice,
+  type HouseholdResearchPurpose,
+  type HouseholdResearchResult,
 } from "../lib/api";
 
+
+function readableResearchExcerpt(raw: string): string {
+  return raw
+    .replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, "$1")
+    .replace(/#{1,6}\s+/g, "")
+    .replace(/\*\*|__/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const defaultApi = process.env.NEXT_PUBLIC_HOMHIVE_API_URL ?? "http://127.0.0.1:8000";
+function HouseholdObjectCard({item, api, tasks, rooms, onMove}: {
+  item: AutonomousObject;
+  api: HomHiveApi;
+  tasks: AutonomousTask[];
+  rooms: AutonomousRoom[];
+  onMove: (objectId: string, roomId: string | null) => Promise<void>;
+}) {
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const kind = item.kind === "plant" ? "Plant" : item.kind === "appliance" ? "Appliance" : "Object";
+  const icon = item.kind === "plant" ? "🌿" : item.kind === "appliance" ? "⚙" : "◈";
+  const roomLabel = (room: AutonomousRoom): string => {
+    const raw = (room.room_category || "Recognized space").replaceAll("_", " ").trim();
+    const label = raw.replace(/\b\w/g, char => char.toUpperCase());
+    const peers = rooms.filter(other =>
+      (other.room_category || "Recognized space").trim().toLowerCase() ===
+      (room.room_category || "Recognized space").trim().toLowerCase());
+    const index = peers.findIndex(other => other.room_id === room.room_id);
+    return peers.length > 1 && index >= 0 ? `${label} · Room ${index + 1}` : label;
+  };
+  const linkedRoom = rooms.find(room => room.room_id === item.room_id);
+  const related = tasks.filter(task => task.object_id === item.id);
+  const taskGuidance = related.find(task => Boolean(task.automatic_guidance))?.automatic_guidance;
+  const researchSources = (item.research_sources?.length ? item.research_sources : taskGuidance?.sources || []).slice(0, 3);
+
+  const candidateIdentity = item.identity_hint;
+  useEffect(() => {
+    let active = true;
+    let resource: string | null = null;
+    void api.autonomousObjectPhoto(item.id).then(blob => {
+      if (!active) return;
+      resource = URL.createObjectURL(blob);
+      setPhotoUrl(resource);
+    }).catch(() => { if (active) setPhotoFailed(true); });
+    return () => { active = false; if (resource) URL.revokeObjectURL(resource); };
+  }, [api, item.id]);
+
+  async function setRoom(roomId: string | null) {
+    setMoving(true);
+    setLocationError("");
+    try { await onMove(item.id, roomId); }
+    catch { setLocationError("Could not save the location. Your previous setting is unchanged."); }
+    finally { setMoving(false); }
+  }
+
+  return <article className="hh-object-card">
+    <div className="hh-object-card-photo">
+      {photoUrl ? <img src={photoUrl} alt={`Reference photograph of ${item.name}`} /> :
+        <div className="hh-object-card-placeholder" aria-label="Object photo unavailable">{photoFailed ? "Photo unavailable" : icon}</div>}
+      <span className="hh-object-card-kind">{kind}</span>
+    </div>
+    <div className="hh-object-card-body">
+      <div className="hh-object-card-heading">
+        <span className="hh-object-card-kind-icon" aria-hidden="true">{icon}</span>
+        <div><p className="hh-kicker">TRACKED HOUSEHOLD OBJECT</p><h2>{item.name}</h2>
+          <p className="hh-object-card-identity">{candidateIdentity ? `Possible ${candidateIdentity.replace(/^Possible\s+/i, "")}` : `${kind} identity not yet established`}</p>
+          <p className="hh-object-card-location">{item.location_confirmed ? `Located in ${linkedRoom ? roomLabel(linkedRoom) : "a linked room"}` : "Location unknown"}</p>
+        </div>
+      </div>
+
+      <div className="hh-object-card-section"><strong>Visible condition</strong>
+        <p>{item.evidence[0] || "No independently verified condition has been recorded yet."}</p>
+      </div>
+      <div className="hh-object-card-section"><strong>What might be happening?</strong>
+        {researchSources.length ? <>
+          <p className="hh-object-source-caution">Tavily found related guidance. These are possibilities, not a confirmed diagnosis or species identification.</p>
+          <div className="hh-object-card-research">{researchSources.map((source,i) =>
+            <div key={`${source.url}-${i}`} className="hh-object-research-item">
+              {"excerpt" in source && typeof source.excerpt === "string" && source.excerpt && <p>{readableResearchExcerpt(source.excerpt).slice(0, 220)}</p>}
+              <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || `Read source ${i + 1}`} ↗</a>
+            </div>)}</div>
+        </> : <p>Research has not yet returned relevant sources for this object. Its visible symptoms alone do not establish a cause.</p>}
+      </div>
+      <div className="hh-object-card-section"><strong>What can I do?</strong>
+        {related.length ? <ul className="hh-object-next-steps">{related.slice(0,3).map(task =>
+          <li key={task.id}>{task.title}<small>{task.action || task.status.replaceAll("_", " ")}</small></li>)}</ul>
+        : <p>{item.kind === "plant" ? "Check soil moisture and recent watering, then consult the linked sources before changing care." :
+          "Review the observed condition and any manufacturer guidance before making changes."}</p>}
+        <p className="hh-object-source-caution">Actions are suggestions. HomHive cannot confirm unseen watering, repairs, or results from a photo.</p>
+      </div>
+      <button type="button" className="hh-object-card-details" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+        {expanded ? "Hide evidence and location" : "Evidence and location"} <span aria-hidden="true">{expanded ? "−" : "+"}</span>
+      </button>
+      {expanded && <div className="hh-object-card-expanded">
+        <p className="hh-muted">Location is optional. Choose only a room you recognize; the object keeps its identity and history if moved.</p>
+        <div className="hh-object-room-control" role="group" aria-label={`Set location for ${item.name}`}>
+          <strong>Located in</strong>
+          <div className="hh-object-room-options">
+            {[{id:"",label:"Not confirmed"},...rooms.map(room => ({id:room.room_id,label:roomLabel(room)}))].map(choice =>
+              <button key={choice.id || "none"} className={`hh-object-room-choice ${item.room_id === (choice.id || null) ? "is-selected" : ""}`}
+                type="button" aria-pressed={item.room_id === (choice.id || null)} disabled={moving}
+                onClick={() => void setRoom(choice.id || null)}>{choice.label}</button>)}
+          </div>
+        </div>
+        {locationError && <p className="hh-object-error" role="alert">{locationError}</p>}
+        {item.evidence.length > 1 && <div><strong>More observations</strong><ul className="hh-object-card-evidence">{item.evidence.slice(1,6).map((fact,i) => <li key={i}>{fact}</li>)}</ul></div>}
+        {item.catalog_reference && <p className="hh-muted">Demo photograph label: {item.catalog_reference}</p>}
+      </div>}
+    </div>
+  </article>;
+}
 
 export default function Home() {
   const [apiUrl, setApiUrl] = useState(defaultApi);
@@ -44,6 +167,8 @@ export default function Home() {
   const [media, setMedia] = useState<MediaRecord | null>(null);
   const [autonomousTasks, setAutonomousTasks] = useState<AutonomousTask[]>([]);
   const [autonomousAlerts, setAutonomousAlerts] = useState<AutonomousAlert[]>([]);
+  const [householdPulse, setHouseholdPulse] = useState<HouseholdPulse | null>(null);
+  const [taskTimelines, setTaskTimelines] = useState<Record<string, TaskTimeline>>({});
   const seenAlertIds = useRef<Set<string> | null>(null);
   const [workWindow, setWorkWindow] = useState<WorkWindow | null>(null);
   const [windowStart, setWindowStart] = useState("18:00");
@@ -57,6 +182,8 @@ export default function Home() {
   const autonomousErrorReportedRef = useRef(false);
   const lastScanNoticeRef = useRef("");
   const [enrolledRooms, setEnrolledRooms] = useState<AutonomousRoom[]>([]);
+  const [trackedObjects, setTrackedObjects] = useState<AutonomousObject[]>([]);
+  const [heldRoomChoices, setHeldRoomChoices] = useState<Record<string, string>>({});
   const [autonomousLoading, setAutonomousLoading] = useState(false);
   const loadedAccountRef = useRef("");
   const [roomReference, setRoomReference] = useState("");
@@ -71,18 +198,36 @@ export default function Home() {
   const [report, setReport] = useState<IntelligenceReport | null>(null);
   const [notifications, setNotifications] = useState<HouseholdNotification[]>([]);
   const [presence, setPresence] = useState<HouseholdPresence | null>(null);
+  const [coordination, setCoordination] = useState<CoordinationPlan | null>(null);
+  const [nemotronAdvice, setNemotronAdvice] = useState<NemotronAdvice | null>(null);
+  const [nemotronBusy, setNemotronBusy] = useState(false);
+  const [nemotronError, setNemotronError] = useState("");
+  const [guidanceQuery, setGuidanceQuery] = useState("");
+  const [guidanceResult, setGuidanceResult] = useState<HouseholdResearchResult | null>(null);
+  const [guidanceError, setGuidanceError] = useState("");
+  const [guidanceBusy, setGuidanceBusy] = useState(false);
+  const [autoPlanEnabled, setAutoPlanEnabled] = useState(false);
+  const lastAutoPlanSignature = useRef("");
+
+  const [quietEnabled, setQuietEnabled] = useState(true);
+  const [quietStart, setQuietStart] = useState("22:00");
+  const [quietEnd, setQuietEnd] = useState("07:00");
+  const [savingContext, setSavingContext] = useState(false);
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [availableMinutes, setAvailableMinutes] = useState(30);
   const [atHome, setAtHome] = useState(true);
   const [quietHours, setQuietHours] = useState(false);
   const [researchQuery, setResearchQuery] = useState("");
   const [status, setStatus] = useState("Ready");
-  const [view, setView] = useState<"home" | "spaces" | "tasks" | "activity" | "schedule">("home");
+  const [view, setView] = useState<"home" | "spaces" | "objects" | "tasks" | "activity" | "schedule" | "automations">("home");
+  const [navigationReady, setNavigationReady] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [demoQuery, setDemoQuery] = useState("");
   const [demoCategory, setDemoCategory] = useState("All");
+  const [demoMode, setDemoMode] = useState<"sequences" | "standalone">("sequences");
+  const [taskRoomFilter, setTaskRoomFilter] = useState("all");
   const [demoSelectionError, setDemoSelectionError] = useState("");
   const [demoSelecting, setDemoSelecting] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -131,17 +276,39 @@ export default function Home() {
     }
   }
 
+
+  useEffect(() => {
+    const tabs = ["home", "spaces", "objects", "tasks", "activity", "schedule", "automations"] as const;
+    const param = new URLSearchParams(window.location.search).get("tab");
+    if (param && tabs.some(tab => tab === param)) setView(param as typeof tabs[number]);
+    setNavigationReady(true);
+  }, []);
+  useEffect(() => {
+    if (!navigationReady) return;
+    const url = new URL(window.location.href);
+    if (view === "home") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", view);
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, [view, navigationReady]);
+
   useEffect(() => {
     try {
       const saved = readAccountSession(window.sessionStorage, defaultApi);
       if (!saved) return;
       setHouseholdId(saved.householdId);
       setToken(saved.accessToken);
-      setStatus("Restoring your household session…");
+      setStatus("Restoring your household session...");
     } catch {
       notify("warning", "Your session won't survive a refresh", "This browser is blocking tab storage. Your current sign-in can still be used.");
     }
   }, []);
+
+  useEffect(() => {
+    try { const saved = window.sessionStorage.getItem("homhive.taskRoomFilter"); if (saved) setTaskRoomFilter(saved); } catch {}
+  }, []);
+  useEffect(() => {
+    try { window.sessionStorage.setItem("homhive.taskRoomFilter", taskRoomFilter); } catch {}
+  }, [taskRoomFilter]);
 
   useEffect(() => {
     if (!file) { setPhotoPreviewUrl(null); return; }
@@ -173,7 +340,7 @@ export default function Home() {
         setHistoryLoaded(false);
         setHistory([]);
         setReport(null);
-        setAutonomousTasks([]);
+        setAutonomousTasks([]); setHouseholdPulse(null); setTaskTimelines({});
         setAutonomousAlerts([]); seenAlertIds.current = null;
         setScanJobs([]);
         setEnrolledRooms([]);
@@ -238,7 +405,7 @@ export default function Home() {
       setAuthPassword("");
       setConfirmPassword("");
       setSettingsOpen(false);
-      setStatus("Signed in. Connecting your household…");
+      setStatus("Signed in. Connecting your household...");
       notify("success", "Signed in", "Connecting to your household.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Authentication failed";
@@ -264,7 +431,7 @@ export default function Home() {
       });
     } finally {
       setToken(""); setHistoryLoaded(false); setHistory([]); setReport(null);
-      setNotifications([]); setObservations([]); setPlan(null);
+      setNotifications([]); setObservations([]); setPlan(null); setCoordination(null);
       setSettingsOpen(false);
       setScanJobs([]); setEnrolledRooms([]); setAutonomousTasks([]); setAutonomousAlerts([]);
       setWorkWindow(null); seenAlertIds.current = null; loadedAccountRef.current = "";
@@ -285,7 +452,7 @@ export default function Home() {
     if (result !== null) {
       setHistory(result);
       setHistoryLoaded(true);
-      // Legacy task discovery is not part of the autonomous consumer workflow.
+
       try {
         setNotifications(await api.notifications());
         setPresence(await api.presence());
@@ -302,9 +469,10 @@ export default function Home() {
     if (!token || !householdId.trim()) return;
     const results = await Promise.allSettled([
       api.autonomousTasks(), api.autonomousRooms(), api.autonomousScanJobs(),
-      api.autonomousAlerts(), api.workWindow()
+      api.autonomousAlerts(), api.workWindow(), api.householdPulse(), api.coordinationPlan(), api.autonomousObjects()
     ]);
     if (results[0].status === "fulfilled") setAutonomousTasks(results[0].value);
+    if (results[7].status === "fulfilled") setTrackedObjects(results[7].value);
     if (results[1].status === "fulfilled") setEnrolledRooms(results[1].value);
     if (results[2].status === "fulfilled") {
       setScanJobs(results[2].value);
@@ -330,6 +498,13 @@ export default function Home() {
         setWindowWeekdays(window.weekdays);
       }
     }
+    if (results[5].status === "fulfilled") setHouseholdPulse(results[5].value);
+    if (results[6].status === "fulfilled") {
+      setCoordination(results[6].value);
+      setQuietEnabled(results[6].value.quiet_hours.enabled);
+      setQuietStart(results[6].value.quiet_hours.start_time);
+      setQuietEnd(results[6].value.quiet_hours.end_time);
+    }
     if (results.some(result => result.status === "rejected")) {
       const message = "Some household information is temporarily unavailable. Your previous scans and tasks have not been deleted.";
       setAutonomousFetchError(message);
@@ -342,10 +517,63 @@ export default function Home() {
   }
 
   useEffect(() => {
+    setNemotronAdvice(null);
+    setNemotronError("");
+  }, [coordination?.evaluated_at]);
+
+  const askNemotron = async () => {
+    setNemotronBusy(true);
+    setNemotronAdvice(null);
+    setNemotronError("");
+    try {
+      setNemotronAdvice(await api.nemotronAdvice());
+    } catch (error) {
+      setNemotronError(friendlyError(error, "Planning is temporarily unavailable. Your current household tasks are unchanged."));
+    } finally {
+      setNemotronBusy(false);
+    }
+  };
+
+  async function researchHousehold() {
+    const query = guidanceQuery.trim();
+    if (query.length < 3 || query.length > 500 || guidanceBusy) return;
+    const lowered = query.toLowerCase();
+    const purpose: HouseholdResearchPurpose = /plant|soil|watering|leaf|leaves|garden/.test(lowered)
+      ? "plant_care" : /fridge|refrigerator|dishwasher|washer|dryer|furnace|heater|appliance|microwave/.test(lowered)
+      ? "appliance_guidance" : /maintenance|repair|filter|leak|drain|plumbing|mold|smoke alarm/.test(lowered)
+      ? "maintenance" : "household_context";
+    setGuidanceBusy(true);
+    setGuidanceResult(null);
+    setGuidanceError("");
+    try {
+      const result = await api.researchHouseholdGuidance(query, purpose);
+      setGuidanceResult(result);
+    } catch (error) {
+      setGuidanceError(friendlyError(error, "Research is temporarily unavailable. Check that Tavily is enabled in the backend."));
+    } finally {
+      setGuidanceBusy(false);
+    }
+  }
+
+  const planSignature = coordination ? JSON.stringify({
+    presence:coordination.presence.state, availability:coordination.availability.state,
+    quiet:coordination.quiet_hours.active, window:coordination.preferred_minutes_remaining,
+    tasks:coordination.tasks.map(task => [task.task_id, task.status, task.priority, task.progress_percent]),
+  }) : "";
+  useEffect(() => {
+    if (!autoPlanEnabled || view !== "automations" || !token || !coordination?.tasks.length || !planSignature || nemotronBusy) return;
+    if (lastAutoPlanSignature.current === planSignature) return;
+    lastAutoPlanSignature.current = planSignature;
+    void askNemotron();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPlanEnabled, view, token, planSignature]);
+
+  useEffect(() => {
     if (!token || !householdId) return;
     const interval = setInterval(() => { void loadAutonomousState(); }, 60000);
     return () => clearInterval(interval);
-    // Task notifications are durable in PostgreSQL; poll modestly while the app is open.
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, token, householdId]);
 
@@ -376,14 +604,20 @@ export default function Home() {
         }
         if (job.state === "completed") {
           setScanProgress({ phase: "done", percent: 100, mediaId: job.media_id,
-            detail: job.review_summary?.approved_count ? "Review complete. See Tasks for the approved suggestions." :
+            detail: Object.values(job.review_summary?.progress_results ?? {}).includes("completed")
+              ? "Review complete. Fresh evidence verified an existing task as finished. See your updates." :
+              Object.keys(job.review_summary?.progress_results ?? {}).length
+              ? "Review complete. Existing household work was re-evaluated; see its evidence and progress in Tasks." :
+              job.review_summary?.approved_count ? "Review complete. See Tasks for the approved suggestions." :
               job.review_summary?.proposed_count ? "Review complete. No task was approved; check the reviewer explanations in Tasks." :
+              job.review_summary?.evidence_reason === "no_visible_claims" ? "No visible household condition was proposed from this photograph. Try a clearer view if something needs attention." :
+              job.review_summary?.evidence_reason === "claims_not_corroborated" ? "The models found possible conditions but couldn't independently verify them. No task was invented." :
               job.review_summary?.verification === "no_corroborated_evidence" ? "The models could not agree on enough visible evidence. A clearer photo or different angle may help." :
               "Review complete. No task was supported by the available evidence." });
           await loadAutonomousState();
         } else if (job.state === "held_unverified_room") {
           setScanProgress({ phase: "held", percent: null, mediaId: job.media_id,
-            detail: "HomHive could not confirm whether this is an existing room. Choose Add as a new space if it is separate, or provide another view." });
+            detail: "This photo could not be safely linked to one registered space. Choose a known room or add a separate space only if you recognize it as new." });
         } else if (job.state === "failed") {
           setScanProgress({ phase: "error", percent: null, mediaId: job.media_id,
             detail: job.message || "AI review could not finish. The photo is saved; you can retry this scan." });
@@ -441,9 +675,35 @@ export default function Home() {
     }
   }
 
-  // User confirmation is stored as a separate observation linked to its
-  // original AI evidence. Preserve the original record but do not offer
-  // a second confirmation or count it as pending.
+  function confirmExistingRoom(job: AutonomousScanJob) {
+    const roomId = heldRoomChoices[job.media_id];
+    const room = enrolledRooms.find(item => item.room_id === roomId);
+    if (!room || job.state !== "held_unverified_room" || busy || autonomousLoading) return;
+    setConfirmation({
+      title: "Is this the exact same physical space?",
+      detail: `Only confirm if you recognize the same room, not merely another ${room.room_category || "space"}. The saved photo will be re-reviewed using AI credits. The room identity will be recorded as user-confirmed.`,
+      actionLabel: "Confirm space and review",
+      onConfirm: () => { void performExistingRoomSelection(job, roomId); },
+    });
+  }
+
+  async function performExistingRoomSelection(job: AutonomousScanJob, roomId: string) {
+    setAutonomousLoading(true);
+    try {
+      await api.assignAutonomousRoom(job.media_id, roomId);
+      setScanProgress({phase: "analyzing", percent: null, mediaId: job.media_id,
+        detail: "Reviewing this photo against the space you identified"});
+      notify("success", "Existing space selected", "HomHive will review the saved photograph and existing tasks. Your room confirmation is retained.");
+      setAutonomousNote("User-confirmed space selected. Reviewing saved evidence.");
+      await loadAutonomousState();
+    } catch (error) {
+      notify("error", "Couldn't select existing space", friendlyError(error, "Please retry"));
+    } finally { setAutonomousLoading(false); }
+  }
+
+
+
+
   const confirmedSourceIds = useMemo(() => new Set(
     history.filter(item => item.source === "user_input")
       .map(item => item.metadata?.confirmed_observation_id)
@@ -475,8 +735,8 @@ export default function Home() {
 
   const activeRoom = roomSummaries.find((item) => item.room === selectedRoom) ?? roomSummaries[0] ?? null;
 
-  // Only bind a task to a room when its structured identity or metadata establishes it.
-  // Unlocated tasks remain in the global intelligence view instead of being guessed from prose.
+
+
   const roomTasks = useMemo(() => {
     if (!activeRoom || !report) return [];
     const room = activeRoom.room.toLowerCase();
@@ -487,11 +747,34 @@ export default function Home() {
     });
   }, [activeRoom, report]);
 
+  const demoFamilyTitles = useMemo(() => new Map(
+    demoCatalog.filter(item => item.group === "original").map(item => [item.family_id, item.source_title] as const),
+  ), []);
   const demoCategories = useMemo(() => ["All", ...Array.from(new Set(demoCatalog.map(item => item.category))).sort()], []);
-  const visibleDemoImages = useMemo(() => demoCatalog.filter(item =>
-    (demoCategory === "All" || item.category === demoCategory) &&
-    `${item.title} ${item.category} ${item.group}`.toLowerCase().includes(demoQuery.trim().toLowerCase()),
-  ), [demoCategory, demoQuery]);
+  const demoFamilies = useMemo(() => demoCatalog.filter(item => item.group === "original").map(original => ({
+    original,
+    variants: demoCatalog.filter(item => item.family_id === original.family_id &&
+      item.group === "variant" && item.relationship_status === "manifest_sha256_verified")
+      .sort((a, b) => a.title.localeCompare(b.title, undefined, {numeric: true})),
+  })).filter(family => family.variants.length > 0).sort((a, b) => {
+    if (a.original.title === "Original 30") return -1;
+    if (b.original.title === "Original 30") return 1;
+    return a.original.title.localeCompare(b.original.title, undefined, {numeric: true});
+  }), []);
+  const standaloneDemoImages = useMemo(() => {
+    const paired = new Set(demoFamilies.map(family => family.original.family_id));
+    return demoCatalog.filter(image => !paired.has(image.family_id))
+      .sort((a,b) => a.title.localeCompare(b.title, undefined, {numeric: true}));
+  }, [demoFamilies]);
+  const demoSearch = demoQuery.trim().toLowerCase();
+  const filteredDemoFamilies = demoFamilies.filter(family =>
+    (demoCategory === "All" || family.original.category === demoCategory) &&
+    [family.original, ...family.variants].some(image =>
+      `${image.title} ${image.category} ${image.source_title} ${image.variant_note} ${demoFamilyTitles.get(image.family_id) ?? ""}`
+        .toLowerCase().includes(demoSearch)));
+  const filteredStandaloneImages = standaloneDemoImages.filter(image =>
+    (demoCategory === "All" || image.category === demoCategory) &&
+    `${image.title} ${image.category} ${image.source_title} ${image.variant_note}`.toLowerCase().includes(demoSearch));
 
   async function chooseDemoImage(image: (typeof demoCatalog)[number]) {
     if (!token || !historyLoaded) { setDemoSelectionError("Load your household before choosing a sample photo."); return; }
@@ -501,7 +784,7 @@ export default function Home() {
       const response = await fetch(image.image, { cache: "force-cache" });
       if (!response.ok) throw new Error("Could not load this sample photograph");
       const bytes = await response.blob();
-      const selected = new File([bytes], `${image.id}.jpg`, { type: "image/jpeg" });
+      const selected = new File([bytes], `${image.title}.jpg`, { type: "image/jpeg" });
       if (!await selectPhoto(selected)) return;
       setDemoOpen(false);
       setStatus(`Selected ${image.title}. Ready for the same live analysis as a personal photo.`);
@@ -517,15 +800,17 @@ export default function Home() {
     if (!photoInspection) { notify("error", "Photo not checked", "Select the image again so HomHive can verify it opens correctly."); return; }
     setBusy(true);
     setShowScanStatus(false);
-    setStatus("Uploading your photo…");
+    setStatus("Uploading your photo...");
     setScanProgress({ phase: "uploading", percent: 0, mediaId: null, detail: "Securely saving your photo" });
     try {
       const stored = await api.upload(file, location, (percent) => {
         setScanProgress(current => current?.phase === "uploading" ? { ...current, percent } : current);
       });
       setMedia(stored);
+      setFile(null);
+      setPhotoInspection(null);
+      setPhotoPreviewUrl(null);
       setScanOpen(false);
-      setView("home");
       await loadAutonomousState();
       const jobs = await api.autonomousScanJobs();
       const job = jobs.find(item => item.media_id === stored.id);
@@ -552,7 +837,7 @@ export default function Home() {
 
   async function analyzeSaved(mediaId: string, submittedLocation: string) {
     setScanProgress({ phase: "analyzing", percent: null, mediaId, detail: "Examining your photo and corroborating visible conditions with independent AI reviewers" });
-    setStatus("Analyzing saved photo…");
+    setStatus("Analyzing saved photo...");
     try {
       const result = await api.analyze(mediaId, submittedLocation);
       setObservations(result.observations);
@@ -581,7 +866,7 @@ export default function Home() {
     if (result) {
       setObservations((items) => [...items.filter((item) => item.id !== observation.id), result]);
       await loadHousehold();
-      // Refresh invokes the existing discovery and persistence pipeline.
+
       const discovered = await run<IntelligenceReport>("Discovering household work...", () => api.refresh());
       if (discovered) setReport(discovered);
     }
@@ -615,7 +900,7 @@ export default function Home() {
   }
 
   async function decideAutonomousTask(taskId: string, decision: "accept" | "decline" | "remind" | "done") {
-    const result = await run(`Updating household work…`, () => api.decideAutonomousTask(taskId, decision));
+    const result = await run(`Updating household work...`, () => api.decideAutonomousTask(taskId, decision));
     if (result) await loadAutonomousState();
   }
 
@@ -637,7 +922,6 @@ export default function Home() {
       await api.retryAutonomousScan(mediaId);
       setScanProgress({ phase: "analyzing", percent: null, mediaId,
         detail: "Scan requeued for independent review." });
-      setView("home");
       await loadAutonomousState();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not retry this scan";
@@ -698,6 +982,36 @@ export default function Home() {
     }
   }
 
+  async function showTaskTimeline(taskId: string) {
+    if (taskTimelines[taskId]) return;
+    try {
+      const timeline = await api.taskTimeline(taskId);
+      setTaskTimelines(current => ({...current, [taskId]: timeline}));
+    } catch (error) {
+      notify("warning", "Couldn't load task history", friendlyError(error, "Please retry the task timeline."));
+    }
+  }
+
+  function exportCalendarTask(task: AutonomousTask) {
+    if (!task.recommended_at || !task.effort_max) return;
+    const start = new Date(task.recommended_at);
+    const end = new Date(start.getTime() + task.effort_max * 60000);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return;
+    const stamp = (value: Date) => value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+    const escape = (value: string) => value.replace(/\\/g, "\\\\").replace(/\r?\n/g, " ").replace(/,/g, "\\,").replace(/;/g, "\\;");
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//HomHive//Household planning//EN",
+      "BEGIN:VEVENT", `UID:${task.id}@homhive.local`, `DTSTAMP:${stamp(new Date())}`,
+      `DTSTART:${stamp(start)}`, `DTEND:${stamp(end)}`, `SUMMARY:${escape(task.title)}`,
+      `DESCRIPTION:${escape(`HomHive suggested household work. ${task.action}. This is a suggested slot, not a calendar availability check.`)}`,
+      "END:VEVENT", "END:VCALENDAR", ""];
+    const url = URL.createObjectURL(new Blob([lines.join("\r\n")], {type: "text/calendar;charset=utf-8"}));
+    const link = document.createElement("a");
+    link.href = url; link.download = "homhive-household-task.ics";
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    notify("success", "Calendar event prepared", "Import the downloaded event into Google Calendar, Outlook, or Apple Calendar. HomHive has not checked whether you're free.");
+  }
+
   async function refreshAutonomousTasks() {
     await run("Refreshing autonomous state...", loadAutonomousState);
   }
@@ -753,7 +1067,30 @@ export default function Home() {
   async function changePresence(state: HouseholdPresence["state"]) {
     const result = await run("Updating presence...", () =>
       state === "UNKNOWN" ? api.revokePresence() : api.updatePresence(state, true));
-    if (result) setPresence(result);
+    if (result) {
+      setPresence(result);
+      try { setCoordination(await api.coordinationPlan()); }
+      catch { notify("warning", "Decision status unavailable", "Presence was saved, but recommendations could not refresh."); }
+    }
+  }
+
+  async function changeAvailability(state: "FREE" | "BUSY" | "UNKNOWN") {
+    const result = await run("Updating household availability...", () => api.updateAvailability(state));
+    if (result) {
+      setCoordination(result);
+      notify("info", "Recommendations updated", `Your availability is now ${state.toLowerCase()}. Changes expire automatically.`);
+    }
+  }
+
+  async function saveQuietHours() {
+    setSavingContext(true);
+    try {
+      const result = await api.updateQuietHours(quietEnabled, quietStart, quietEnd, Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+      setCoordination(result);
+      notify("success", "Quiet hours saved", "HomHive updated what can be suggested during your quiet hours.");
+    } catch (error) {
+      notify("error", "Couldn't save quiet hours", error instanceof Error ? error.message : "Try again.");
+    } finally { setSavingContext(false); }
   }
 
   async function createPlan() {
@@ -788,6 +1125,48 @@ export default function Home() {
     return displayCategory(item.category);
   };
   const capitalizeFirst = (value: string) => value.length ? value[0].toLocaleUpperCase() + value.slice(1) : value;
+  const roomDisplayName = (roomId: string, fallback?: string | null) => {
+    const room = enrolledRooms.find(item => item.room_id === roomId);
+    const roomName = (room?.room_category || fallback || "Unassigned space").replaceAll("_", " ");
+    const matches = enrolledRooms.filter(item => (item.room_category || "Unassigned space").toLowerCase() === roomName.toLowerCase());
+    const occurrence = matches.findIndex(item => item.room_id === roomId);
+    return matches.length > 1 && occurrence >= 0
+      ? `${capitalizeFirst(roomName)} · Room ${occurrence + 1}`
+      : capitalizeFirst(roomName);
+  };
+  const objectKindForTask = (task: AutonomousTask): "plant" | "appliance" | null => {
+    if (task.observed_object?.kind) return task.observed_object.kind;
+    const content = `${task.title} ${task.evidence_summary || ""}`;
+    if (/\b(plant|pothos|leaf|leaves|foliage|fern|monstera|orchid|succulent)\b/i.test(content)) return "plant";
+    if (/\b(appliance|dishwasher|refrigerator|washing machine|dryer|microwave|furnace|hvac)\b/i.test(content)) return "appliance";
+    return null;
+  };
+  const objectDisplayName = (task: AutonomousTask) => {
+    const kind = objectKindForTask(task);
+    if (!kind) return null;
+    const linked = task.observed_object;
+    if (linked) return linked.label;
+    return kind === "plant" ? "Houseplant" : "Household appliance";
+  };
+  const taskOriginLabel = (task: AutonomousTask) => {
+    const object = trackedObjects.find(item => item.id === task.object_id);
+    if (object) return object.name + (object.location_confirmed ? "" : " · location unconfirmed");
+    const room = enrolledRooms.find(item => item.room_id === task.room_id);
+    const category = (room?.room_category || task.room_category || "").toLowerCase();
+    const unlocated = !category || category === "unassigned space" || category === "indoor plants";
+    if (!unlocated) return roomDisplayName(task.room_id, task.room_category);
+    const name = objectDisplayName(task);
+    return name ? `${name} · location unconfirmed` : roomDisplayName(task.room_id, task.room_category);
+  };
+  const activeHouseholdTasks = [...autonomousTasks]
+    .filter(task => !["dismissed", "completed"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now()))
+    .sort((a,b) => b.created_at.localeCompare(a.created_at));
+  const visibleHouseholdTasks = activeHouseholdTasks.filter(task => taskRoomFilter === "all" || task.room_id === taskRoomFilter);
+  const groupedHouseholdTasks = Array.from(new Set(visibleHouseholdTasks.map(task => task.room_id))).map(roomId => ({
+    roomId,
+    label: taskOriginLabel(visibleHouseholdTasks.find(task => task.room_id === roomId)!),
+    tasks: visibleHouseholdTasks.filter(task => task.room_id === roomId),
+  })).sort((a,b) => a.label.localeCompare(b.label));
 
   const acceptedTasks = taskEntries.filter(({task}) => Boolean(task.metadata?.accepted_at));
   const suggestedTasks = autonomousAvailable ? [] : taskEntries.filter(({task}) => !task.metadata?.accepted_at && task.status === "pending");
@@ -804,16 +1183,17 @@ export default function Home() {
   const scheduleValidation = workWindowError(windowStart, windowEnd, windowWeekdays);
   const scheduleModified = !workWindow || workWindow.start_time !== windowStart || workWindow.end_time !== windowEnd ||
     [...workWindow.weekdays].sort().join(",") !== [...windowWeekdays].sort().join(",");
-  const scheduleTimeOptions = [...new Set([...WORK_TIME_OPTIONS, windowStart, windowEnd])].sort();
   const scheduleZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const scheduleSummary = workWindow
-    ? `${readableWorkDays(workWindow.weekdays)} · ${readableWorkTime(workWindow.start_time)} – ${readableWorkTime(workWindow.end_time)}`
+    ? `${readableWorkDays(workWindow.weekdays)} · ${readableWorkTime(workWindow.start_time)} - ${readableWorkTime(workWindow.end_time)}`
     : "Not set up yet";
   const navItems = [
     { id: "home", label: "Home", icon: "⌂" },
     { id: "spaces", label: "Spaces", icon: "▦" },
+    { id: "objects", label: "Objects", icon: "◈" },
     { id: "tasks", label: "Tasks", icon: "✓" },
     { id: "schedule", label: "Schedule", icon: "◷" },
+    { id: "automations", label: "Automation", icon: "⚙" },
     { id: "activity", label: "Activity", icon: "☷" },
   ] as const;
 
@@ -835,7 +1215,7 @@ export default function Home() {
       </div>}
       <a className="hh-skip-link" href="#household-content">Skip to household content</a>
       <header className="hh-header">
-        <div className="hh-brand"><span className="hh-mark" aria-hidden="true">⌂</span><span>HomHive<small>Household intelligence</small></span></div>
+        <div className="hh-brand"><img className="hh-logo" src="/branding/homhive-192.png" alt="" width="45" height="45" /><span>HomHive<small>Household intelligence</small></span></div>
         <nav className="hh-nav" aria-label="Main navigation">
           {navItems.map((item) => <button key={item.id} className={view === item.id ? "hh-nav-active" : "hh-nav-button"} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span aria-hidden="true">{item.icon}</span>{item.label}</button>)}
         </nav>
@@ -850,7 +1230,12 @@ export default function Home() {
         <div className={`hh-analysis-track ${scanProgress.percent === null && (scanProgress.phase === "uploading" || scanProgress.phase === "analyzing") ? "hh-analysis-indeterminate" : ""}`} role="progressbar" aria-label={scanProgress.phase === "uploading" ? "Photo upload" : "Photo analysis"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={scanProgress.percent === null ? undefined : scanProgress.percent}>
           <div className="hh-analysis-fill" style={scanProgress.percent === null ? undefined : { width: `${scanProgress.percent}%` }}/>
         </div>
-        <div className="hh-analysis-footer"><small>{scanProgress.phase === "uploading" ? `${scanProgress.percent ?? 0}% uploaded` : scanProgress.phase === "analyzing" ? "Analysis in progress · completion time varies" : scanProgress.phase === "done" ? "Review complete" : scanProgress.phase === "held" ? "Room match needs your decision" : "Your original photo is retained"}</small>{scanProgress.phase === "held" && scanJobs.filter(job => job.media_id === scanProgress.mediaId && job.state === "held_unverified_room").map(job => <button key={job.id} disabled={autonomousLoading || busy} onClick={() => void enrollHeldRoom(job)}>{autonomousLoading ? "Adding space…" : "Add as a new space"}</button>)}{(scanProgress.phase === "error" || scanProgress.phase === "held") && scanProgress.mediaId && <button className="secondary" disabled={busy} onClick={() => { setShowScanStatus(true); setView("tasks"); void loadAutonomousState(); }}>View scan status</button>}</div>
+        <div className="hh-analysis-footer"><small>{scanProgress.phase === "uploading" ? `${scanProgress.percent ?? 0}% uploaded` : scanProgress.phase === "analyzing" ? "Analysis in progress · completion time varies" : scanProgress.phase === "done" ? "Review complete" : scanProgress.phase === "held" ? "Room match needs your decision" : "Your original photo is retained"}</small>{scanProgress.phase === "held" && scanJobs.filter(job => job.media_id === scanProgress.mediaId && job.state === "held_unverified_room").map(job => <div key={job.id}><button disabled={autonomousLoading || busy} onClick={() => void enrollHeldRoom(job)}>{autonomousLoading ? "Adding space..." : "Add as a new space"}</button><div className="hh-room-match-panel"><p className="hh-room-match-heading">Or link to a space you already know</p>
+              <HomHiveSelect id={`scan-room-${job.id}`} label="Matching physical room" value={heldRoomChoices[job.media_id] || ""}
+                onChange={value => setHeldRoomChoices(current => ({...current, [job.media_id]: value}))}
+                choices={[{value: "", label: "Choose a registered space"}, ...enrolledRooms.map(room => ({value: room.room_id, label: roomDisplayName(room.room_id), detail: "Previously registered space"}))]} /><button className="hh-confirm-room" disabled={!heldRoomChoices[job.media_id] || autonomousLoading || busy}
+                onClick={() => confirmExistingRoom(job)}>Confirm this is the same room</button>
+              <p className="hh-room-match-help">Only confirm a real physical match. Similar kitchens are not necessarily the same kitchen.</p></div></div>)}{(scanProgress.phase === "error" || scanProgress.phase === "held") && scanProgress.mediaId && <button className="secondary" disabled={busy} onClick={() => { setShowScanStatus(true); setView("tasks"); void loadAutonomousState(); }}>View scan status</button>}</div>
       </section>}
 
       {!isConnected && <section className="hh-notice" role="status"><strong>Connect your household</strong><span>Sign in to load your authorized household.</span><button onClick={() => setSettingsOpen(true)}>Open Settings</button></section>}
@@ -859,14 +1244,57 @@ export default function Home() {
         <div className="hh-view-title"><div><p className="hh-kicker">HomHive / Home intelligence</p><h1>Good to be home.</h1><p>Your home, understood. The right actions, at the right time.</p></div><button className="secondary" disabled={busy || !token} onClick={loadHousehold}>↻ Refresh</button></div>
         {isConnected && <div className="hh-stats">
           <button onClick={() => setView("spaces")}><span>Spaces</span><strong>{enrolledRooms.length}</strong><small>Recognized spaces</small></button>
+          <button onClick={() => setView("objects")}><span>Objects</span><strong>{trackedObjects.length}</strong><small>Tracked household objects</small></button>
           <button onClick={() => setView("tasks")}><span>Suggested work</span><strong>{autonomousTasks.filter(task => ["pending", "accepted", "in_progress", "proposed"].includes(task.status)).length}</strong><small>Active household suggestions</small></button>
           <button onClick={() => { setShowScanStatus(true); setView("tasks"); }}><span>Updates</span><strong>{autonomousAlerts.filter(alert => !alert.read_at).length}</strong><small>New task and progress alerts</small></button>
         </div>}
+        {isConnected && <section className="hh-panel hh-decision-center" aria-label="Household decision center">
+          <div className="hh-panel-head"><div><p className="hh-kicker">HOMHIVE / LIVE DECISIONS</p><h2>What makes sense right now?</h2></div><button className="hh-link" onClick={() => setView("schedule")}>Set household routine →</button></div>
+          <p className="hh-muted">Your household plan adapts to presence, real availability, quiet hours, and reviewed evidence. Nothing here assumes a calendar or location connection.</p>
+          {coordination ? <>
+            <div className="hh-context-controls">
+              <fieldset><legend>Are you home?</legend><div className="hh-schedule-shortcuts">
+                <button aria-pressed={coordination.presence.state === "HOME"} disabled={busy} onClick={() => void changePresence("HOME")}>Home</button>
+                <button aria-pressed={coordination.presence.state === "AWAY"} disabled={busy} onClick={() => void changePresence("AWAY")}>Away</button>
+                <button aria-pressed={coordination.presence.state === "UNKNOWN"} disabled={busy} onClick={() => void changePresence("UNKNOWN")}>Unknown</button>
+              </div><small>Manual · expires automatically</small></fieldset>
+              <fieldset><legend>Are you free for household work?</legend><div className="hh-schedule-shortcuts">
+                <button aria-pressed={coordination.availability.state === "FREE"} disabled={busy} onClick={() => void changeAvailability("FREE")}>Free</button>
+                <button aria-pressed={coordination.availability.state === "BUSY"} disabled={busy} onClick={() => void changeAvailability("BUSY")}>Busy</button>
+                <button aria-pressed={coordination.availability.state === "UNKNOWN"} disabled={busy} onClick={() => void changeAvailability("UNKNOWN")}>Unknown</button>
+              </div><small>Availability is separate from presence</small></fieldset>
+            </div>
+            <div className="hh-decision-counts" aria-label="Current decision categories">{(["NOW", "SOON", "DEFERRED", "BLOCKED"] as const).map(group =>
+              <div key={group}><strong>{coordination.groups[group]}</strong><span>{group === "NOW" ? "Ready now" : group === "SOON" ? "Soon" : group === "DEFERRED" ? "Deferred" : "Blocked"}</span></div>)}</div>
+            <p className="hh-muted">{coordination.quiet_hours.active ? "Quiet hours active | " : ""}{!coordination.work_window ? "No work window saved" : coordination.preferred_minutes_remaining ? `${coordination.preferred_minutes_remaining} minutes left in your preferred window` : "Outside your preferred work window"} | {coordination.timezone}</p>
+            <div className="hh-compact-list">{coordination.tasks.slice(0, 4).map(task => <div key={task.task_id} className="hh-decision-row">
+              <div><strong>{task.title}</strong><small className="hh-task-update-source">{roomDisplayName(task.room_id)}</small><p>{task.reasons.join(" · ")}</p>
+                <small>{task.duration_max != null ? `${task.duration_min}-${task.duration_max} min · researched` : "Duration unknown"}{task.progress_percent != null ? ` · About ${task.progress_percent}% complete` : ""}</small>
+              </div><span className={`hh-decision-badge hh-decision-${task.status.toLowerCase()}`}>{task.status === "NOW" ? "Ready" : task.status === "SOON" ? "Soon" : task.status === "DEFERRED" ? "Deferred" : "Blocked"}</span>
+            </div>)}</div>
+            {coordination.tasks.length === 0 && <p className="hh-empty">No outstanding reviewed tasks. A new scan can discover work when there is evidence.</p>}
+          </> : <p className="hh-muted">Decision intelligence is unavailable until this household's backend is updated.</p>}
+        </section>}
+        {isConnected && <section className="hh-panel hh-advisor-shortcut" aria-label="Household AI and research">
+          <div><p className="hh-kicker">HELP FOR YOUR WHOLE HOME</p><h2>Plan what matters. Find reliable answers.</h2>
+            <p className="hh-muted">NVIDIA Nemotron considers your current tasks and constraints. Tavily researches household questions with sources.</p></div>
+          <button type="button" className="secondary" onClick={() => setView("automations")}>Open household intelligence</button>
+        </section>}
         {isConnected && <section className="hh-panel hh-home-schedule" aria-label="Your preferred household schedule">
           <div className="hh-panel-head"><div><p className="hh-kicker">YOUR ROUTINE</p><h2>When should HomHive suggest work?</h2></div><button className="hh-schedule-link" onClick={() => setView("schedule")}>{workWindow ? "Change my schedule →" : "Set my schedule →"}</button></div>
           <p className="hh-schedule-summary">{scheduleSummary}</p>
           <p className="hh-muted">{workWindow ? "Saved for future recommendations. HomHive uses this when a researched task duration fits." : "Choose your usual household-work days and time. We'll use your preference when recommending new tasks."}</p>
           <small className="hh-schedule-disclaimer">Not a calendar connection; HomHive won't claim you're free or automatically book an event.</small>
+        </section>}
+        {isConnected && householdPulse && householdPulse.suggestions.length > 0 && <section className="hh-panel" aria-label="Your household intelligence pulse" style={{marginBottom:20}}>
+          <div className="hh-panel-head"><div><p className="hh-kicker">YOUR HOUSEHOLD PULSE</p><h2>What HomHive suggests next</h2></div><button className="hh-link" onClick={() => setView("tasks")}>See all work →</button></div>
+          <p className="hh-muted">Ranked from persistent reviewed evidence and task age, not invented urgency or calendar availability.</p>
+          <div className="hh-compact-list">{householdPulse.suggestions.slice(0,3).map(item => <div className="hh-history-entry" key={item.task_id}>
+            <strong>{item.title}</strong>
+            <p>{item.reasons.join(" · ")}</p>
+            {item.progress_percent !== null && <p>About {item.progress_percent}% done · {item.remaining_work || item.progress_explanation || "Rescan to review what remains."}</p>}
+            <small>{item.recommended_at ? `Suggested ${new Date(item.recommended_at).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})} within your preferred window` : item.research_needed ? "Duration not independently sourced yet" : `${item.estimate_min}-${item.estimate_max} min · source-backed estimate`}</small>
+          </div>)}</div>
         </section>}
         {isConnected && autonomousTasks.some(task => ["proposed", "pending", "accepted", "in_progress"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())) && <section className="hh-panel hh-home-priority"><div className="hh-panel-head"><div><p className="hh-kicker">NEXT UP</p><h2>{[...autonomousTasks].filter(task => ["proposed", "pending", "accepted", "in_progress"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())).sort((a,b) => b.created_at.localeCompare(a.created_at))[0].title}</h2></div><button className="hh-link" onClick={() => setView("tasks")}>View suggestion →</button></div><p className="hh-muted">{[...autonomousTasks].filter(task => ["proposed", "pending", "accepted", "in_progress"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())).sort((a,b) => b.created_at.localeCompare(a.created_at))[0].evidence_summary || "Independently reviewed household work"}</p></section>}
         <div className="hh-home-grid">
@@ -878,6 +1306,86 @@ export default function Home() {
             {autonomousTasks.filter(t => ["pending", "accepted", "in_progress", "proposed"].includes(t.status)).length === 0 ? <p className="hh-empty">No active suggestions yet. Scan a space to begin.</p> : <><p className="hh-muted">{autonomousTasks.filter(t => ["pending", "accepted", "in_progress", "proposed"].includes(t.status)).length} current suggestions · {autonomousTasks.filter(t => t.progress?.percent != null && t.status !== "completed").length} with observed progress.</p><button className="hh-inline-action" onClick={() => setView("tasks")}>View suggestions and updates →</button></>}
           </section>
         </div>
+      </section>}
+
+      {view === "automations" && <section className="hh-view" aria-label="Home automation controls">
+        <div className="hh-view-title"><div><p className="hh-kicker">YOUR HOME, ON YOUR TERMS</p><h1>Automation</h1><p>Simple controls for what HomHive can do today. Your settings, data, and actions remain yours.</p></div></div>
+        <div className="hh-automation-overview" role="status">
+          <span className="hh-automation-signal" aria-hidden="true" />
+          <div><strong>{isConnected ? "Household connected" : "Connect your household"}</strong><p>{isConnected ? "Photo review and task updates are available while the worker is running." : "Sign in to use household automation."}</p></div>
+          {!isConnected && <button className="secondary" onClick={() => setSettingsOpen(true)}>Connect</button>}
+        </div>
+        <section className="hh-advisor-section" aria-label="Household intelligence and research">
+          <div className="hh-advisor-heading"><p className="hh-kicker">HOUSEHOLD INTELLIGENCE</p><h2>Good decisions, without the guesswork</h2><p>Two independent helpers for your whole home. Neither one changes tasks or marks work complete on its own.</p></div>
+          <div className="hh-advisor-grid">
+            <section className="hh-panel hh-advisor-card" aria-label="AI household planner">
+              <div className="hh-advisor-card-heading"><span className="hh-advisor-symbol" aria-hidden="true">✧</span><div><h3>What should I do next?</h3><small>Powered by NVIDIA Nemotron on Nebius Token Factory</small></div></div>
+              <p>Get a short recommendation based on your verified tasks, whether you're home, your available time, and quiet hours.</p>
+              <div className="hh-advisor-context"><span>{coordination?.tasks.length ?? 0} reviewed tasks</span><span>{coordination?.groups.NOW ?? 0} ready now</span><span>{coordination?.groups.BLOCKED ?? 0} need attention first</span></div>
+              <button type="button" disabled={!isConnected || !coordination?.tasks.length || nemotronBusy} onClick={() => void askNemotron()}>{nemotronBusy ? "Checking your household…" : "Suggest my next step"}</button>
+              <div className="hh-advisor-autoplan">
+                <div><strong>Keep suggestions up to date</strong><small>Optional. Refreshes when your household plan changes while this page is open. Uses Nebius credits.</small></div>
+                <button type="button" role="switch" aria-label="Automatically refresh Nemotron suggestions" aria-checked={autoPlanEnabled} className={`hh-advisor-switch${autoPlanEnabled ? " is-on" : ""}`} onClick={() => {lastAutoPlanSignature.current = ""; setAutoPlanEnabled(current => !current);}}><span aria-hidden="true" /></button>
+              </div>
+              {coordination?.latest_automatic_coordination?.status === "completed" && <div className="hh-advisor-result" role="status">
+                <p className="hh-kicker">AUTOMATIC UPDATE FROM LAST SCAN</p>
+                <p>{coordination.latest_automatic_coordination.advice?.summary || "HomHive reviewed the latest household evidence."}</p>
+                {coordination.latest_automatic_coordination.advice?.reason && <p><strong>Why:</strong> {coordination.latest_automatic_coordination.advice.reason}</p>}
+                <small>{coordination.latest_automatic_coordination.researched_tasks ? `${coordination.latest_automatic_coordination.researched_tasks} task researched with Tavily · ` : ""}Planning: {coordination.latest_automatic_coordination.planning_status.replaceAll("_", " ")}</small>
+              </div>}
+              {nemotronError && <p className="hh-advisor-error" role="alert">{nemotronError}</p>}
+              {nemotronAdvice && <div className="hh-advisor-result" role="status"><p className="hh-kicker">HOMHIVE RECOMMENDS</p>
+                {nemotronAdvice.selected_task_id ? <>
+                  <h4>{coordination?.tasks.find(task => task.task_id === nemotronAdvice.selected_task_id)?.title ?? nemotronAdvice.summary}</h4>
+                  <p>{nemotronAdvice.summary}</p><p><strong>Why:</strong> {nemotronAdvice.reason}</p>
+                </> : <>
+                  <h4>Nothing ready to start yet</h4>
+                  <p>You have {coordination?.tasks.length ?? 0} reviewed household tasks, but none passes all scheduling checks yet. Open Home → Live Decisions to see the reason for each task, including missing duration evidence or a future work window. Nemotron cannot override those checks.</p>
+                  <details className="hh-advisor-model-detail"><summary>Provider response and eligibility details</summary><p>{nemotronAdvice.summary}</p><p>{nemotronAdvice.reason}</p></details>
+                </>}
+                <small>{nemotronAdvice.model ? `NVIDIA Nemotron on Nebius · ${nemotronAdvice.model}` : "Based on existing household status"}</small>
+              </div>}
+              <small>Suggestions only. Your existing approval and safety rules always apply.</small>
+            </section>
+            <section className="hh-panel hh-advisor-card" aria-label="Tavily household research">
+              <div className="hh-advisor-card-heading"><span className="hh-advisor-symbol" aria-hidden="true">⌕</span><div><h3>Find a trustworthy answer</h3><small>Live household research with Tavily</small></div></div>
+              <p>Ask about a plant, appliance, repair, or unfamiliar household situation. You'll see sources you can open.</p>
+              <form onSubmit={event => {event.preventDefault(); void researchHousehold();}}>
+                <label htmlFor="hh-guidance-question">What would you like help with?</label>
+                <textarea id="hh-guidance-question" value={guidanceQuery} maxLength={500} rows={3} onChange={event=>setGuidanceQuery(event.target.value)} placeholder="Example: What should I check if my dishwasher smells bad?" />
+                <div className="hh-advisor-examples" aria-label="Example household questions">
+                  {["Why are my houseplant leaves turning yellow?", "How can I check a dishwasher odor safely?", "When should I replace an HVAC filter?"].map(example => <button className="secondary" type="button" key={example} onClick={() => {setGuidanceQuery(example);setGuidanceResult(null);setGuidanceError("");}}>{example}</button>)}
+                </div>
+                <button type="submit" disabled={!isConnected || guidanceBusy || guidanceQuery.trim().length < 3}>{guidanceBusy ? "Looking for sources…" : "Research with Tavily"}</button>
+              </form>
+              {guidanceError && <p className="hh-advisor-error" role="alert">{guidanceError}</p>}
+              {guidanceResult && <div className="hh-advisor-result" role="status"><p className="hh-kicker">SOURCES FOUND</p>
+                {guidanceResult.evidence.length === 0 ? <p>No suitable sources returned. Try a more specific question.</p> :
+                  <div className="hh-advisor-sources">{guidanceResult.evidence.map((entry, i) => {
+                    const excerpt = readableResearchExcerpt(entry.content);
+                    return <article key={`${entry.url}-${i}`}>
+                      <strong>{entry.title}</strong><p>{excerpt.slice(0, 230)}{excerpt.length > 230 ? "…" : ""}</p>
+                      <a href={entry.url} target="_blank" rel="noopener noreferrer">Open source {i + 1}</a>
+                    </article>;
+                  })}</div>}
+                <small>Web results are informational, not evidence that a household condition exists. Follow manufacturer instructions for risky work.</small>
+              </div>}
+              <small>Only your question is sent for research, not your photos or household history. Requests may use Tavily credits.</small>
+            </section>
+          </div>
+        </section>
+        <div className="hh-automation-grid">
+          <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">▣</span><h2>Photo intelligence</h2><p>Scan a space to discover work. Follow-up photographs can update existing tasks.</p><span className="hh-automation-status">{isConnected ? "Ready for scans" : "Sign in required"}</span><button disabled={!isConnected} onClick={() => setScanOpen(true)}>Scan a space</button></section>
+          <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">◷</span><h2>My household routine</h2><p>Choose when to suggest chores. No calendar booking or guessed availability.</p><span className="hh-automation-status">{workWindow ? "Routine saved" : "Not set up"}</span><button className="secondary" onClick={() => setView("schedule")}>{workWindow ? "Edit my routine" : "Set my routine"}</button></section>
+          <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">☾</span><h2>Quiet hours</h2><p>Defer noisy or unclassified work during your chosen hours without losing task priority.</p><span className="hh-automation-status">{coordination ? quietEnabled ? `Enabled${coordination.quiet_hours.active ? " · active now" : ""}` : "Disabled" : "Available when connected"}</span><button className="secondary" onClick={() => setView("schedule")}>Manage quiet hours</button></section>
+          <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">⌂</span><h2>Presence and availability</h2><p>Tell HomHive if you are home and free. These are separate, expiring signals.</p><span className="hh-automation-status">{coordination ? `${coordination.presence.state.toLowerCase()} · ${coordination.availability.state.toLowerCase()}` : "Not set"}</span>
+            {coordination && <div className="hh-automation-controls"><strong>Where are you?</strong><div className="hh-automation-chips">{(["HOME","AWAY","UNKNOWN"] as const).map(state => <button key={state} type="button" disabled={busy} aria-pressed={coordination.presence.state === state} onClick={() => void changePresence(state)}>{state === "HOME" ? "Home" : state === "AWAY" ? "Away" : "Unknown"}</button>)}</div>
+            <strong>Available for chores?</strong><div className="hh-automation-chips">{(["FREE","BUSY","UNKNOWN"] as const).map(state => <button key={state} type="button" disabled={busy} aria-pressed={coordination.availability.state === state} onClick={() => void changeAvailability(state)}>{state === "FREE" ? "Free" : state === "BUSY" ? "Busy" : "Unknown"}</button>)}</div></div>}
+          </section>
+          <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">✓</span><h2>Suggestions and progress</h2><p>Evidence-backed suggestions are saved to their rooms. View progress from newer photographs.</p><span className="hh-automation-status">{activeHouseholdTasks.length} active tasks</span><button className="secondary" onClick={() => {setTaskRoomFilter("all");setView("tasks");}}>View household tasks</button></section>
+
+        </div>
+        <section className="hh-panel hh-automation-roadmap"><h2>Additional connections</h2><p>Calendar, email, phone-location, cameras, robots, and external smart-home devices are not connected in this build. HomHive will never claim to know your actual calendar availability or location without a real integration and your permission.</p></section>
       </section>}
 
       {view === "schedule" && <section className="hh-view" aria-label="Household work schedule">
@@ -896,20 +1404,29 @@ export default function Home() {
             <div className="hh-schedule-shortcuts" aria-label="Quick time selection">
               {[{label:"Morning",start:"09:00",end:"12:00"},{label:"Afternoon",start:"13:00",end:"16:00"},{label:"Evening",start:"18:00",end:"21:00"}].map(preset => <button type="button" className="secondary" key={preset.label} onClick={() => {setWindowStart(preset.start);setWindowEnd(preset.end);}}>{preset.label}</button>)}
             </div>
-            <div className="hh-schedule-times"><label htmlFor="hh-window-from">From <select id="hh-window-from" value={windowStart} onChange={event => setWindowStart(event.target.value)}>{scheduleTimeOptions.map(value => <option value={value} key={value}>{readableWorkTime(value)}</option>)}</select></label>
-              <span aria-hidden="true" className="hh-schedule-to">to</span><label htmlFor="hh-window-until">Until <select id="hh-window-until" value={windowEnd} onChange={event => setWindowEnd(event.target.value)}>{scheduleTimeOptions.map(value => <option value={value} key={value}>{readableWorkTime(value)}</option>)}</select></label>
+            <div className="hh-schedule-times"><TimeWheelField id="hh-window-from" label="From" value={windowStart} onChange={setWindowStart}/>
+              <span aria-hidden="true" className="hh-schedule-to">to</span><TimeWheelField id="hh-window-until" label="Until" value={windowEnd} onChange={setWindowEnd}/>
             </div>
             <p className="hh-schedule-selection">Time zone: {scheduleZone} · Single-day windows only</p>
           </fieldset>
           {scheduleValidation && <p className="hh-schedule-error" role="alert">{scheduleValidation}</p>}
           {scheduleModified && !scheduleValidation && <p className="hh-schedule-unsaved" role="status">{workWindow ? "You have unsaved schedule changes." : "Your schedule isn't saved yet."}</p>}
-          <div className="hh-schedule-save"><button type="button" disabled={!isConnected || savingWindow || Boolean(scheduleValidation) || !scheduleModified} onClick={() => void saveWorkWindow()}>{savingWindow ? "Saving…" : "Save my schedule"}</button>
+          <div className="hh-schedule-save"><button type="button" disabled={!isConnected || savingWindow || Boolean(scheduleValidation) || !scheduleModified} onClick={() => void saveWorkWindow()}>{savingWindow ? "Saving..." : "Save my schedule"}</button>
             {workWindow && scheduleModified && <button type="button" className="secondary" onClick={() => {setWindowStart(workWindow.start_time);setWindowEnd(workWindow.end_time);setWindowWeekdays([...workWindow.weekdays]);}}>Discard changes</button>}
           </div>
           {!isConnected && <p className="hh-muted">Sign in to save your household preference.</p>}
           {workWindow && <p className="hh-schedule-saved" role="status"><strong>Saved:</strong> {scheduleSummary} ({workWindow.timezone})</p>}
         </section>
-        <section className="hh-panel hh-schedule-explainer"><h2>What happens next?</h2><p>When HomHive discovers an evidence-supported task, it can research how long the task usually takes, then suggest a time within your chosen work window. You can still do the task whenever you want.</p><p><strong>No calendar access or automatic booking.</strong> HomHive uses your stated preference, not your actual availability. Existing tasks may not receive a newly calculated time until they are reviewed again.</p><button className="hh-link" onClick={() => setView("tasks")}>View suggested tasks →</button></section>
+        {isConnected && coordination && <section className="hh-panel hh-schedule-editor" aria-label="Quiet hours settings">
+          <div className="hh-panel-head"><div><p className="hh-kicker">HOUSEHOLD CONSTRAINTS</p><h2>Quiet hours</h2></div><span className="hh-schedule-state">{coordination.quiet_hours.active ? "Active now" : "Not active"}</span></div>
+          <p className="hh-muted">Noisy or unclassified tasks won't be suggested during quiet hours. This does not change their priority.</p>
+          <div className="hh-quiet-control"><div><strong>Enable quiet hours</strong><small>Pause noisy or unclassified work recommendations during this period.</small></div>
+            <button type="button" role="switch" aria-label="Enable quiet hours" aria-checked={quietEnabled} className={`hh-toggle-switch ${quietEnabled ? "is-on" : ""}`} onClick={() => setQuietEnabled(!quietEnabled)}><span /></button></div>
+          <div className="hh-schedule-times"><TimeWheelField id="hh-quiet-from" label="From" value={quietStart} onChange={setQuietStart}/><span className="hh-schedule-to" aria-hidden="true">to</span><TimeWheelField id="hh-quiet-until" label="Until" value={quietEnd} onChange={setQuietEnd}/></div>
+          <div className="hh-schedule-save"><button disabled={savingContext || quietStart === quietEnd} onClick={() => void saveQuietHours()}>{savingContext ? "Saving..." : "Save quiet hours"}</button></div>
+          <small>Time zone: {coordination.quiet_hours.timezone}. Overnight hours are supported. Presence and availability expire automatically.</small>
+        </section>}
+                <section className="hh-panel hh-schedule-explainer"><h2>What happens next?</h2><p>When HomHive discovers an evidence-supported task, it can research how long the task usually takes, then suggest a time within your chosen work window. You can still do the task whenever you want.</p><p><strong>No calendar access or automatic booking.</strong> HomHive uses your stated preference, not your actual availability. Existing tasks may not receive a newly calculated time until they are reviewed again.</p><button className="hh-link" onClick={() => setView("tasks")}>View suggested tasks →</button></section>
       </section>}
 
       {view === "spaces" && <section className="hh-view">
@@ -929,11 +1446,22 @@ export default function Home() {
               </div> : <button className="hh-link" onClick={() => {setEditingRoomId(room.room_id); setRoomLabelDraft(label || "");}}>Correct room name</button>}
               <p className="hh-muted">{tasks.length} independently reviewed task{tasks.length === 1 ? "" : "s"} recorded</p>
               {tasks.length ? <div className="hh-compact-list">{tasks.filter(t => !["dismissed", "completed"].includes(t.status)).slice(0, 3).map(task => <div className="hh-history-entry" key={task.id}><strong>{task.title}</strong><small>Created {new Date(task.created_at).toLocaleString()}</small></div>)}</div> : <p className="hh-empty">No evidence-supported tasks recorded for this space.</p>}
-              <button className="hh-link" onClick={() => setView("tasks")}>View household work →</button>
+              <button className="hh-link" onClick={() => { setTaskRoomFilter(room.room_id); setView("tasks"); }}>View tasks for this space →</button>
             </section>;
           })}</div>}
       </section>}
 
+      {view === "objects" && <section className="hh-view" aria-label="Tracked household objects">
+        <div className="hh-view-title"><div><p className="hh-kicker">HomHive / Object intelligence</p><h1>Your objects</h1>
+          <p>Plants, appliances and other observed objects, with their evidence and related household tasks.</p></div>
+          <button className="secondary" disabled={busy || !token} onClick={() => void loadAutonomousState()}>↻ Refresh</button></div>
+        {trackedObjects.length ? <div className="hh-object-card-grid">{trackedObjects.map(item =>
+          <HouseholdObjectCard key={item.id} item={item} api={api} tasks={autonomousTasks} rooms={enrolledRooms}
+            onMove={async (id,roomId) => {
+              await api.updateObjectLocation(id,roomId);
+              await loadAutonomousState();
+            }}/>)}</div> : <div className="hh-panel hh-empty">No independently verified objects are registered yet. Scan a close-up of a plant or appliance to begin.</div>}
+      </section>}
       {view === "tasks" && <section className="hh-view" aria-label="Household work">
         <div className="hh-view-title"><div><p className="hh-kicker">YOUR HOUSEHOLD</p><h1>Things worth doing</h1><p>Independent reviews turn household observations into useful suggestions.</p></div><button className="secondary" disabled={busy} onClick={refreshAutonomousTasks}>↻ Check updates</button></div>
         {scanJobs.some(job => ["pending", "processing", "queued", "retrying"].includes(job.state)) && <div className="hh-scan-message" role="status"><span className="pulse"/> Your latest space is being reviewed. Suggestions will appear once verified.</div>}
@@ -943,28 +1471,47 @@ export default function Home() {
           <h2>HomHive has suggestions for you</h2>
           <p className="hh-muted">New evidence-backed tasks and photo progress updates. No acceptance required for ordinary work.</p>
           {autonomousAlerts.filter(alert => !alert.read_at).slice(0,5).map(alert => <div key={alert.id} className="hh-history-entry" style={{marginTop:12}}>
-            <strong>{alert.title}</strong><p>{alert.detail}</p><small>{new Date(alert.created_at).toLocaleString()}</small>
+            <strong>{alert.title}</strong><p className="hh-task-update-source">{autonomousTasks.find(task => task.id === alert.task_id) ? `From ${roomDisplayName(autonomousTasks.find(task => task.id === alert.task_id)!.room_id, autonomousTasks.find(task => task.id === alert.task_id)!.room_category)}` : "Household update"}</p><p>{alert.detail}</p><small>{new Date(alert.created_at).toLocaleString()}</small>
             <div className="hh-task-actions"><button className="secondary" onClick={() => void acknowledgeAlert(alert.id)}>Got it</button></div>
           </div>)}
         </section>}
-        {autonomousTasks.filter(task => !["dismissed", "completed"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())).length === 0 ? <section className="hh-panel hh-friendly-empty"><h2>Nothing needs your attention yet</h2><p>When a scan uncovers independently supported work, you'll see it here. A scan can correctly result in no tasks.</p><button className="secondary" onClick={() => setScanOpen(true)}>Scan a space</button></section> :
-          <div className="hh-task-grid">{[...autonomousTasks].filter(task => !["dismissed", "completed"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())).sort((a,b) => b.created_at.localeCompare(a.created_at)).map(task => <article className="hh-panel hh-intelligent-task" key={task.id}>
-            <div className="hh-task-top"><span className="hh-task-space">{capitalizeFirst((enrolledRooms.find(room => room.room_id === task.room_id)?.room_category || task.room_category || "Your household").replaceAll("_", " "))}</span><span className="hh-task-date">Created {new Date(task.created_at).toLocaleString()}</span></div>
-            <h2>{task.title}</h2><p className="hh-task-description">{task.evidence_summary || task.action}</p>
-            <div className="hh-task-metadata"><span>{task.effort_min == null ? "Duration unknown" : `${task.effort_min}${task.effort_max != null && task.effort_max !== task.effort_min ? `–${task.effort_max}` : ""} min · researched estimate`}</span><span>{task.status === "accepted" ? "Accepted" : task.status === "in_progress" ? "In progress · upload another photo to check" : task.status === "proposed" ? "Your approval needed for this action" : "Suggested for you"}</span></div>
-            {task.recommended_at && <p className="hh-muted"><strong>Suggested time:</strong> {new Date(task.recommended_at).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})} · Based on your preferred work window, not calendar availability.</p>}
-            {!task.recommended_at && task.effort_min != null && <p className="hh-muted">This takes roughly {task.effort_min}{task.effort_max != null && task.effort_max !== task.effort_min ? `–${task.effort_max}` : ""} minutes. {workWindow ? "Your saved schedule can guide future suggestions; existing work may not be rescheduled automatically." : <button className="hh-inline-action" onClick={() => setView("schedule")}>Choose preferred work time →</button>}</p>}
-            {task.progress && <div role="status" style={{padding:".6rem 0"}}>
-              <strong>{task.progress.estimated ? "About " : ""}{task.progress.percent}% complete</strong>
-              <div role="progressbar" aria-label={`Progress on ${task.title}`} aria-valuenow={task.progress.percent} aria-valuemin={0} aria-valuemax={100} style={{height:10, borderRadius:8, background:"#e2e9e3", overflow:"hidden", marginTop:8}}>
-                <div style={{width:`${task.progress.percent}%`, height:"100%", background:"#1d6648"}} />
-              </div><p className="hh-muted">{task.progress.explanation}</p>
-              {task.progress.next_step && <p><strong>What remains:</strong> {task.progress.next_step}</p>}
-              <small>Estimated from the latest reviewed photograph · {new Date(task.progress.reviewed_at).toLocaleString()}</small>
-            </div>}
-            <div className="hh-task-actions">{task.status === "proposed" && <button disabled={busy} onClick={() => decideAutonomousTask(task.id,"accept")}>Approve this action</button>}{["pending", "accepted", "in_progress"].includes(task.status) && <button disabled={busy} onClick={() => decideAutonomousTask(task.id,"done")}>I finished · verify later</button>}{["pending", "proposed"].includes(task.status) && <button className="secondary" disabled={busy} onClick={() => decideAutonomousTask(task.id,"remind")}>Snooze 30 min</button>}{["pending", "proposed", "accepted", "in_progress"].includes(task.status) && <button className="hh-text-danger" disabled={busy} onClick={() => decideAutonomousTask(task.id,"decline")}>Dismiss</button>}</div>
-            <details><summary>Why HomHive suggested this</summary><p>{task.action}</p><p>Outcome to verify: {task.criteria}</p><p>Rescan this same space to update progress automatically. No acceptance is necessary for ordinary suggestions.</p>{task.estimate_rationale && <p><strong>Time estimate:</strong> {task.estimate_rationale}</p>}{task.estimate_sources?.length ? <p><strong>Sources:</strong> {task.estimate_sources.map((url,i) => <span key={url}><a href={url} target="_blank" rel="noopener noreferrer">Source {i+1}</a>{i+1 < (task.estimate_sources?.length ?? 0) ? " · " : ""}</span>)}</p> : null}<small>Updated {new Date(task.updated_at).toLocaleString()}</small></details>
-          </article>)}</div>}
+        <div className="hh-room-task-toolbar">
+          <div><strong>Tasks by space or object</strong><p>See which room or photographed object prompted each task, with the supporting evidence.</p></div>
+          <HomHiveSelect id="hh-task-room-filter" label="Space" className="hh-task-choice"
+            value={taskRoomFilter} onChange={setTaskRoomFilter}
+            choices={[{value:"all",label:`All spaces (${activeHouseholdTasks.length})`}, ...enrolledRooms.map(room => ({value:room.room_id,label:`${roomDisplayName(room.room_id)} (${activeHouseholdTasks.filter(task => task.room_id === room.room_id).length})`}))]} />
+        </div>
+        {visibleHouseholdTasks.length === 0 ? <section className="hh-panel hh-friendly-empty"><h2>No active tasks {taskRoomFilter === "all" ? "yet" : "for this space"}</h2><p>When a photo shows independently supported work, HomHive will add it to the relevant physical space. A scan can correctly produce no tasks.</p><button className="secondary" onClick={() => {setScanOpen(true);setTaskRoomFilter("all");}}>Scan a space</button></section> :
+          <div className="hh-room-task-sections">{groupedHouseholdTasks.map(group => <section key={group.roomId} className="hh-room-task-section" aria-label={`${group.label} tasks`}>
+            <div className="hh-room-task-heading"><div><p className="hh-kicker">{group.tasks.some(task => objectKindForTask(task) && ["", "unassigned space", "indoor plants"].includes((enrolledRooms.find(room => room.room_id === task.room_id)?.room_category || task.room_category || "").toLowerCase())) ? "OBSERVED OBJECT" : "SPACE"}</p><h2>{group.label}</h2></div><span>{group.tasks.length} active {group.tasks.length === 1 ? "task" : "tasks"}</span></div>
+            <div className="hh-task-grid">{group.tasks.map(task => <article className="hh-panel hh-intelligent-task" key={task.id}>
+              <div className="hh-task-top"><span className="hh-task-space">{group.label}</span><span className="hh-task-date">Added {new Date(task.created_at).toLocaleDateString()}</span></div>
+              <h3>{task.title}</h3>
+              <p className="hh-task-description">{(task.action || task.evidence_summary || "Photo-supported household suggestion").slice(0,220)}{(task.action || task.evidence_summary || "").length > 220 ? "…" : ""}</p>
+              <div className="hh-task-metadata"><span>{task.status === "in_progress" ? "In progress" : task.status === "proposed" ? "Needs approval" : task.status === "accepted" ? "Accepted" : "Suggested"}</span><span>{task.effort_min == null ? "Time not estimated" : `${task.effort_min}${task.effort_max != null && task.effort_max !== task.effort_min ? `-${task.effort_max}` : ""} min estimated`}</span></div>
+              {task.progress && <div className="hh-task-progress" role="status">
+                <strong>{task.progress.estimated ? "About " : ""}{task.progress.percent}% of visible goal reached</strong>
+                <div role="progressbar" aria-label={`Visible progress for ${task.title}`} aria-valuenow={task.progress.percent} aria-valuemin={0} aria-valuemax={100} className="hh-task-progress-track"><div style={{width:`${task.progress.percent}%`}} /></div>
+                {task.progress.next_step && <p className="hh-task-next"><strong>Still needed:</strong> {task.progress.next_step}</p>}
+                {/dish|sink|plate|wash|clean|sanitize|wipe|scrub/i.test(task.title + " " + task.action) && <p className="hh-task-caution">A cleared surface does not prove items were washed or put away. Confirm the actual work separately.</p>}
+                <details className="hh-task-evidence"><summary>Photo review details</summary><p>{task.progress.explanation}</p><small>Reviewed {new Date(task.progress.reviewed_at).toLocaleString()}</small></details>
+              </div>}
+              {objectKindForTask(task) && <section className="hh-object-insight" aria-label={`About ${objectDisplayName(task)}`}>
+                <strong>{objectKindForTask(task) === "plant" ? "Plant insight" : "Appliance insight"} · {objectDisplayName(task)}</strong>
+                <p>{task.observed_object?.identity_status === "tentative" ? "Possible identity from the reviewed image, not a confirmed identification." : "Exact species or model not yet verified."}</p>
+                <p><b>What HomHive observed:</b> {task.observed_object?.visible_evidence?.join(" ") || task.evidence_summary || "The object needs further visual inspection."}</p>
+                <p className="hh-muted">Web research provides possible explanations and next steps, not a definitive diagnosis.</p>
+              </section>}
+              {task.automatic_guidance && <details className="hh-task-evidence" open={Boolean(objectKindForTask(task))}><summary>Research found automatically</summary>
+                <p>{task.automatic_guidance.note}</p><ul>{task.automatic_guidance.sources.map((source,i) => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || `Source ${i+1}`}</a></li>)}</ul>
+              </details>}
+              {task.recommended_at && <p className="hh-muted">Suggested time: {new Date(task.recommended_at).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"})}. Based on your preferred time, not confirmed calendar availability.</p>}
+              <div className="hh-task-actions">{task.status === "proposed" && <button disabled={busy} onClick={() => decideAutonomousTask(task.id,"accept")}>Approve</button>}{["pending", "accepted", "in_progress"].includes(task.status) && <button disabled={busy} onClick={() => decideAutonomousTask(task.id,"done")}>I did this · verify later</button>}{["pending", "proposed"].includes(task.status) && <button className="secondary" disabled={busy} onClick={() => decideAutonomousTask(task.id,"remind")}>Remind later</button>}{["pending", "proposed", "accepted", "in_progress"].includes(task.status) && <button className="hh-text-danger" disabled={busy} onClick={() => decideAutonomousTask(task.id,"decline")}>Dismiss</button>}</div>
+              <details className="hh-task-evidence" onToggle={event => {if (event.currentTarget.open) void showTaskTimeline(task.id);}}><summary>Why was this suggested?</summary><p><strong>Observed:</strong> {task.evidence_summary || "Reviewed photo evidence"}</p><p><strong>Desired result:</strong> {task.criteria}</p><p><strong>Action:</strong> {task.action}</p>{task.estimate_rationale && <p><strong>Time estimate:</strong> {task.estimate_rationale}</p>}{task.estimate_sources?.length ? <p><strong>References:</strong> {task.estimate_sources.map((url,i) => <span key={url}><a href={url} target="_blank" rel="noopener noreferrer">Source {i+1}</a> </span>)}</p> : null}
+              {taskTimelines[task.id] && <div className="hh-compact-list"><h4>Previous photo reviews</h4>{taskTimelines[task.id].events.filter(event => ["discovery", "verification", "user_decision"].includes(event.kind)).map((event,index) => <div className="hh-history-entry" key={`${event.kind}-${index}`}><strong>{event.kind === "verification" ? "Photo recheck" : event.kind === "discovery" ? "Task found" : "Your decision"}</strong><p>{String(event.detail.reason || event.detail.decision || "Review recorded")}</p><small>{new Date(event.created_at).toLocaleString()}</small></div>)}</div>}
+              </details>
+            </article>)}</div>
+          </section>)}</div>}
         {autonomousTasks.some(task => task.status === "completed") && <details className="hh-diagnostics">
           <summary>Verified completed work ({autonomousTasks.filter(task => task.status === "completed").length})</summary>
           {autonomousTasks.filter(task => task.status === "completed").slice(-15).reverse().map(task => <article className="hh-scan-review" key={task.id}>
@@ -982,13 +1529,43 @@ export default function Home() {
                 <div className="hh-review-head"><strong>{job.state.replaceAll("_", " ")}</strong>
                   <small>{job.updated_at ? new Date(job.updated_at).toLocaleString() : ""}</small></div>
                 {job.message && <p>{job.message}</p>}
-                {job.state === "held_unverified_room" && <div className="hh-scan-message"><p>HomHive couldn't verify a unique existing space for this photograph. If it shows a separate physical room, confirm it as a new space. The saved image will be reviewed again using AI credits.</p><button className="secondary" disabled={autonomousLoading || busy} onClick={() => void enrollHeldRoom(job)}>{autonomousLoading ? "Adding space…" : "Add this photo as a new space"}</button></div>}
+                {job.state === "held_unverified_room" && <div className="hh-scan-message"><p>HomHive couldn't verify a unique existing space for this photograph. If it shows a separate physical room, confirm it as a new space. The saved image will be reviewed again using AI credits.</p><button className="secondary" disabled={autonomousLoading || busy} onClick={() => void enrollHeldRoom(job)}>{autonomousLoading ? "Adding space..." : "Add this photo as a new space"}</button><div className="hh-room-match-panel"><p className="hh-room-match-heading">Or link this image to an existing space</p>
+              <HomHiveSelect id={`task-room-${job.id}`} label="Matching physical room" value={heldRoomChoices[job.media_id] || ""}
+                onChange={value => setHeldRoomChoices(current => ({...current, [job.media_id]: value}))}
+                choices={[{value: "", label: "Choose a registered space"}, ...enrolledRooms.map(room => ({value: room.room_id, label: roomDisplayName(room.room_id), detail: "Previously registered space"}))]} /><button className="hh-confirm-room" disabled={!heldRoomChoices[job.media_id] || autonomousLoading || busy}
+                onClick={() => confirmExistingRoom(job)}>Confirm this is the same room</button>
+              <p className="hh-room-match-help">Use this only when both photos depict the same physical room.</p></div></div>}
                 {job.state === "failed" && <div className="hh-scan-message hh-scan-problem"><p>{job.message || "The AI review couldn't finish. Your uploaded photo is safe."} Try again if the issue was temporary, or choose a clearer photograph if the image itself is difficult to interpret.</p><button className="secondary" disabled={busy} onClick={() => void retryFailedScan(job.media_id)}>Retry saved photo</button></div>}
                 {review ? <>
                   {job.state !== "completed" && <p>This is the previous completed review; a new review is in progress.</p>}
-                  <p><strong>Room identified:</strong> {review.room_category || "Not established"}</p>
+                  {review.scene_focus && <section className="hh-object-insight" aria-label="Photo focus">
+                    <strong>{review.scene_focus.focus === "object" ? "Close-up: object" : review.scene_focus.focus === "hybrid" ? "Object within a space" : review.scene_focus.focus === "space" ? "Wide view: space" : "View still uncertain"}</strong>
+                    <p>{review.scene_focus.basis}</p>
+                    {review.scene_focus.focus === "object" && <p>The object can be assessed even when its physical room is not known.</p>}
+                    {review.scene_focus.focus === "hybrid" && <p>Track the visible object and room separately; this alone does not establish room identity.</p>}
+                  </section>}
+                  <p><strong>Room context:</strong> {review.room_category || "Not established"}</p>
+                  {review.room_identity_source === "user_confirmed" && <p>Physical room match: confirmed by you (not independently established by image comparison).</p>}
                   <p><strong>Proposed:</strong> {review.proposed_count ?? 0} · <strong>Approved:</strong> {review.approved_count ?? 0} · <strong>New tasks:</strong> {review.created_count ?? 0}</p>
-                  {review.verification === "no_corroborated_evidence" ?
+                  {review.automatic_coordination && <div className="hh-scan-message"><strong>Automatic household coordination</strong>
+                    <p>Research: {review.automatic_coordination.research_status?.replaceAll("_", " ") || "pending"} · Nemotron: {review.automatic_coordination.planning_status?.replaceAll("_", " ") || "pending"}</p>
+                    {review.automatic_coordination.advice && <p>{review.automatic_coordination.advice.summary} {review.automatic_coordination.advice.reason}</p>}
+                    {review.automatic_coordination.object_insights?.map(item => <div className="hh-object-insight" key={item.object_id}>
+                      <strong>{item.kind === "plant" ? "Plant" : "Appliance"}: {item.label}</strong>
+                      <p>{item.explanation}</p>
+                      <p><b>Observed:</b> {item.visible_evidence.join(" ")}</p>
+                      {item.research_sources?.length ? <div><b>What research suggests:</b><ul>{item.research_sources.map((source, i) =>
+                        <li key={`${source.url}-${i}`}>{source.excerpt && <span>{source.excerpt} </span>}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a></li>)}</ul></div> : null}
+                    </div>)}
+                    {review.automatic_coordination.scene_research?.map((topic,index) => <div key={`${topic.topic}-${index}`}>
+                      <p><strong>{topic.topic === "plant_care" ? "Plant information" : "Appliance information"}:</strong> {topic.note}</p>
+                      {topic.sources.length ? <ul>{topic.sources.map((source,i) =>
+                        <li key={`${source.url}-${i}`}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || `Research source ${i+1}`}</a></li>)}</ul> : <p>No reliable sources found for this scene.</p>}
+                    </div>)}
+                  </div>}
+                  {review.evidence_reason === "no_visible_claims" ? <p>No household condition was identified in this view. This does not prove the room is clean.</p> :
+                    review.evidence_reason === "claims_not_corroborated" ? <p>Possible visible conditions were not confirmed by independent reviewers. No tasks were invented.</p> : null}
+                  {review.verification === "no_corroborated_evidence" && !review.evidence_reason ?
                     <p>The AI models could not agree on enough visible evidence to suggest work. Try a clearer, well-lit photo showing more of the space; this is an evidence-confidence issue, not proof that the room is tidy.</p> :
                     review.proposed_count === 0 ? <p>The planner proposed no task from the accepted evidence. This does not mean the room has been cleaned or checked by a person.</p> : null}
                   {(review.evidence?.length ?? 0) > 0 && <details><summary>What the models agreed was visible</summary>
@@ -1035,14 +1612,53 @@ export default function Home() {
             {file && <p className="hh-selected-photo" role="status">Selected: {file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB</p>}
             {photoInspection && <p className="hh-muted">Image: {photoInspection.width} × {photoInspection.height} pixels. {photoInspection.warnings.length ? "You can still upload, but another photo may improve results." : "Ready for live AI analysis."}</p>}
             {photoInspection && photoInspection.warnings.length > 0 && <div className="hh-photo-warning" role="status"><strong>Photo quality advisory</strong><ul>{photoInspection.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></div>}
-            <div className="hh-task-actions"><button disabled={busy || !file || !isConnected} onClick={upload}>{busy ? "Working…" : "Upload and analyze"}</button>{media?.processing === "retry_required" && <button className="secondary" disabled={busy || !isConnected} onClick={analyze}>Retry analysis</button>}</div>
+            <div className="hh-task-actions"><button disabled={busy || !file || !isConnected} onClick={upload}>{busy ? "Working..." : "Upload and analyze"}</button>{media?.processing === "retry_required" && <button className="secondary" disabled={busy || !isConnected} onClick={analyze}>Retry analysis</button>}</div>
             {!file && <p className="hh-muted" role="status">Select a photo from your device or browse the demo library to enable analysis.</p>}
             {observations.length > 0 && <div className="hh-compact-list"><h3>Observations</h3>{observations.map(item => <div className="hh-history-entry" key={item.id}><strong>{conditionSummary(item)}</strong><p>{observationEvidence(item)}</p><small>{needsReview(item) ? "Unverified" : evidenceStatus(item)}</small>{needsReview(item) && <button disabled={busy} onClick={() => confirm(item)}>Confirm observation</button>}</div>)}</div>}
             <p className="hh-muted">Independently approved household tasks are suggested automatically. Approval is only required for safety-sensitive actions.</p>
           </>}
         </section>
       </div>}
-      {demoOpen && <div className="hh-modal-backdrop hh-demo-backdrop" onClick={() => setDemoOpen(false)}><section role="dialog" aria-modal="true" aria-labelledby="hh-demo-title" className="hh-modal hh-demo-dialog" onClick={e => e.stopPropagation()}><div className="hh-panel-head"><div><p className="hh-kicker">HomHive demo library</p><h2 id="hh-demo-title">Choose a household scene</h2><p className="hh-muted">{demoCatalog.length} sample photographs. Selecting one uses real AI analysis when you submit it.</p></div><button className="hh-icon-button" aria-label="Close image library" onClick={() => setDemoOpen(false)}>✕</button></div><div className="hh-demo-filters"><label>Find a scene<input value={demoQuery} onChange={e => setDemoQuery(e.target.value)} placeholder="Search rooms, conditions, and scenes"/></label><label>Room category<select value={demoCategory} onChange={e => setDemoCategory(e.target.value)}>{demoCategories.map(category => <option key={category} value={category}>{category}</option>)}</select></label></div><p className="hh-muted" aria-live="polite">Showing {visibleDemoImages.length} photographs</p>{demoSelectionError && <p role="alert" className="hh-demo-error">{demoSelectionError}</p>}<div className="hh-demo-grid">{visibleDemoImages.map(image => <button className="hh-demo-item" disabled={demoSelecting} key={image.id} onClick={() => chooseDemoImage(image)} aria-label={`Select ${image.title}`}><img src={image.thumbnail} alt={image.title} loading="lazy"/><span><strong>{image.title}</strong><small>{image.category} · {image.group === "original" ? "Original scene" : image.group === "base" ? "Base scene" : "Controlled variant"}</small></span></button>)}</div></section></div>}
+      {demoOpen && (
+        <div className="hh-modal-backdrop hh-demo-backdrop" onClick={() => setDemoOpen(false)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="hh-demo-title" className="hh-modal hh-demo-dialog" onClick={e => e.stopPropagation()}>
+            <div className="hh-panel-head">
+              <div>
+                <p className="hh-kicker">HomHive demo library</p>
+                <h2 id="hh-demo-title">Choose a household scene</h2>
+                <p className="hh-muted">{demoCatalog.length} sample photographs. Selecting one uses real AI analysis when you submit it.</p>
+              </div>
+              <button className="hh-icon-button" aria-label="Close image library" onClick={() => setDemoOpen(false)}>✕</button>
+            </div>
+            <div className="hh-demo-mode-tabs" role="group" aria-label="Photo collection">
+              <button type="button" className={demoMode === "sequences" ? "is-active" : ""} aria-pressed={demoMode === "sequences"} onClick={() => {setDemoMode("sequences");setDemoCategory("All");}}>Before & after sets <span>{demoFamilies.length}</span></button>
+              <button type="button" className={demoMode === "standalone" ? "is-active" : ""} aria-pressed={demoMode === "standalone"} onClick={() => {setDemoMode("standalone");setDemoCategory("All");}}>Other scenes <span>{standaloneDemoImages.length}</span></button>
+            </div>
+            <div className="hh-demo-filters">
+              <label>Search photographs
+                <input value={demoQuery} onChange={e => setDemoQuery(e.target.value)} placeholder="e.g. kitchen, dishes, Original 30" />
+              </label>
+              <HomHiveSelect label="Room category" value={demoCategory} onChange={setDemoCategory}
+                choices={demoCategories.map(category => ({value:category,label:category === "All" ? "All room categories" : category}))} />
+            </div>
+            <p className="hh-demo-count" aria-live="polite">{demoMode === "sequences" ? `${filteredDemoFamilies.length} related scene sets · original followed by verified variants` : `${filteredStandaloneImages.length} standalone scenes · no verified before/after relationship`}</p>
+            {demoSelectionError && <p role="alert" className="hh-demo-error">{demoSelectionError}</p>}
+            <div className="hh-demo-library-scroll">
+              {demoMode === "sequences" ? (filteredDemoFamilies.length ? <div className="hh-demo-family-list">
+                {filteredDemoFamilies.map(family => <section className="hh-demo-family" key={family.original.family_id}>
+                  <div className="hh-demo-family-heading"><div><strong>{family.original.title} · {family.original.source_title}</strong><small>{family.original.category} · {family.variants.length} verified {family.variants.length === 1 ? "variation" : "variations"}</small></div></div>
+                  <div className="hh-demo-sequence-grid">{[family.original, ...family.variants].map(image => <button className="hh-demo-item" type="button" disabled={demoSelecting} key={image.id} onClick={() => chooseDemoImage(image)} aria-label={`Select ${image.title}: ${family.original.source_title}`}>
+                    <img src={image.thumbnail} alt={`${image.title} · ${family.original.source_title}`} loading="lazy" />
+                    <span><strong>{image.title}</strong><small>{image.group === "original" ? "Original · reference scene" : `Variation · ${image.variant_note || "controlled change"}`}</small></span>
+                  </button>)}</div>
+                </section>)}
+              </div> : <p className="hh-demo-no-results">No matching related sets. Try another room category or search.</p>) :
+              (filteredStandaloneImages.length ? <><p className="hh-demo-standalone-notice">These photographs have no verified paired variant. They are available for individual scans but are not a reliable before/after test.</p>
+                <div className="hh-demo-grid">{filteredStandaloneImages.map(image => <button className="hh-demo-item" type="button" disabled={demoSelecting} key={image.id} onClick={() => chooseDemoImage(image)} aria-label={`Select ${image.title}: ${image.source_title}`}><img src={image.thumbnail} alt={`${image.title} · ${image.source_title}`} loading="lazy"/><span><strong>{image.title}</strong><small>{image.source_title}</small><small>{image.category}</small></span></button>)}</div></> : <p className="hh-demo-no-results">No matching standalone scenes.</p>)}
+            </div>
+          </section>
+        </div>
+      )}
       {settingsOpen && <div className="hh-modal-backdrop" onClick={() => setSettingsOpen(false)}>
         <section role="dialog" aria-modal="true" aria-labelledby="hh-settings-title" className="hh-modal hh-settings-dialog" onClick={e => e.stopPropagation()}>
           <div className="hh-panel-head"><h2 id="hh-settings-title">Settings</h2><button type="button" className="hh-icon-button" aria-label="Close settings" onClick={() => setSettingsOpen(false)}>✕</button></div>
@@ -1057,12 +1673,12 @@ export default function Home() {
               <label>Password<input type="password" autoComplete={authMode === "register" ? "new-password" : "current-password"} placeholder={authMode === "register" ? "At least 12 characters" : "Your password"} value={authPassword} onChange={e => {setAuthPassword(e.target.value);setAuthError("");}} /></label>
               {authMode === "register" && <label>Confirm password<input type="password" autoComplete="new-password" placeholder="Re-enter your password" value={confirmPassword} onChange={e => {setConfirmPassword(e.target.value);setAuthError("");}} /></label>}
               {authError && <div className="hh-auth-feedback" role="alert"><p>{authError}</p>{authMode === "register" && /already|existing/i.test(authError) && <button type="button" className="hh-inline-action" onClick={() => {setAuthMode("login");setAuthError("");setAuthPassword("");setConfirmPassword("");}}>Switch to sign in →</button>}</div>}
-              <button className="hh-auth-submit" type="submit" disabled={Boolean(authDisabledReason)}>{busy ? "Please wait…" : authMode === "login" ? "Sign in" : "Create account"}</button>
+              <button className="hh-auth-submit" type="submit" disabled={Boolean(authDisabledReason)}>{busy ? "Please wait..." : authMode === "login" ? "Sign in" : "Create account"}</button>
               {authDisabledReason && <p className="hh-auth-reason" role="status">{authDisabledReason}</p>}
             </form>
             <p className="hh-auth-footnote">{authMode === "register" ? "Your account creates a private household. Sessions expire after seven days." : "Use the password you created with this email. Account recovery is not yet available."}</p>
           </div> : <div className="hh-auth-connected"><strong>Signed in</strong><p>Your account has a private household. Select <strong>Load household</strong> to access scans and saved work.</p><button type="button" className="secondary" disabled={busy} onClick={signOut}>Sign out</button></div>}
-          <section className="hh-settings-section" aria-label="Household connection"><h3>Household connection</h3><p className="hh-muted">{isConnected ? "Your household is loaded. Scans and saved work are available." : token ? "Your household is connecting automatically. You can retry if needed." : "Sign in or create an account to connect your private household."}</p><button type="button" disabled={Boolean(householdDisabledReason)} onClick={async () => {if (await loadHousehold()) setSettingsOpen(false);}}>{busy ? "Connecting…" : isConnected ? "Household connected" : "Load household"}</button>{householdDisabledReason && <p role="status" className="hh-auth-reason">{householdDisabledReason}</p>}</section>
+          <section className="hh-settings-section" aria-label="Household connection"><h3>Household connection</h3><p className="hh-muted">{isConnected ? "Your household is loaded. Scans and saved work are available." : token ? "Your household is connecting automatically. You can retry if needed." : "Sign in or create an account to connect your private household."}</p><button type="button" disabled={Boolean(householdDisabledReason)} onClick={async () => {if (await loadHousehold()) setSettingsOpen(false);}}>{busy ? "Connecting..." : isConnected ? "Household connected" : "Load household"}</button>{householdDisabledReason && <p role="status" className="hh-auth-reason">{householdDisabledReason}</p>}</section>
           <section className="hh-settings-section" aria-label="Household schedule"><h3>Your household schedule</h3><p className="hh-muted">{scheduleSummary}. Manage your days and preferred times in the Schedule tab.</p><button type="button" className="secondary" onClick={() => {setSettingsOpen(false);setView("schedule");}}>Open Schedule</button></section>
           <details className="hh-settings-details"><summary>Presence (optional)</summary><p className="hh-muted">Share whether you are home. This is manual and expires after one hour.</p><p className="hh-muted">Current: {presence?.state ?? "UNKNOWN"}</p><div className="hh-task-actions"><button className="secondary" disabled={!isConnected || busy} onClick={() => changePresence("HOME")}>I'm home</button><button className="secondary" disabled={!isConnected || busy} onClick={() => changePresence("AWAY")}>I'm away</button><button className="secondary" disabled={!isConnected || busy} onClick={() => changePresence("UNKNOWN")}>Stop sharing</button></div>{(!isConnected || busy) && <p className="hh-auth-reason">{!isConnected ? "Load your household before sharing presence." : "Please wait for the current request."}</p>}</details>
           <details className="hh-settings-details"><summary>Connection diagnostics</summary><label>API URL<input value={apiUrl} onChange={e => setApiUrl(e.target.value)}/></label><p className="hh-muted">Your session remains available when refreshing this tab until it expires, you close the tab, or you sign out. Shared devices should always use Sign out.</p>{token && <p className="hh-muted">Technical household ID (for troubleshooting): <code style={{overflowWrap:"anywhere"}}>{householdId}</code></p>}</details>

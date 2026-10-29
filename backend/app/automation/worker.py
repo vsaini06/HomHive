@@ -23,8 +23,8 @@ def run_due(sessions: sessionmaker[Session], *, now: datetime | None = None,
         raise ValueError('limit must be 1 through 500')
     result = {'checked': 0, 'needs_evidence': 0, 'resolved': 0, 'persisting': 0, 'notifications_created': 0}
     observations = SQLAlchemyObservationRepository(sessions)
-    # Lock and mutate in one transaction; Postgres SKIP LOCKED allows multiple
-    # workers to divide the due rows rather than verify the same task twice.
+
+
     with sessions.begin() as session:
         statement = (select(TaskRecord)
             .where(TaskRecord.task_metadata['verification_due_at'].as_string() <= now.isoformat())
@@ -51,8 +51,8 @@ def run_due(sessions: sessionmaker[Session], *, now: datetime | None = None,
                 result['resolved'] += 1
             elif after == 'verified_persisting':
                 result['persisting'] += 1
-        # Materialize persistent in-app suggestions without requiring a browser
-        # to call /intelligence/refresh or /notifications.
+
+
         households = session.scalars(select(TaskRecord.household_id).distinct()).all()
         for household_id in households:
             result['notifications_created'] += sync_household(session, household_id, now)

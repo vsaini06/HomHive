@@ -41,9 +41,9 @@ class VisionExtraction(BaseModel):
 
     candidates: list[VisionCandidate] = Field(max_length=4)
     needs_review: bool
-    # An inferred category is a hint, not a verified physical room identity.
+
     space_category: SpaceCategory | None = None
-    # Request-local diagnostics; excluded from provider schema and persistence.
+
     _verification_diagnostics: dict = PrivateAttr(default_factory=dict)
 
 
@@ -209,8 +209,8 @@ class NebiusVisionProvider:
             raise ValueError('Vision provider returned no text')
 
         raw = response.choices[0].message.content.strip()
-        # Some providers wrap valid JSON in a Markdown code fence. Remove only
-        # a complete outer fence; do not try to repair invalid schema values.
+
+
         if raw.startswith('```') and raw.endswith('```'):
             lines = raw.splitlines()
             if len(lines) >= 3 and lines[0].strip().lower() in {'```', '```json'} and lines[-1].strip() == '```':
@@ -224,16 +224,16 @@ class NebiusVisionProvider:
         try:
             result = VisionExtraction.model_validate(payload)
         except ValidationError as exc:
-            # Only report structural error locations/types. Never log raw model
-            # content, images, API tokens, or full error inputs.
+
+
             logger.warning('Vision schema validation failed: %s',
                            [(str(error['loc']), error['type']) for error in exc.errors()])
             raise ValueError('Invalid vision provider response') from exc
 
-        # A nonempty candidate list can legitimately require further review.
-        # Do not confuse the primary model's uncertainty with schema invalidity.
-        # Empty unreviewed results remain invalid; no candidates means no
-        # evidence to verify or persist.
+
+
+
+
         if not result.candidates and not result.needs_review:
             logger.warning(
                 'Vision validation rejected: inconsistent review state '
@@ -243,9 +243,9 @@ class NebiusVisionProvider:
             raise ValueError('Inconsistent vision review status')
 
         for candidate in result.candidates:
-            # The model may infer a room category, not an authoritative room identity.
-            # Preserve the caller's location without discarding independently
-            # verifiable scene evidence when the model proposes another label.
+
+
+
             if candidate.location != location:
                 candidate.location = location
 

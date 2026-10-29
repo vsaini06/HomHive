@@ -72,7 +72,7 @@ def test_partial_progress_updates_are_durable_and_evidence_linked(service):
     assert task["status"] == "in_progress" and task["progress"]["percent"] == 20
     assert task["progress"]["next_step"].startswith("Sort")
     assert any(a["kind"] == "progress" for a in service.alerts("home"))
-    # Replaying the same photograph must not emit more alerts or change history.
+
     alert_count = len(service.alerts("home"))
     assert service.verify_fresh_scene("home", room(), [verdict(
         task_id, "photo-2", OutcomeVerdict.partially_completed, 20)])[task_id] == "already_reviewed"

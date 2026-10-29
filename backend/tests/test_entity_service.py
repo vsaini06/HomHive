@@ -3,9 +3,9 @@ from app.models import EntityType
 from app.repositories import HouseholdEntityRepository
 from app.services import HouseholdEntityService
 
-#-tests-
 
-#-1-
+
+
 def test_entity_service_gets_entity():
     repository = HouseholdEntityRepository()
     service = HouseholdEntityService(
@@ -18,7 +18,7 @@ def test_entity_service_gets_entity():
     assert entity is not None
     assert entity.id == "entity_plant_001"
 
-#-2-
+
 def test_entity_service_returns_none_for_unknown_entity():
     repository = HouseholdEntityRepository()
     service = HouseholdEntityService(
@@ -30,7 +30,7 @@ def test_entity_service_returns_none_for_unknown_entity():
 
     assert entity is None
 
-#-3-
+
 def test_entity_service_lists_entities():
     repository = HouseholdEntityRepository()
     service = HouseholdEntityService(
@@ -40,7 +40,7 @@ def test_entity_service_lists_entities():
 
     assert len(entities) == 2
 
-#-4-
+
 def test_entity_service_filters_entities():
     repository = HouseholdEntityRepository()
     service = HouseholdEntityService(
@@ -57,7 +57,7 @@ def test_entity_service_filters_entities():
         == "entity_plant_001"
     )
 
-#-5-
+
 def test_entity_service_renames_entity():
     repository = HouseholdEntityRepository()
     service = HouseholdEntityService(
@@ -71,7 +71,7 @@ def test_entity_service_renames_entity():
     assert entity is not None
     assert entity.name == "My Monstera"
 
-#-6-
+
 def test_entity_service_rejects_empty_name():
     repository = HouseholdEntityRepository()
     service = HouseholdEntityService(

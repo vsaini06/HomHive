@@ -53,7 +53,7 @@ def evaluate(task: Task, household_id: str, observations: ObservationStorage,
         'verification_evidence_id': evidence.id if evidence else None,
         'verification_attempts': attempts}
     if status == 'awaiting_evidence':
-        # Persist a bounded future obligation. It survives application restarts.
+
         meta['verification_due_at'] = (now + timedelta(hours=retry_hours)).isoformat()
     else:
         meta['verification_due_at'] = None

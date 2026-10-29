@@ -46,6 +46,33 @@ export type HouseholdPresence = {
   expires_at: string | null;
 };
 
+export type CoordinationTask = {
+  task_id: string; title: string; room_id: string; priority: number;
+  status: "NOW" | "SOON" | "DEFERRED" | "BLOCKED";
+  reasons: string[]; duration_min: number | null; duration_max: number | null;
+  duration_sources: string[]; progress_percent: number | null;
+  remaining_work: string | null; evaluated_at: string;
+};
+export type CoordinationPlan = {
+  presence: HouseholdPresence;
+  availability: { state: "FREE" | "BUSY" | "UNKNOWN"; source: string | null; expires_at: string | null };
+  quiet_hours: { enabled: boolean; start_time: string; end_time: string; active: boolean; timezone: string };
+  work_window: WorkWindow | null;
+  timezone: string; preferred_minutes_remaining: number;
+  groups: Record<"NOW" | "SOON" | "DEFERRED" | "BLOCKED", number>;
+  tasks: CoordinationTask[]; evaluated_at: string; source_note: string;
+  latest_automatic_coordination?: {
+    status: string; scan_id: string; updated_at: string; research_status: string;
+    researched_tasks: number; source_count: number; planning_status: string;
+    advice?: NemotronAdvice;
+  } | null;
+};
+
+export type NemotronAdvice = {
+  model: string | null; selected_task_id: string | null;
+  summary: string; reason: string; source: string;
+};
+
 export type RankedTask = {
   task: {
     id: string;
@@ -86,8 +113,17 @@ export type PlanResponse = {
   research: unknown[];
 };
 
+export type HouseholdResearchPurpose = "plant_care" | "appliance_guidance" | "maintenance" | "household_context";
+export type HouseholdResearchResult = {
+  provider: "tavily";
+  query: string;
+  purpose: HouseholdResearchPurpose;
+  evidence: Array<{title: string; url: string; content: string; score?: number | null; published_date?: string | null}>;
+  retrieved_at: string;
+};
+
 export type AutonomousTask = {
-  id: string; room_id: string; title: string; action: string;
+  id: string; room_id: string; object_id?: string | null; subject_type?: "object" | "space"; object_name?: string | null; title: string; action: string;
   status: string; effort_min: number | null; effort_max: number | null; criteria: string;
   room_category?: string | null; evidence_summary?: string | null;
   created_at: string; updated_at: string; remind_at?: string | null;
@@ -96,22 +132,65 @@ export type AutonomousTask = {
   recommendation_basis?: string | null;
   estimate_rationale?: string | null;
   estimate_sources?: string[];
+  automatic_guidance?: {topic: string; sources: Array<{title: string; url: string}>; note: string; retrieved_at: string} | null;
+  observed_object?: {object_id: string; kind: "plant" | "appliance"; label: string; identity_status: "tentative" | "unconfirmed"; visible_evidence: string[]; explanation: string} | null;
   progress?: {percent: number; media_id: string; explanation: string; next_step?: string | null; reviewed_at: string; estimated: boolean} | null;
 };
 export type AutonomousAlert = {
-  id: string; task_id: string; kind: "suggestion" | "progress" | "completed";
+  id: string; task_id: string; kind: "suggestion" | "progress" | "completed" | "reminder";
   title: string; detail: string; created_at: string; read_at: string | null;
 };
 export type WorkWindow = {
   timezone: string; start_time: string; end_time: string; weekdays: number[];
 };
+export type HouseholdPulse = {
+  active_count: number; verified_complete_count: number; work_window_configured: boolean;
+  suggestions: Array<{
+    task_id: string; title: string; room_id: string; priority: number; reasons: string[];
+    progress_percent: number | null; progress_explanation: string | null;
+    remaining_work: string | null; follow_up_reviews: number;
+    recommended_at: string | null; estimate_min: number | null;
+    estimate_max: number | null; estimate_sources: string[];
+    research_needed: boolean; status: string;
+  }>;
+};
+export type TaskTimeline = {
+  task_id: string; status: string;
+  events: Array<{ kind: string; media_id: string | null;
+    detail: Record<string, unknown>; created_at: string }>;
+};
+export type AutonomousObject = {
+  id: string; kind: string; name: string; room_id: string | null;
+  location_confirmed: boolean; reference_media_id: string;
+  identity_hint: string | null; identity_status: "possible" | "unknown";
+  catalog_candidate?: string | null; catalog_reference?: string | null;
+  research_sources?: Array<{title: string; url: string; excerpt: string}>;
+  evidence: string[]; created_at: string;
+};
+
 export type AutonomousRoom = {
   room_id: string; reference_media_id: string; room_category: string | null;
   room_category_source?: "ai_reviewed" | "user_confirmed"; created_at: string;
 };
 export type AutonomousReviewSummary = {
+  automatic_coordination?: {
+    status: string; research_status?: string; researched_tasks?: number;
+    source_count?: number; planning_status?: string; advice?: NemotronAdvice;
+    scene_research?: Array<{ topic: string; note: string; sources: Array<{title:string; url:string; excerpt?: string}> }>;
+    object_insights?: Array<{object_id: string; kind: "plant" | "appliance"; label: string; identity_status: string; visible_evidence: string[]; explanation: string; research_sources: Array<{title:string; url:string; excerpt?: string}>}>;
+    scene_focus?: {focus: "space" | "object" | "hybrid" | "unknown"; basis: string; location_confirmed: boolean};
+  } | null;
+  evidence_reason?:
+    | "no_visible_claims"
+    | "claims_not_corroborated"
+    | "no_task_proposed"
+    | "proposals_not_approved"
+    | "approved_actions";
   room_category?: string | null;
+  scene_focus?: {focus: "space" | "object" | "hybrid" | "unknown"; basis: string; location_confirmed: boolean};
   verification?: string;
+  room_identity_source?: "user_confirmed" | "model_verified";
+  progress_results?: Record<string, string>;
   evidence?: string[];
   proposed_count?: number;
   approved_count?: number;
@@ -176,6 +255,26 @@ export class HomHiveApi {
     return (await this.parse<{rooms: AutonomousRoom[]}>(response)).rooms;
   }
 
+  async autonomousObjects(): Promise<AutonomousObject[]> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-objects`,
+      { headers: this.headers(), cache: "no-store" });
+    return (await this.parse<{objects: AutonomousObject[]}>(response)).objects;
+  }
+
+  async autonomousObjectPhoto(objectId: string): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-objects/${encodeURIComponent(objectId)}/photo`,
+      { headers: this.headers() });
+    if (!response.ok) throw new Error(`Photo unavailable (HTTP ${response.status})`);
+    return response.blob();
+  }
+
+  async updateObjectLocation(objectId: string, roomId: string | null): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-objects/${encodeURIComponent(objectId)}/location`, {
+      method: "PUT", headers: this.headers(), body: JSON.stringify({room_id: roomId}),
+    });
+    await this.parse(response);
+  }
+
   async correctAutonomousRoom(roomId: string, category: string): Promise<AutonomousRoom> {
     const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-rooms/${encodeURIComponent(roomId)}/category`, {
       method: "PUT", headers: this.headers(), body: JSON.stringify({room_category: category}),
@@ -194,6 +293,13 @@ export class HomHiveApi {
     const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-scan-jobs`,
       { headers: this.headers(), cache: "no-store" });
     return (await this.parse<{jobs: AutonomousScanJob[]}>(response)).jobs;
+  }
+
+  async assignAutonomousRoom(mediaId: string, roomId: string): Promise<{room_id: string; job_id: string}> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/media/${encodeURIComponent(mediaId)}/assign-existing-room`, {
+      method: "POST", headers: this.headers(), body: JSON.stringify({room_id: roomId}),
+    });
+    return this.parse(response);
   }
 
   async enrollAutonomousRoom(mediaId: string): Promise<AutonomousRoom> {
@@ -231,6 +337,18 @@ export class HomHiveApi {
     const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-work-window`,
       {method: "PUT", headers: this.headers(), body: JSON.stringify(window)});
     return (await this.parse<{window: WorkWindow}>(response)).window;
+  }
+
+  async householdPulse(): Promise<HouseholdPulse> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-pulse`,
+      {headers: this.headers(), cache: "no-store"});
+    return this.parse(response);
+  }
+
+  async taskTimeline(taskId: string): Promise<TaskTimeline> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/autonomous-tasks/${encodeURIComponent(taskId)}/timeline`,
+      {headers: this.headers(), cache: "no-store"});
+    return this.parse(response);
   }
 
   async autonomousTasks(): Promise<AutonomousTask[]> {
@@ -351,6 +469,46 @@ export class HomHiveApi {
     const response = await fetch(
       `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/tasks/${encodeURIComponent(taskId)}/done`,
       { method: "POST", headers: this.headers(), body: JSON.stringify({}) },
+    );
+    return this.parse(response);
+  }
+
+  async coordinationPlan(): Promise<CoordinationPlan> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/coordination`,
+      { headers: this.headers(), cache: "no-store" },
+    );
+    return this.parse(response);
+  }
+
+  async researchHouseholdGuidance(query: string, purpose: HouseholdResearchPurpose): Promise<HouseholdResearchResult> {
+    const response = await fetch(`${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/research`, {
+      method: "POST", headers: this.headers(),
+      body: JSON.stringify({query, purpose, max_results: 3}),
+    });
+    return this.parse(response);
+  }
+
+  async nemotronAdvice(): Promise<NemotronAdvice> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/coordination/nemotron-advice`,
+      { method: "POST", headers: this.headers() },
+    );
+    return this.parse(response);
+  }
+
+  async updateAvailability(state: "FREE" | "BUSY" | "UNKNOWN"): Promise<CoordinationPlan> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/coordination/availability`,
+      { method: "PUT", headers: this.headers(), body: JSON.stringify({ state, ttl_minutes: 60 }) },
+    );
+    return this.parse(response);
+  }
+
+  async updateQuietHours(enabled: boolean, start_time: string, end_time: string, timezone: string): Promise<CoordinationPlan> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/coordination/quiet-hours`,
+      { method: "PUT", headers: this.headers(), body: JSON.stringify({ enabled, start_time, end_time, timezone }) },
     );
     return this.parse(response);
   }

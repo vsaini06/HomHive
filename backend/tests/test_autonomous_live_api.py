@@ -30,7 +30,7 @@ def test_wrong_room_holds_without_planning_or_writes():
     media = Mock()
     info = SimpleNamespace(content_type='image/jpeg')
     media.get_image.side_effect=[(info,b'reference'),(info,b'current')]
-    # Current is requested first, reference second.
+
     vision=SimpleNamespace(independent=SimpleNamespace(client=Mock()))
     pipeline=Mock(return_value=(vision, Mock(), Mock()))
     bridge=Mock()

@@ -1,0 +1,354 @@
+{
+  "schema_version": "1.0",
+  "source_note": "Derived from accepted NV manifest and curated semantic annotations; not an exhaustive per-pixel benchmark. Four accepted NV images are not represented by verified demo-gallery links.",
+  "missing_pairs": [
+    "NV06",
+    "NV09",
+    "NV18",
+    "NV32"
+  ],
+  "pairs": [
+    {
+      "id": "NV01",
+      "parent": "NF01",
+      "base": "Original 30.jpg",
+      "variant": "Original 30 v1.jpg",
+      "expected": "condition",
+      "target": "NF01_dirty_dish_group",
+      "annotation_summary": "Dishware group size and dirty-dish evidence increase; sink/cabinet identities remain.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV02",
+      "parent": "NF03",
+      "base": "Original 5.jpg",
+      "variant": "Original 5 v1.jpg",
+      "expected": "condition",
+      "target": "NF03_loose_laundry_group",
+      "annotation_summary": "Greater clothes workload and increased floor clutter; appliances unchanged.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV03",
+      "parent": "NF20",
+      "base": "Original 12.jpg",
+      "variant": "Original 12 v1.jpg",
+      "expected": "condition",
+      "target": "NF20_foreground_plant",
+      "annotation_summary": "Plant health condition changes; number and identity of plants stay fixed.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV04",
+      "parent": "NF19",
+      "base": "Original 23.jpg",
+      "variant": "Original 23 v1.jpg",
+      "expected": "condition",
+      "target": "NF19_grass_lawn",
+      "annotation_summary": "Grass taller/uneven with increased vertical blades; patio furniture, fence, shed and garden bed remain",
+      "source_review": "human_reviewed"
+    },
+    {
+      "id": "NV05",
+      "parent": "NF17",
+      "base": "Original 7.jpg",
+      "variant": "Original 7 v1.jpg",
+      "expected": "removal",
+      "target": "NF17_tabletop_clutter",
+      "annotation_summary": "Fewer distinct tabletop objects; surface-use observation becomes cleaner.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV07",
+      "parent": "NF22",
+      "base": "Original 1.jpg",
+      "variant": "Original 1 v1.jpg",
+      "expected": "removal",
+      "target": "NF22_shop_vac",
+      "annotation_summary": "One identifiable tool transitions to absent; other equipment unchanged.",
+      "source_review": "assistant_consistency_checked_not_independent_human"
+    },
+    {
+      "id": "NV08",
+      "parent": "NF14",
+      "base": "Original 22.jpg",
+      "variant": "Original 22 v1.jpg",
+      "expected": "removal",
+      "target": "NF14_egg_carton",
+      "annotation_summary": "One carton target disappears; food group classification otherwise fixed.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV10",
+      "parent": "NF01",
+      "base": "Original 30.jpg",
+      "variant": "Original 30 v2.jpg",
+      "expected": "removal",
+      "target": "NF01_sink_dishware",
+      "annotation_summary": "Dishware target is genuinely absent in the target zone, not merely hidden.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV11",
+      "parent": "NF32",
+      "base": "Original 3.jpg",
+      "variant": "Original 3 v1.jpg",
+      "expected": "removal",
+      "target": "NF32_laundry_hamper",
+      "annotation_summary": "Laundry-load target absent, with appliances still present.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV12",
+      "parent": "NF13",
+      "base": "Original 20.jpg",
+      "variant": "Original 20 v1.jpg",
+      "expected": "removal",
+      "target": "NF13_dry_food_containers",
+      "annotation_summary": "Selected food group absent; do not infer unseen duplicates.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV13",
+      "parent": "NF25",
+      "base": "Original 19.jpg",
+      "variant": "Original 19 v1.jpg",
+      "expected": "lighting",
+      "target": "NF25_hallway_scene",
+      "annotation_summary": "Physical entity and condition labels invariant; visibility confidence may decline.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV14",
+      "parent": "NF16",
+      "base": "Original 28.jpg",
+      "variant": "Original 28 v1.jpg",
+      "expected": "lighting",
+      "target": "NF16_balcony_scene",
+      "annotation_summary": "Same physical ground truth; harder object visibility under night lighting.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV15",
+      "parent": "NF06",
+      "base": "Original 25.jpg",
+      "variant": "Original 25 v1.jpg",
+      "expected": "lighting",
+      "target": "NF06_garage_scene",
+      "annotation_summary": "Object presence unchanged; confidence/support may decrease.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV16",
+      "parent": "NF11",
+      "base": "Original 10.jpg",
+      "variant": "Original 10 v1.jpg",
+      "expected": "occlusion",
+      "target": "NF11_monitor",
+      "annotation_summary": "Monitor partially visible; one panel added; do not infer hidden monitor details.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV17",
+      "parent": "NF29",
+      "base": "Original 21.jpg",
+      "variant": "Original 21 v1.jpg",
+      "expected": "occlusion",
+      "target": "NF29_food_package_group",
+      "annotation_summary": "Target food group becomes partly visible; no change in actual item count.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV19",
+      "parent": "NF04",
+      "base": "Original 24.jpg",
+      "variant": "Original 24 v1.jpg",
+      "expected": "crop",
+      "target": "NF04_bathroom_crop",
+      "annotation_summary": "Original objects clipped by crop are partly visible or out of frame, not physically removed; no new physical entities.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV20",
+      "parent": "NF31",
+      "base": "Original 17.jpg",
+      "variant": "Original 17 v1.jpg",
+      "expected": "crop",
+      "target": "NF31_bedroom_crop",
+      "annotation_summary": "Previously visible bedroom objects outside crop become out_of_frame/unobservable, not physically absent; partly clipped objects receive partial-visibility tags.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV21",
+      "parent": "NF23",
+      "base": "Original 6.jpg",
+      "variant": "Original 6 v1.jpg",
+      "expected": "depiction",
+      "target": "NF23_tv_plant_depiction",
+      "annotation_summary": "Depicted plant is NOT an added physical household plant; screen_present true.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV22",
+      "parent": "NF11",
+      "base": "Original 10.jpg",
+      "variant": "Original 10 v2.jpg",
+      "expected": "depiction",
+      "target": "NF11_screen_mug_plant",
+      "annotation_summary": "No new physical mug or plant; depicted entities explicitly excluded.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV23",
+      "parent": "NF27",
+      "base": "Original 11.jpg",
+      "variant": "Original 11 v1.jpg",
+      "expected": "depiction",
+      "target": "NF27_tv_person_depiction",
+      "annotation_summary": "Person depiction present; physical-person presence=false.",
+      "source_review": "assistant_consistency_checked_not_independent_human"
+    },
+    {
+      "id": "NV24",
+      "parent": "NF04",
+      "base": "Original 24.jpg",
+      "variant": "Original 24 v2.jpg",
+      "expected": "reflection",
+      "target": "NF04_mirror_bottle_reflection",
+      "annotation_summary": "No extra physical bottle; reflection linked to existing physical item.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV25",
+      "parent": "NF28",
+      "base": "Original 15.jpg",
+      "variant": "Original 15 v1.jpg",
+      "expected": "human_addition",
+      "target": "NF28_mirror_person",
+      "annotation_summary": "Person physically present but only mirror-visible; tag reflected_person, not directly visible.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV26",
+      "parent": "NF08",
+      "base": "Original 13.jpg",
+      "variant": "Original 13 v1.jpg",
+      "expected": "human_addition",
+      "target": "NF08_physical_person",
+      "annotation_summary": "Physical-person target added, clearly visible; existing objects unchanged.",
+      "source_review": "assistant_consistency_checked_not_independent_human"
+    },
+    {
+      "id": "NV27",
+      "parent": "NF03",
+      "base": "Original 5.jpg",
+      "variant": "Original 5 v2.jpg",
+      "expected": "human_addition",
+      "target": "NF03_partially_visible_person",
+      "annotation_summary": "Partially visible physical person added; no task or intention inferred.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV28",
+      "parent": "NF25",
+      "base": "Original 19.jpg",
+      "variant": "Original 19 v2.jpg",
+      "expected": "human_addition",
+      "target": "NF25_edge_person",
+      "annotation_summary": "Edge-of-frame physical person annotated with partial-visibility status.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV29",
+      "parent": "NF10",
+      "base": "Original 27.jpg",
+      "variant": "Original 27 v1.jpg",
+      "expected": "addition",
+      "target": "NF10_new_photo_frame",
+      "annotation_summary": "Framed-photo object added; depicted person not a physical person target.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV30",
+      "parent": "NF18",
+      "base": "Original 26.jpg",
+      "variant": "Original 26 v1.jpg",
+      "expected": "addition",
+      "target": "NF18_mannequin",
+      "annotation_summary": "Mannequin object added; physical human-presence remains false.",
+      "source_review": "not performed for this pair"
+    },
+    {
+      "id": "NV31",
+      "parent": "NF08",
+      "base": "Original 13.jpg",
+      "variant": "Original 13 v2.jpg",
+      "expected": "relocation",
+      "target": "NF08_wooden_bowl",
+      "annotation_summary": "The same wooden bowl remains present exactly once; region changes from entryway to living_room; no entities are added or removed. Reconstructed background must not alter another target.",
+      "source_review": "not performed for this pair"
+    }
+  ],
+  "standalone": [
+    {
+      "id": "original-7",
+      "file": "Original 7.jpg",
+      "expected_room": "Kitchen"
+    },
+    {
+      "id": "original-2",
+      "file": "Original 2.jpg",
+      "expected_room": "Bedroom"
+    },
+    {
+      "id": "original-9",
+      "file": "Original 9.jpg",
+      "expected_room": "Bathroom"
+    },
+    {
+      "id": "original-1",
+      "file": "Original 1.jpg",
+      "expected_room": "Garage"
+    },
+    {
+      "id": "original-3",
+      "file": "Original 3.jpg",
+      "expected_room": "Laundry"
+    },
+    {
+      "id": "original-23",
+      "file": "Original 23.jpg",
+      "expected_room": "Outdoor"
+    },
+    {
+      "id": "original-6",
+      "file": "Original 6.jpg",
+      "expected_room": "Living room"
+    },
+    {
+      "id": "original-4",
+      "file": "Original 4.jpg",
+      "expected_room": "Entryway"
+    },
+    {
+      "id": "original-8",
+      "file": "Original 8.jpg",
+      "expected_room": "Workspace"
+    },
+    {
+      "id": "original-12",
+      "file": "Original 12.jpg",
+      "expected_room": "Other"
+    },
+    {
+      "id": "original-18",
+      "file": "Original 18.jpg",
+      "expected_room": "Kitchen"
+    },
+    {
+      "id": "original-5",
+      "file": "Original 5.jpg",
+      "expected_room": "Laundry"
+    }
+  ]
+}

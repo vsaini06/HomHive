@@ -8,7 +8,7 @@ class HouseholdEntityRepository:
     """Stores and retrieves the household entities HomHive currently knows about."""
 
     def __init__(self) -> None:
-        # This is temporary in-memory data until the persistence layer replaces it.
+
         self._household_entities = [
             HouseholdEntity(
                 id="entity_plant_001",
@@ -88,7 +88,7 @@ class HouseholdEntityRepository:
 
         return entity
 
-    # Existing callers still use the original repository method names.
+
     # Keep these until the API and tests have moved to the new vocabulary.
 
     def get_by_id(

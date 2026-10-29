@@ -80,3 +80,32 @@ def test_sql_history_reconstructs_state_across_sessions(tmp_path):
         assert state.current_observations["kitchen:dish_load"].value == 0.8
     finally:
         engine.dispose()
+
+
+def test_confirmed_photo_wins_equal_timestamp_and_creates_reactive_work(monkeypatch):
+    from app.models import ConditionType, ObservationSource
+    from app.repositories.in_memory_task_repository import InMemoryTaskRepository
+    from app.services.household_intelligence import refresh_household_intelligence
+
+    monkeypatch.setenv("HOMHIVE_ENABLE_AUTONOMOUS_QUEUE", "false")
+    storage = InMemoryObservationRepository()
+    timestamp = datetime(2026, 10, 27, 9, 0, tzinfo=timezone.utc)
+    storage.add_observation("home", Observation(
+        id="vision-accepted", source=ObservationSource.PHOTO,
+        location="kitchen", category=ConditionType.DISH_LOAD,
+        value=0.8, confidence=None, timestamp=timestamp,
+    ))
+    storage.add_observation("home", Observation(
+        id="00000000-0000-0000-0000-000000000001",
+        source=ObservationSource.USER_INPUT, location="kitchen",
+        category=ConditionType.DISH_LOAD, value=0.8, confidence=1.0,
+        timestamp=timestamp,
+        metadata={"confirmed_observation_id": "vision-accepted"},
+    ))
+
+    state = reconstruct_household_state("home", storage)
+    assert state.current_observations["kitchen:dish_load"].confidence == 1.0
+    report = refresh_household_intelligence(
+        "home", storage, InMemoryTaskRepository(),
+    )
+    assert any(task.task_key == "kitchen:dish_load" for task in report.tasks)

@@ -21,7 +21,7 @@ def storage(tmp_path):
     backend = Path(__file__).resolve().parents[1]
     cfg = Config(str(backend / "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", url)
-    # Migration environment resolves DATABASE_URL at execution time.
+
     import os
     old_url = os.environ.get("DATABASE_URL")
     os.environ["DATABASE_URL"] = url

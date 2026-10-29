@@ -60,7 +60,7 @@ def detect_condition_trend(
         - first_reading.value
     )
 
-    # Tiny changes are treated as noise rather than a meaningful trend.
+
     if round(abs(level_change), 4) <= stable_change:
         return ConditionTrend.STABLE
 
@@ -136,8 +136,8 @@ def build_condition_snapshot(
         observations
     )
 
-    # We keep confidence conservative for now instead of increasing it
-    # simply because several observations happen to exist.
+
+
     snapshot_confidence = max(
         observation.confidence
         for observation in observations

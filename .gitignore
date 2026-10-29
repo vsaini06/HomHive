@@ -1,4 +1,3 @@
-# Python
 __pycache__/
 *.py[cod]
 *.pyd
@@ -6,8 +5,6 @@ __pycache__/
 .venv/
 venv/
 env/
-
-# Python tooling
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -18,16 +15,13 @@ htmlcov/
 *.egg-info/
 dist/
 build/
-
-# Environment and secrets
 .env
 .env.*
 !.env.example
+!.env.sample
 .envrc
 *.pem
 *.key
-
-# Node / Next.js
 node_modules/
 .next/
 out/
@@ -36,18 +30,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-
-# Local databases
 *.sqlite
 *.sqlite3
 *.db
 *.db-journal
-
-# IDE / editor
 .vscode/
 .idea/
 tempCodeRunnerFile.py
-
-# OS
 .DS_Store
 Thumbs.db
+*.bak
+*.orig
+*.rej
+*.log

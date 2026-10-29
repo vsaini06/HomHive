@@ -27,7 +27,7 @@ class Provider:
 def test_two_distinct_published_sources_required_for_duration():
     provider = Provider([
         ('https://example.org/duration', 'Allow 20 minutes to organize a closet floor.'),
-        ('https://another.org/tips', 'This task usually takes 30 minutes.'),
+        ('https://another.org/tips', 'Organizing a closet floor usually takes 30 minutes.'),
     ])
     result = ground_action_effort(action(), provider=provider)
     assert provider.calls == 1
@@ -92,3 +92,11 @@ def test_schema_errors_record_field_names_not_sensitive_values(caplog):
     assert result.estimated_effort is None
     assert 'amount:greater_than_equal' in caplog.text
     assert 'input_value' not in caplog.text
+
+
+def test_unrelated_task_durations_are_not_trusted_as_research():
+    provider = Provider([
+        ('https://example.org/closet', 'Allow 20 minutes to organize a closet floor.'),
+        ('https://another.org/unrelated', 'Painting a bedroom usually takes 30 minutes.'),
+    ])
+    assert ground_action_effort(action(), provider=provider).estimated_effort is None

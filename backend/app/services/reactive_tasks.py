@@ -75,7 +75,7 @@ def decide_task_from_observation(
             ),
         )
 
-    # A condition should cross its configured level before it creates work.
+
     if observation.value < trigger.trigger_level:
         return TaskDecision(
             task=None,
@@ -84,7 +84,7 @@ def decide_task_from_observation(
             ),
         )
 
-    # Strong condition values are not enough if the observation itself is weak.
+
     independent_corroboration = (
         observation.metadata.get("ai_verification") == "multi_model_corroborated"
         and observation.metadata.get("ai_verification_scope") == "claim_level"
@@ -105,7 +105,7 @@ def decide_task_from_observation(
 
     active_tasks = existing_tasks or []
 
-    # Repeated observations should not keep creating the same unresolved work.
+
     if _active_task_exists(
         task_key=task_key,
         existing_tasks=active_tasks,

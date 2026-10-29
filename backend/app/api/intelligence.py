@@ -36,7 +36,7 @@ def build_intelligence_router(
 
     @router.get("/observations")
     def list_observation_history(household_id: str, _: None = Depends(authorize)):
-        # Existing household-scoped storage is the source of truth.
+
         return [item.model_dump(mode="json") for item in observation_storage.list_observations(household_id)]
 
     @router.post("/observations/{observation_id}/confirm")
@@ -54,8 +54,8 @@ def build_intelligence_router(
         )
         if observation is None:
             raise HTTPException(status_code=404, detail="Observation not found")
-        # Confirmation now advances the existing household intelligence pipeline.
-        # Unconfirmed model output is never promoted implicitly.
+
+
         refresh_household_intelligence(household_id, observation_storage, task_storage)
         return observation.model_dump(mode="json")
 
@@ -75,8 +75,8 @@ def build_intelligence_router(
             raise HTTPException(status_code=404, detail="Task not found")
         if task.status != TaskStatus.PENDING:
             raise HTTPException(status_code=409, detail="Task is not pending")
-        # Acceptance is a commitment marker, not an execution-state transition.
-        # Repeated acceptance must remain idempotent.
+
+
         if task.metadata.get("accepted_at"):
             return task.model_dump(mode="json")
         task.metadata = {
@@ -150,7 +150,7 @@ def build_intelligence_router(
                 "minutes": task.estimated_effort_minutes, "status": status,
                 "source_observation_id": task.source_observation_id,
                 "verification_due_at": meta.get("verification_due_at")})
-        # Suppress predictive duplicates in the inbox; do not delete their provenance.
+
         observed = {task.task_key for task in task_storage.list_tasks(household_id)
                     if not task.task_key.startswith("predictive:")
                     and task.status in {TaskStatus.PENDING, TaskStatus.IN_PROGRESS}}

@@ -13,9 +13,20 @@ def main():
     if fn is None:
         raise SystemExit('Autonomous AI pipeline not configured')
     logging.basicConfig(level=logging.INFO)
-    logging.info('Autonomous scan worker started')
+    logging.info('Autonomous scan worker started; automatic research and planning: %s', 'enabled' if os.environ.get('HOMHIVE_AUTO_ORCHESTRATION','false').lower() == 'true' else 'DISABLED')
+    next_pulse = 0.0
     while True:
         try:
+            if time.monotonic() >= next_pulse:
+                pulse = getattr(app.state, "autonomous_pulse", None)
+                if pulse is not None:
+                    try:
+                        n = pulse()
+                        if n:
+                            logging.info("Generated %s proactive work-window reminders", n)
+                    except Exception as exc:
+                        logging.warning("Scheduling pulse unavailable: %s", type(exc).__name__)
+                next_pulse = time.monotonic() + 300
             result=fn()
             if result is None:
                 time.sleep(5)

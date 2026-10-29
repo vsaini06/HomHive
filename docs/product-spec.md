@@ -1,195 +1,34 @@
-# HomHive Product Specification
+# Product behavior
 
-## Product definition
+## Objective
 
-Build an intelligence layer that continuously understands household state, discovers tasks without requiring the human to create them, predicts when those tasks will become problematic, researches unfamiliar situations, and dynamically determines what humans or future robots should do next.
+HomHive interprets household evidence over time, identifies changes worth acting on, researches unfamiliar problems, and produces plans that respect a household's current constraints.
 
-## Problem
+## Current user journey
 
-Household work is usually managed reactively.
+1. Sign in to a configured household and upload an image or select a demonstration sample.
+2. Track the scan's background status, evidence, and any explicit uncertainty.
+3. Review discovered tasks and observations assigned to a verified physical space or a persistent object.
+4. Compare later evidence for the same confirmed room or object and inspect supported changes.
+5. Use the Automation screen to choose availability, preferred work times, and other constraints.
+6. Review prioritized tasks, research where available, and Nemotron advice for currently eligible work.
+7. Confirm, defer, or report completion through the supported task workflow.
 
-People often have to:
+## Product invariants
 
-- notice a condition
-- remember whether it is getting worse
-- decide whether it matters now
-- look up unfamiliar care or maintenance guidance
-- compare it against other work
-- decide when to act
+- An observation is not a task.
+- Similar room labels are not proof of one room.
+- A catalog title is not an AI identification.
+- Missing research is displayed as missing; it does not become a fabricated diagnosis or source.
+- User-reported completion does not establish verified physical completion.
+- A photo with a missing object does not prove the underlying chore was completed.
+- Priority is separate from feasibility, and unavailable time estimates remain unknown.
+- Background provider failure must not silently create unsupported work.
 
-Most task tools begin after a person has already identified the task.
+## Current scope and next steps
 
-HomHive begins earlier, at household state.
+**In scope:** uploaded photographs, independently reviewed scene evidence, stored household history, room continuity, persistent object records, task discovery and progress, optional Tavily research, deterministic feasibility, and Nemotron advice.
 
-## Product questions
+**Not yet demonstrated end-to-end:** reliable independent plant species identification on the object card; automatic display of object-linked Tavily citations in every relevant scan.
 
-For each meaningful household condition, HomHive should eventually answer:
-
-1. What needs to be done?
-2. When does it need to be done?
-3. Who or what should do it?
-
-## MVP interaction
-
-Target user flow:
-
-```text
-Open mobile web app
-  |
-  v
-Capture or upload household photo / short video
-  |
-  v
-HomHive extracts observations
-  |
-  v
-Current household state is updated
-  |
-  v
-Tasks are discovered or forecast
-  |
-  v
-Unknown situations are researched when useful
-  |
-  v
-Tasks are ranked and explained
-  |
-  v
-User sees the current household plan
-```
-
-## Representative domains
-
-### Dishes
-
-Why it matters:
-
-- fast-changing
-- visually obvious
-- good example of reactive and short-horizon work
-
-### Laundry
-
-Why it matters:
-
-- capacity-like condition
-- can often be delayed
-- useful for intervention-window reasoning
-
-### Plant care
-
-Why it matters:
-
-- uncertain visual state
-- identity can materially affect guidance
-- external knowledge may be required
-
-### Lawn / outdoor
-
-Why it matters:
-
-- longer planning horizon
-- seasonal or external context may matter
-- useful example of selective research
-
-## Product behavior
-
-### State understanding
-
-The user should not have to manually create every observation or task.
-
-The product should transform evidence into structured household state.
-
-### Task discovery
-
-Obvious conditions should create work deterministically when possible.
-
-LLMs should not be used simply because one is available.
-
-### Forecasting
-
-HomHive should distinguish:
-
-- what is true now
-- what is likely to happen
-- whether that future condition justifies action
-
-### Research
-
-HomHive should research only when current state and household memory are insufficient.
-
-Repeated stable questions should eventually reuse stored verified knowledge.
-
-### Planning
-
-Priority should be dynamic.
-
-A task can remain the same task while its priority changes because of:
-
-- urgency
-- confidence
-- deterioration
-- deadline
-- user context
-- external evidence
-
-### Executor abstraction
-
-The plan should eventually be usable by:
-
-- a person
-- a household device
-- a future robot
-
-The MVP does not require building the robot.
-
-## Non-goals for the MVP
-
-- custom LLM training
-- custom computer-vision training
-- permanent household cameras
-- custom hardware sensors
-- continuous raw-video surveillance
-- physical robot construction
-- native iOS/Android apps if the PWA works
-- support for every household domain
-- autonomous safety-critical decisions
-
-## Design principles
-
-### Low friction
-
-Phone media should be sufficient for the initial demo.
-
-### Explainable decisions
-
-The system should preserve why a task was created, deferred, monitored, or ranked.
-
-### Conservative uncertainty
-
-Uncertain evidence should not be silently upgraded into certainty.
-
-### Selective intelligence
-
-Use deterministic code when the rule is clear. Use research or model reasoning when the situation actually benefits from it.
-
-### Stable contracts
-
-Perception providers, search providers, and reasoning models should be replaceable without rewriting the household domain model.
-
-## Success criteria
-
-The MVP is successful when a user can provide household evidence and receive a coherent, explainable action plan that demonstrates:
-
-- state understanding over time
-- automatic task discovery
-- forecasting
-- selective research
-- cross-domain prioritization
-- replanning potential
-
-The current repository has implemented the deterministic backend foundation for this target but not the complete end-to-end MVP.
-
-## Trustworthy household presentation
-
-Surface AI-corroborated state separately from human-confirmed state; the user accepts, defers or dismisses tasks rather than routinely validating visual observations. Preserve uncertainty and unknown room identity. A task reported Done enters an evidence-verification lifecycle and must not appear definitively completed until supported by follow-up evidence. Visual polish is subordinate to clear status, safe access, usable mobile layouts, and accessible controls.
+**Future direction:** ongoing camera/sensor perception, appliance and robot dispatch, learning individual household preferences, and richer provider integrations. These are product goals rather than current execution capabilities.

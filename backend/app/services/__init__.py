@@ -50,33 +50,33 @@ from .predictive_tasks import (
 
 
 __all__ = [
-    # Condition tracking
+
     "build_condition_snapshot",
     "build_household_condition_snapshots",
     "detect_condition_trend",
     "observation_weight",
     "recency_weight",
 
-    # Observation-driven tasks
+
     "TaskTrigger",
     "TASK_TRIGGERS",
     "decide_task_from_observation",
     "task_from_observation",
 
-    # Task ranking
+
     "score_task",
     "rank_tasks",
 
-    # Household entity resolution
+
     "candidate_can_match_entity",
     "assess_entity_match",
     "resolve_entity",
     "resolve_entity_candidate",
 
-    # Household entity application service
+
     "HouseholdEntityService",
 
-    # Condition forecasting
+
     "estimate_hourly_change",
     "project_condition_level",
     "build_condition_forecast",
@@ -84,10 +84,10 @@ __all__ = [
     "forecast_threshold_crossing",
     "estimate_forecast_confidence",
 
-    # Action policy
+
     "decide_action",
 
-    # Prediction-driven tasks
+
     "task_from_action_decision",
     "update_or_create_predictive_task",
     "sync_predictive_task",
