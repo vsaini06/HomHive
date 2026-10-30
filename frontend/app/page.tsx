@@ -11,6 +11,7 @@ import { clearAccountSession, readAccountSession, saveAccountSession } from "../
 import { WORK_DAYS, readableWorkDays, readableWorkTime, workWindowError } from "../lib/work-schedule";
 
 import { TimeWheelField } from "../lib/time-wheel";
+import { currentTimeZone, isValidTimeZone, quietHoursActiveAt, timeInZone } from "../lib/quiet-hours";
 
 import { HomHiveSelect } from "../lib/hh-select";
 
@@ -458,6 +459,16 @@ export default function Home() {
 
   const [quietEnd, setQuietEnd] = useState("07:00");
 
+  const [quietTimezone, setQuietTimezone] = useState("UTC");
+
+  const [deviceTimezone, setDeviceTimezone] = useState("UTC");
+
+  const [quietEditorOpen, setQuietEditorOpen] = useState(false);
+
+  const quietEditorOpenRef = useRef(false);
+
+  const [clockNow, setClockNow] = useState(() => new Date());
+
   const [savingContext, setSavingContext] = useState(false);
 
   const [plan, setPlan] = useState<PlanResponse | null>(null);
@@ -624,6 +635,10 @@ export default function Home() {
 
   }, [view, navigationReady]);
 
+  useEffect(() => {
+    if (navigationReady) window.scrollTo({top: 0, behavior: "instant"});
+  }, [view, navigationReady]);
+
 
 
   useEffect(() => {
@@ -653,6 +668,12 @@ export default function Home() {
   useEffect(() => {
 
     try { setSimpleInterface(window.localStorage.getItem("homhive.interfaceMode") !== "full"); } catch {}
+
+    setDeviceTimezone(currentTimeZone());
+
+    const clock = window.setInterval(() => setClockNow(new Date()), 30000);
+
+    return () => window.clearInterval(clock);
 
   }, []);
 
@@ -710,6 +731,15 @@ export default function Home() {
 
 
 
+  useEffect(() => {
+    if (!quietEditorOpen) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !savingContext) closeQuietHoursEditor();
+    };
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [quietEditorOpen, savingContext]);
+
   function changeInterfaceMode(simple: boolean) {
 
     setSimpleInterface(simple);
@@ -717,8 +747,6 @@ export default function Home() {
     setMoreNavigationOpen(false);
 
     try { window.localStorage.setItem("homhive.interfaceMode", simple ? "simple" : "full"); } catch {}
-
-    setView("home");
 
   }
 
@@ -1120,11 +1148,12 @@ export default function Home() {
 
       setCoordination(results[6].value);
 
-      setQuietEnabled(results[6].value.quiet_hours.enabled);
-
-      setQuietStart(results[6].value.quiet_hours.start_time);
-
-      setQuietEnd(results[6].value.quiet_hours.end_time);
+      if (!quietEditorOpenRef.current) {
+        setQuietEnabled(results[6].value.quiet_hours.enabled);
+        setQuietStart(results[6].value.quiet_hours.start_time);
+        setQuietEnd(results[6].value.quiet_hours.end_time);
+        setQuietTimezone(results[6].value.quiet_hours.timezone);
+      }
 
     }
 
@@ -2038,7 +2067,7 @@ export default function Home() {
 
       const window = await api.setWorkWindow({
 
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        timezone: workWindow?.timezone || coordination?.quiet_hours.timezone || deviceTimezone,
 
         start_time: windowStart, end_time: windowEnd, weekdays: windowWeekdays,
 
@@ -2428,26 +2457,42 @@ export default function Home() {
 
 
 
+  function openQuietHoursEditor() {
+    const saved = coordination?.quiet_hours;
+    setQuietEnabled(saved?.enabled ?? true);
+    setQuietStart(saved?.start_time ?? "22:00");
+    setQuietEnd(saved?.end_time ?? "07:00");
+    setQuietTimezone(saved?.timezone ?? deviceTimezone);
+    quietEditorOpenRef.current = true;
+    setQuietEditorOpen(true);
+  }
+
+  function closeQuietHoursEditor() {
+    quietEditorOpenRef.current = false;
+    setQuietEditorOpen(false);
+  }
+
+  function reviewHouseholdReadiness() {
+    const section = document.getElementById("hh-household-readiness");
+    section?.scrollIntoView({behavior: "smooth", block: "center"});
+    section?.focus({preventScroll: true});
+  }
+
   async function saveQuietHours() {
-
+    if (!isValidTimeZone(quietTimezone)) {
+      notify("warning", "Choose a valid time zone", "Use a recognized time zone, such as America/Phoenix.");
+      return;
+    }
     setSavingContext(true);
-
     try {
-
-      const result = await api.updateQuietHours(quietEnabled, quietStart, quietEnd, Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
-
+      const result = await api.updateQuietHours(quietEnabled, quietStart, quietEnd, quietTimezone);
       setCoordination(result);
-
       setCalendarPlan(null);
-
-      notify("success", "Quiet hours saved", "HomHive updated what can be suggested during your quiet hours.");
-
+      closeQuietHoursEditor();
+      notify("success", "Quiet hours saved", "Your household time zone and quiet hours will be remembered across sign-ins.");
     } catch (error) {
-
-      notify("error", "Couldn't save quiet hours", error instanceof Error ? error.message : "Try again.");
-
+      notify("error", "Couldn't save quiet hours", friendlyError(error, "Try again."));
     } finally { setSavingContext(false); }
-
   }
 
 
@@ -2632,7 +2677,10 @@ export default function Home() {
 
     [...workWindow.weekdays].sort().join(",") !== [...windowWeekdays].sort().join(",");
 
-  const scheduleZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const scheduleZone = workWindow?.timezone || coordination?.quiet_hours.timezone || deviceTimezone;
+  const savedQuiet = coordination?.quiet_hours;
+  const quietActiveNow = savedQuiet ? quietHoursActiveAt(clockNow, savedQuiet) : false;
+  const quietLocalTime = savedQuiet ? timeInZone(clockNow, savedQuiet.timezone) : "";
 
   const scheduleSummary = workWindow
 
@@ -2721,6 +2769,22 @@ export default function Home() {
         </div>)}
 
       </aside>
+
+      {quietEditorOpen && <div className="hh-modal-backdrop" onClick={() => !savingContext && closeQuietHoursEditor()}>
+        <section role="dialog" aria-modal="true" aria-labelledby="hh-quiet-modal-title" className="hh-modal hh-quiet-modal" onClick={event => event.stopPropagation()}>
+          <div className="hh-panel-head"><div><h2 id="hh-quiet-modal-title">Quiet hours</h2><p className="hh-muted">Choose when HomHive should hold noisy task suggestions.</p></div><button type="button" className="hh-icon-button" aria-label="Close quiet hours" disabled={savingContext} onClick={closeQuietHoursEditor}>✕</button></div>
+          <div className="hh-quiet-control"><div><strong>Enable quiet hours</strong><small>Keep household tasks on hold during your chosen hours.</small></div>
+            <button type="button" role="switch" aria-label="Enable quiet hours" aria-checked={quietEnabled} className={`hh-toggle-switch ${quietEnabled ? "is-on" : ""}`} onClick={() => setQuietEnabled(value => !value)}><span /></button></div>
+          <div className="hh-schedule-times"><TimeWheelField id="hh-quiet-from" label="From" value={quietStart} onChange={setQuietStart}/><span className="hh-schedule-to" aria-hidden="true">to</span><TimeWheelField id="hh-quiet-until" label="Until" value={quietEnd} onChange={setQuietEnd}/></div>
+          <label htmlFor="hh-household-timezone">Household time zone</label>
+          <input id="hh-household-timezone" list="hh-common-timezones" value={quietTimezone} onChange={event => setQuietTimezone(event.target.value)} autoComplete="off" spellCheck={false} aria-invalid={!isValidTimeZone(quietTimezone)} />
+          <datalist id="hh-common-timezones">{["America/Phoenix", "America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York", "America/Toronto", "Europe/London", "Europe/Paris", "Asia/Kolkata", "Asia/Tokyo", "Australia/Sydney", "UTC"].map(zone => <option key={zone} value={zone} />)}</datalist>
+          <p className="hh-quiet-zone-hint">{isValidTimeZone(quietTimezone) ? `Current household time: ${timeInZone(clockNow, quietTimezone)}.` : "Enter a recognized time zone, such as America/Phoenix."}</p>
+          <button type="button" className="hh-quiet-use-device" onClick={() => setQuietTimezone(deviceTimezone)}>Use this device's time zone ({deviceTimezone})</button>
+          <p className="hh-quiet-zone-hint">Your chosen time zone is saved with the household, not this browser. Travel and daylight saving changes will not silently reset your schedule.</p>
+          <div className="hh-quiet-modal-actions"><button type="button" className="secondary" disabled={savingContext} onClick={closeQuietHoursEditor}>Cancel</button><button type="button" disabled={savingContext || quietStart === quietEnd || !isValidTimeZone(quietTimezone)} onClick={() => void saveQuietHours()}>{savingContext ? "Saving..." : "Save quiet hours"}</button></div>
+        </section>
+      </div>}
 
       {confirmation && <div className="hh-modal-backdrop hh-confirm-backdrop" onClick={() => setConfirmation(null)}>
 
@@ -3092,7 +3156,7 @@ export default function Home() {
 
                   <p><strong>Why:</strong> {nemotronAdvice.reason}</p>
 
-                  <button type="button" className="secondary" onClick={() => changeInterfaceMode(false)}>Review household readiness</button>
+                  <button type="button" className="secondary" onClick={reviewHouseholdReadiness}>Review household readiness</button>
 
                   <small>No task is ready to schedule yet. Check the details before proceeding.</small>
 
@@ -3166,9 +3230,9 @@ export default function Home() {
 
           <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">◷</span><h2>My household routine</h2><p>Choose when to suggest chores. Your preferences help with recommendations. Nothing is booked automatically.</p><span className="hh-automation-status">{workWindow ? "Routine saved" : "Not set up"}</span><button className="secondary" onClick={() => setView("schedule")}>{workWindow ? "Edit my routine" : "Set my routine"}</button></section>
 
-          <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">☾</span><h2>Quiet hours</h2><p>Defer noisy or unclassified work during your chosen hours without losing task priority.</p><span className="hh-automation-status">{coordination ? quietEnabled ? `Enabled${coordination.quiet_hours.active ? " · active now" : ""}` : "Disabled" : "Available when connected"}</span><button className="secondary" onClick={() => setView("schedule")}>Manage quiet hours</button></section>
+          <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">☾</span><h2>Quiet hours</h2><p>Defer noisy or unclassified work during your chosen hours without losing task priority.</p><span className="hh-automation-status">{coordination ? savedQuiet?.enabled ? `Enabled${quietActiveNow ? " · active now" : ""}` : "Disabled" : "Available when connected"}</span>{savedQuiet && <p className="hh-muted">Household time: {quietLocalTime} ({savedQuiet.timezone})</p>}<button className="secondary" onClick={openQuietHoursEditor}>Manage quiet hours</button></section>
 
-          <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">⌂</span><h2>Presence and availability</h2><p>Tell HomHive if you are home and free. These are separate, expiring signals.</p><span className="hh-automation-status">{coordination ? `${coordination.presence.state.toLowerCase()} · ${coordination.availability.state.toLowerCase()}` : "Not set"}</span>
+          <section id="hh-household-readiness" tabIndex={-1} className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">⌂</span><h2>Presence and availability</h2><p>Tell HomHive if you are home and free. These are separate, expiring signals.</p><span className="hh-automation-status">{coordination ? `${coordination.presence.state.toLowerCase()} · ${coordination.availability.state.toLowerCase()}` : "Not set"}</span>
 
             {coordination && <div className="hh-automation-controls"><strong>Where are you?</strong><div className="hh-automation-chips">{(["HOME","AWAY","UNKNOWN"] as const).map(state => <button key={state} type="button" disabled={busy} aria-pressed={coordination.presence.state === state} onClick={() => void changePresence(state)}>{state === "HOME" ? "Home" : state === "AWAY" ? "Away" : "Unknown"}</button>)}</div>
 
@@ -3286,22 +3350,11 @@ export default function Home() {
 
         </section>
 
-        {isConnected && coordination && <section className="hh-panel hh-schedule-editor" aria-label="Quiet hours settings">
-
-          <div className="hh-panel-head"><div><p className="hh-kicker">HOUSEHOLD CONSTRAINTS</p><h2>Quiet hours</h2></div><span className="hh-schedule-state">{coordination.quiet_hours.active ? "Active now" : "Not active"}</span></div>
-
-          <p className="hh-muted">Noisy or unclassified tasks won't be suggested during quiet hours. This does not change their priority.</p>
-
-          <div className="hh-quiet-control"><div><strong>Enable quiet hours</strong><small>Pause noisy or unclassified work recommendations during this period.</small></div>
-
-            <button type="button" role="switch" aria-label="Enable quiet hours" aria-checked={quietEnabled} className={`hh-toggle-switch ${quietEnabled ? "is-on" : ""}`} onClick={() => setQuietEnabled(!quietEnabled)}><span /></button></div>
-
-          <div className="hh-schedule-times"><TimeWheelField id="hh-quiet-from" label="From" value={quietStart} onChange={setQuietStart}/><span className="hh-schedule-to" aria-hidden="true">to</span><TimeWheelField id="hh-quiet-until" label="Until" value={quietEnd} onChange={setQuietEnd}/></div>
-
-          <div className="hh-schedule-save"><button disabled={savingContext || quietStart === quietEnd} onClick={() => void saveQuietHours()}>{savingContext ? "Saving..." : "Save quiet hours"}</button></div>
-
-          <small>Time zone: {coordination.quiet_hours.timezone}. Overnight hours are supported. Your availability setting resets automatically.</small>
-
+        {isConnected && savedQuiet && <section className="hh-panel hh-schedule-editor" aria-label="Quiet hours settings">
+          <div className="hh-panel-head"><div><p className="hh-kicker">HOUSEHOLD SETTINGS</p><h2>Quiet hours</h2></div><span className="hh-schedule-state">{savedQuiet.enabled ? quietActiveNow ? "Active now" : "Outside quiet hours" : "Off"}</span></div>
+          <p className="hh-muted">{savedQuiet.enabled ? `${readableWorkTime(savedQuiet.start_time)} to ${readableWorkTime(savedQuiet.end_time)} in ${savedQuiet.timezone}.` : "Quiet hours are currently off."}</p>
+          <p className="hh-muted">Local household time: {quietLocalTime}. These settings stay with your household when you sign in from another time zone.</p>
+          <button type="button" className="secondary" onClick={openQuietHoursEditor}>Edit quiet hours</button>
         </section>}
 
                 <section className="hh-panel hh-schedule-explainer"><h2>What happens next?</h2><p>When HomHive discovers an evidence-supported task, it can research how long the task usually takes, then suggest a time within your chosen work window. You can still do the task whenever you want.</p><p><strong>Your routine is not a calendar booking.</strong> Connect Google Calendar in Automation to check for conflicts when requesting advice. HomHive does not book events automatically.</p><button className="hh-link" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>View suggested tasks →</button></section>
@@ -3851,3 +3904,4 @@ export default function Home() {
   );
 
 }
+
