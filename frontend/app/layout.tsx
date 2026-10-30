@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import "./globals.css";
+import "./refined.css";
 
 export const metadata: Metadata = {
   title: "HomHive",
-  description: "Household intelligence that turns evidence into action.",
+  description: "Understand your home, discover what needs attention, and plan the next step with HomHive.",
   icons: { icon: [{url: "/favicon.ico", sizes: "any"}, {url: "/icon.png", type: "image/png"}], apple: "/branding/homhive-192.png" },
 };
 
