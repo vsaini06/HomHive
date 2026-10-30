@@ -20,6 +20,6 @@ test('schedule editor shows distinct day buttons and a custom minute-level picke
 
 test('schedule persists through existing household API and never claims calendar access', () => {
   assert.match(page, /await api\.setWorkWindow\(/);
-  assert.match(page, /Not a calendar connection/);
+  assert.match(page, /Your routine doesn't automatically reserve time on your calendar/);
   assert.match(page, /Save my schedule/);
 });

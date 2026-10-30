@@ -28,5 +28,5 @@ test('Calendar-aware advice is called with the verified calendar permission', ()
 test('The interface distinguishes preference from confirmed availability', () => {
   assert.match(page, /This does not prove you are personally available/);
   assert.match(page, /No scheduled conflicts found/);
-  assert.match(page, /Add dummy meetings to your own calendar/);
+  assert.match(page, /HomHive checks busy times without reading event titles or creating events/);
 });

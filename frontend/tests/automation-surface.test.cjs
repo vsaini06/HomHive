@@ -9,7 +9,7 @@ test('visible household pulse is grounded in backend household-scoped observatio
   assert.match(api, /async householdPulse\(/);
   assert.match(page, /HOUSEHOLD PULSE/);
   assert.match(page, /householdPulse\.suggestions/);
-  assert.match(page, /not invented urgency or calendar availability/);
+  assert.match(page, /Suggestions are based on what HomHive has observed and how long tasks have been waiting/);
 });
 
 test('task evidence history remains explorable', () => {
