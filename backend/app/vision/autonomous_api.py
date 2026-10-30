@@ -63,7 +63,9 @@ def verify_room_pair(vision, ref_image: bytes, ref_type: str, image: bytes, medi
         '{"same_physical_room":boolean,"explanation":string}. '
         "A matching room CATEGORY is insufficient. Require stable structural fixtures, layout, "
         "and distinctive persistent landmarks. Different angles, lighting, moved objects, "
-        "and changing clutter are possible. If ambiguous or insufficient, respond false.")
+        "laundry piles moving, and lawn growth or mowing are possible; they are not by themselves "
+        "evidence of a different room. Compare multiple stable fixtures across the images. "
+        "If ambiguous or insufficient, respond false.")
     if callable(getattr(vision.primary, "compare_rooms", None)):
         p = vision.primary.compare_rooms(ref_image, ref_type, image, media_type)
         if type(p.get("same_physical_room")) is not bool:
@@ -251,6 +253,7 @@ def run_autonomous_scan(*, household_id, media_id, reference_media_id, media, br
             "primary_claim_count": len(preview.model_audit.get("primary_claims", [])),
             "corroborated_claim_count": len(evidence),
             "evidence": [item.description[:350] for item in evidence[:12]],
+            "preplan_research": preview.model_audit.get("preplan_research", []),
             "pair_change_count": sum(item.id.startswith("p") for item in evidence),
             "pair_comparison_status": preview.model_audit.get("paired_comparison", {}).get("status"),
             "pair_evidence": [item.description[:350] for item in evidence if item.id.startswith("p")][:12],

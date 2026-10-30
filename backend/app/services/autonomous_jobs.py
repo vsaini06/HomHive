@@ -379,10 +379,29 @@ class AutonomousJobService:
                 selected_reference['reference_media_id'] != job['media_id'])
             enrolled_reference = next((ref for ref in refs
                 if ref['reference_media_id'] == job['media_id']), None)
+            # Re-uploading precisely the same photograph cannot make its physical scene
+            # a different room. Check server-owned image bytes, never client filenames.
+            # An identical photo held by two rooms is ambiguous and is never merged.
+            byte_matches = []
+            if selected_reference is None and enrolled_reference is None:
+                previous_views = self.recent_room_views(job['household_id'])
+                for ref in refs:
+                    references = [ref['reference_media_id'], *previous_views.get(ref['room_id'], [])]
+                    for previous_id in dict.fromkeys(references):
+                        stored = media.get_image(job['household_id'], previous_id)
+                        if stored is not None and stored[1] == current_image:
+                            byte_matches.append(ref)
+                            break
+            exact_photo_match = bool(byte_matches)
             if selected_reference is not None:
                 matching = [selected_reference]
             elif enrolled_reference is not None:
                 matching = [enrolled_reference]
+            elif len(byte_matches) > 1:
+                self.finish(job['id'], 'held_unverified_room', 'Conflicting photo ownership')
+                return 'held_unverified_room'
+            elif exact_photo_match:
+                matching = byte_matches
             elif current_demo and any(
                 entry['family'] == current_demo['family']
                 for entries in known_ref_scenes.values() for entry in entries
@@ -470,7 +489,9 @@ class AutonomousJobService:
             if user_confirmed_existing:
                 kwargs['user_confirmed_room'] = True
             elif selected_reference is None and enrolled_reference is None:
-                if current_demo and any(entry['family'] == current_demo['family']
+                if exact_photo_match:
+                    kwargs['verified_room_evidence'] = True
+                elif current_demo and any(entry['family'] == current_demo['family']
                     for entry in known_ref_scenes.get(ref['room_id'], [])):
                     kwargs['trusted_demo_relationship'] = True
                 else:
