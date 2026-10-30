@@ -429,7 +429,13 @@ class AutonomousJobService:
                 if result.get('status') != 'reviewed':
                     self.finish(job['id'], 'held_unverified_room', 'Room category could not be verified')
                     return 'held_unverified_room'
-                label = current_demo['category']
+                # Demo-library grouping is not independent scene recognition. The
+                # actual image review determines the room label, including when
+                # the catalog uses a generic label such as "Other".
+                label = result.get('room_category')
+                if not label:
+                    self.finish(job['id'], 'held_unverified_room', 'Room category could not be verified')
+                    return 'held_unverified_room'
                 room_id = self.enroll(job['household_id'], job['media_id'], label)
                 self.finish(job['id'], 'completed', room_id=room_id,
                     review_summary={**result.get('review_summary', {}),

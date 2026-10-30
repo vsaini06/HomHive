@@ -51,6 +51,18 @@ def _category_tokens(value: str) -> set[str]:
     return {w[:-1] if len(w) > 3 and w.endswith("s") else w for w in words}
 
 
+def is_specific_room_category(value: str | None) -> bool:
+    """Generic non-answers cannot become persistent physical-space labels."""
+    if not isinstance(value, str):
+        return False
+    label = re.sub(r"\s+", " ", value.strip().casefold())
+    return bool(label) and label not in {
+        "other", "unknown", "unsure", "unclear", "unclassified", "unspecified",
+        "not sure", "none", "n/a", "room", "space", "area", "indoor",
+        "interior", "household", "unknown room", "other room", "other space",
+    }
+
+
 def categories_agree(proposed: str, reviewed: str | None) -> bool:
     if reviewed is None:
         return True
@@ -86,10 +98,10 @@ def corroborate_scene(scene: VisualScene, review: VisualReview, media_id: str) -
     valid = {v.id for v in review.claims if v.supported}
     evidence = [Evidence(id=c.id, description=c.description, provenance="visible", source_id=media_id)
                 for c in scene.claims if c.id in valid]
-    if review.category_by_reviewers and review.room_category:
+    if review.category_by_reviewers and is_specific_room_category(review.room_category):
         category = review.room_category
     else:
-        category = scene.room_category if review.room_supported and scene.room_category else None
+        category = scene.room_category if review.room_supported and is_specific_room_category(scene.room_category) else None
         if category and not categories_agree(category, review.room_category):
             category = None
     return SceneContext(category=category, category_supported=bool(category)), evidence
@@ -322,9 +334,15 @@ class OpenWorldVision:
             "If directly observable, describe uneven height, overgrown grass, weeds, or paths obscured "
             "by growth as concrete claims even if nothing else needs work. "
             "Do not infer mowing is necessary from grass merely being present; never invent grass height "
-            "when too distant or occluded. For laundry areas, use fixed washer/dryer and room layout "
-            "to recognize the space, not clothing piles alone. "
-            "Do not assume clothing is dirty, infer unseen conditions, or make recommendations. "
+            "when too distant or occluded. For laundry areas, use fixed washer/dryer, "
+            "laundry plumbing, shelving, and the arrangement of utility fixtures to identify "
+            "the purpose of the space; loose clothes alone are not proof. "
+            "A visually supported laundry area should be called Laundry room, not Other, "
+            "even if it has storage or a utility sink. Return the most specific category for "
+            "ANY supported room type, and use null rather than Other when genuinely unclear. "
+            "Record visible clothing, hampers, sorting areas, washers and dryers as facts "
+            "when evident, without assuming clothes are dirty or already washed. "
+            "Do not infer unseen conditions or make recommendations. "
             "When nothing actionable is visible, use empty claims. Use unique IDs e1,e2,..."),
             image=image, media_type=media_type,
             **({"schema_kind": "scene"} if getattr(self.primary, "structured_outputs", False) else {}))
@@ -369,7 +387,12 @@ class OpenWorldVision:
                         next_id = f"e{int(next_id[1:]) + 1}"
                     used_ids.add(next_id)
                     expanded.append(VisualClaim(id=next_id, description=description))
-                scene = VisualScene(room_category=scene.room_category, claims=expanded)
+                # A separate full-image pass may clarify a generic initial room label.
+                # The replacement is still only a proposal until independent vision review.
+                category = scene.room_category
+                if not is_specific_room_category(category) and is_specific_room_category(reviewed_supplement.room_category):
+                    category = reviewed_supplement.room_category
+                scene = VisualScene(room_category=category, claims=expanded)
             except Exception:
                 # Never silently accept an unreviewed supplementary observation.
                 # The original observations are still independently validated.
@@ -380,7 +403,10 @@ class OpenWorldVision:
     def verify(self, scene: VisualScene, image: bytes, media_type: str) -> VisualReview:
         result = self.independent.ask(instruction=(
             "Independent image verifier. Return ONLY JSON {room_supported:boolean,room_category:string|null,claims:[{id:string,supported:boolean}]}. "
-            "room_category is YOUR OWN name for this space judged from fixed fixtures; use null if unclear. "
+            "room_category is YOUR OWN most specific name for this space judged from fixed "
+            "fixtures; use null if unclear, never generic Other as an asserted room label. "
+            "In a laundry room, the washer/dryer and arranged laundry infrastructure can "
+            "support that category even when a utility sink or storage is also present. "
             "Review EACH claim against ORIGINAL image. Each id exactly once. Mark unsupported if objects, condition, "
             "clean/dirty status, or quantity cannot actually be seen. room_supported only if the proposed room category "
             "is supported by visual evidence, considering fixed room layout and fixtures rather than "
@@ -396,7 +422,10 @@ class OpenWorldVision:
         second_result = self.additional.ask(instruction=(
             "Independently verify the proposed scene from the ORIGINAL image. "
             "Return ONLY JSON {room_supported:boolean,room_category:string|null,claims:[{id:string,supported:boolean}]}. "
-            "room_category is YOUR OWN name for this space judged from fixed fixtures; use null if unclear. "
+            "room_category is YOUR OWN most specific name for this space judged from fixed "
+            "fixtures; use null if unclear, never generic Other as an asserted room label. "
+            "In a laundry room, the washer/dryer and arranged laundry infrastructure can "
+            "support that category even when a utility sink or storage is also present. "
             "Check every supplied claim ID exactly once. Withhold unsupported visual assertions "
             "such as a pile of clothes proving that washing is needed."
         ), payload=scene.model_dump(mode="json"), image=image, media_type=media_type,
@@ -410,7 +439,8 @@ class OpenWorldVision:
         if set(second_ids) != claimed or len(second_ids) != len(claimed):
             raise ValueError("Second independent review did not address every claim")
         validated = {item.id: item.supported for item in second.claims}
-        labels = [x for x in (reviewed.room_category, second.room_category) if x]
+        labels = [x for x in (reviewed.room_category, second.room_category)
+                  if is_specific_room_category(x)]
         reviewers_agree = len(labels) == 2 and categories_agree(labels[0], labels[1])
         proposal_agrees = (scene.room_category is not None
                            and all(categories_agree(scene.room_category, x) for x in labels))
@@ -467,8 +497,11 @@ class OpenWorldPlanner:
         instruction = (
             "You are a general-purpose household planner. Return ONLY a JSON object with the single key "
             "actions. Scene and evidence are context and must not be returned. "
-            "If existing_tasks is supplied, never propose work that an existing task already covers, "
-            "even in different words. The actions value must be an array. Each action must include: action_id (string), "
+            "If existing_tasks is supplied, never duplicate the same goal, even in different "
+            "words. A task to clear a walkway does NOT automatically cover a distinct laundry-care "
+            "decision about whether clothes need washing or putting away. Only suggest that "
+            "separate decision if the image supports its usefulness, and do not repeat physical "
+            "clearing steps as a second chore. The actions value must be an array. Each action must include: action_id (string), "
             "title (string), action (string), observation_location (string or null), "
             "action_location (string or null), supporting_evidence_ids (array of existing evidence IDs), "
             "prerequisites (array of strings), assumptions (array of strings), "
@@ -492,7 +525,20 @@ class OpenWorldPlanner:
             "intent-neutral work: for example, check whether loose items are intentionally staged "
             "and, only if the person wants the area cleared, sort them by the person's chosen "
             "destination. Do not command putting items away, washing, donating, or discarding "
-            "based solely on seeing them out of storage. Set requires_user_confirmation=true "
+            "based solely on seeing them out of storage. For ANY visible laundry awaiting "
+            "handling, assess the wider practical workflow, not only whether a walkway is clear. "
+            "If there is a credible benefit, suggest checking whether the clothes are clean "
+            "or awaiting washing and following a CONDITIONAL plan: if dirty and suitable for "
+            "machine washing, check care labels, sort appropriately and start a compatible "
+            "cycle; if already clean, fold, hang or put them away at the user's chosen location. "
+            "If clothing is intentionally staged or does not need handling, leave it alone. "
+            "This is one decision-based task, not multiple duplicate tasks, and the photo "
+            "must NEVER be claimed to establish laundry cleanliness or machine readiness. "
+            "If an approximate normal machine cycle is helpful, clearly distinguish machine "
+            "run time from hands-on effort, never make up a duration, and rely on independently "
+            "sourced manufacturer guidance or a verified machine model/settings. "
+            "Do not turn a conditional branch into an unconditional instruction. "
+            "Set requires_user_confirmation=true "
             "if deciding what to do with belongings depends on that person's preference. "
             "Verification criteria must separate observable change from user-confirmed intent; "
             "do not claim a photo verifies what a person intended. "
@@ -617,6 +663,16 @@ class OpenWorldActionReviewer:
             "Do not reject such an action ONLY because the objects might be intentionally staged; "
             "reject commands that presume the objects must be stored, laundered, donated or discarded. "
             "Do not assume dirtiness from clothes being on the floor. "
+            "A single optional, conditional laundry-workflow task can be supported by visible "
+            "unprocessed garments: check whether they are already clean; only wash if confirmed "
+            "dirty and appropriate for the machine, or fold/store if already clean. Treat an "
+            "unknown laundry state as a user decision, not as evidence for washing. "
+            "Evaluate the usefulness of the full laundry process instead of mechanically "
+            "recommending walkway clearance alone. Do not propose duplicate laundry chores. "
+            "Machine cycle time, when researched, is elapsed time rather than personal effort. "
+            "If external reference material explicitly states a typical washing-machine "
+            "cycle duration, present it only as a sourced general reference with a URL "
+            "and a model/settings caveat, never as the duration scheduled for this machine. "
             "Set proportionate=false when the action is unnecessarily invasive, costly, or disruptive; "
             "nonredundant=false when another proposal covers the same work. "
             "Judge EACH action independently against corroborated evidence and the original image; "

@@ -159,8 +159,14 @@ ProposedPlan. There is NO closed room, object, condition, or task taxonomy: name
 things accurately when visible. Separate an observable condition from a proposed action,
 the observation location from where work occurs, and room CATEGORY from exact room ID.
 Do not infer that clothes need washing just because clothes are on the floor. Propose
-sorting/folding where visible evidence supports that; make washing conditional on evidence.
-Generate zero actions when nothing needs doing. Cite exact supplied evidence IDs for each
+a complete conditional laundry workflow when visible loose clothing supports a useful check:
+ask whether it has been washed, then wash with care-label-compatible settings only if
+confirmed dirty, or fold/hang/store only if confirmed clean and wanted. This is one
+intent-neutral proposal, not multiple obligations and not a claim that the image proves
+cleanliness. Include handling preferences and stage in prerequisites. A wash cycle's
+elapsed time must not be confused with hands-on work; do not assert fixed durations
+without independently verified model or manufacturer information. Generate zero actions
+when nothing needs doing. Cite exact supplied evidence IDs for each
 action. Don't invent prices, tools, durations, brand/model identifiers, room IDs, or
 historical facts. Use a duration RANGE with rationale when evidence permits it; omit
 an estimate otherwise. For unfamiliar objects or repair procedures, require research or

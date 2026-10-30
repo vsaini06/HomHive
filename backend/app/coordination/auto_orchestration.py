@@ -24,6 +24,8 @@ _APPLIANCE = re.compile(r"\b(dishwasher|washing machine|washer|refrigerator|frid
 _LAWN = re.compile(r"\b(lawn|grass|turf|yard|backyard)\b", re.I)
 _LAWN_CONDITION = re.compile(r"\b(overgrown|uneven|tall|long|weeds?|patchy|bare patches|brown patches|growth|unmowed|obstructed|encroach)\b", re.I)
 _FAULT = re.compile(r"\b(error|fault|leak|broken|malfunction|odor|smell|not working|failure|warning)\b", re.I)
+_LAUNDRY = re.compile(r"\b(laundry|clothes|clothing|garments|wash load|hamper)\b", re.I)
+_WASHER = re.compile(r"\b(washing machine|washer|laundry machine)\b", re.I)
 _HAZARD = re.compile(r"\b(gas leak|electrical shock|live wire|fire|smoke alarm|poison|asbestos|carbon monoxide)\b", re.I)
 
 
@@ -59,6 +61,12 @@ def scene_research_topics(summary: dict) -> list[tuple]:
     if _HAZARD.search(all_claims):
         return []
     result = []
+    # Research elapsed machine time only when both laundry and a washer are verified.
+    if _LAUNDRY.search(all_claims) and _WASHER.search(all_claims):
+        result.append((ResearchPurpose.HOUSEHOLD_CONTEXT,
+            'Manufacturer guidance on typical normal washing machine cycle duration, '
+            'including differences by model, cycle, load and fabric care. '
+            'Distinguish elapsed cycle time from hands-on sorting effort.'))
     for pattern, purpose, prefix in (
         (_PLANT, ResearchPurpose.PLANT_CARE,
          'Possible houseplant types, ordinary care, and potential causes of visibly observed symptoms; do not assume a diagnosis:'),
@@ -110,6 +118,9 @@ def reason_scene_research_topics(summary: dict, *, client=None, model: str | Non
                 'interpretation, safe advice, product-specific guidance, or maintenance plan. '
                 'Do not restrict yourself to known object or room names. Do not research simple '
                 'visible ordinary mess, or ask web search to prove something in a photograph. '
+                'When verified facts show both a washer and loose clothing, consider researching '
+                'manufacturer-sourced typical normal wash cycle elapsed duration and fabric care. '
+                'This does not prove the clothing needs washing or establish exact machine timing. '
                 'Never invent a species, defect, product model, urgency, or medical diagnosis. '
                 'Never ask for unsafe DIY actions or personal/location details. '
                 'Return ONLY JSON with exactly one key topics, an array of 0 to 3 objects '
@@ -141,6 +152,16 @@ def reason_scene_research_topics(summary: dict, *, client=None, model: str | Non
             topic = f"{query.strip()} Observed context: {'; '.join(claims[i] for i in dict.fromkeys(indices))}"[:500]
             if (purpose, topic) not in topics:
                 topics.append((purpose, topic))
+        # A model can miss the practical timing question. The fallback stays
+        # anchored to two kinds of reviewed visual evidence, not assumed dirt.
+        if (_LAUNDRY.search(' '.join(claims)) and _WASHER.search(' '.join(claims))
+                and len(topics) < 3
+                and not any(re.search(r'\b(cycle|wash duration|washing time)\b', query, re.I)
+                            for _, query in topics)):
+            topics.append((ResearchPurpose.HOUSEHOLD_CONTEXT,
+                'Manufacturer normal washing-machine cycle elapsed time and typical variation '
+                'by settings, capacity and load; separate machine running time from hands-on sorting. '
+                'Verified context: ' + '; '.join(claims[:2])[:180]))
         return topics
     except Exception as exc:
         logger.warning('Nemotron knowledge-gap routing unavailable: %s', type(exc).__name__)
