@@ -13,10 +13,10 @@ test('simple Today page is available without replacing the full dashboard', () =
 });
 
 test('consumer tasks use actual coordination data and retain uncertainty', () => {
-  assert.match(page, /coordination\?\.tasks\.length/);
+  assert.match(page, /advisorPlan\?\.tasks\.length/);
   assert.match(page, /activeHouseholdTasks\.slice\(0, 3\)/);
-  assert.match(page, /Needs more information/);
-  assert.match(page, /does not assume a task is finished/);
+  assert.match(page, /More information needed/);
+  assert.match(page, /Confirm completion before marking a task as finished/);
 });
 
 test('simplified navigation preserves access to every original page', () => {

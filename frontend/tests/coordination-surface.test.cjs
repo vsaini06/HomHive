@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const page = fs.readFileSync(require('node:path').join(__dirname, '../app/page.tsx'), 'utf8');
 const api = fs.readFileSync(require('node:path').join(__dirname, '../lib/api.ts'), 'utf8');
 test('consumer can see live decisions and change home and available independently', () => {
-  assert.match(page, /What makes sense right now\?/);
+  assert.match(page, /Your next best step/);
   assert.match(page, /changePresence\("HOME"\)/);
   assert.match(page, /changeAvailability\("FREE"\)/);
   assert.match(page, /coordination\.tasks\.slice/);

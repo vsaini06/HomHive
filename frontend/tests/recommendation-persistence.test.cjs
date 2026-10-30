@@ -19,9 +19,10 @@ test('outdated requests cannot reappear after the account changes', () => {
   assert.match(source, /if \(nemotronRequestId\.current !== requestId\) return;/);
 });
 
-test('changed household eligibility preserves historical advice with a stale notice', () => {
-  assert.match(source, /PREVIOUS HOMHIVE RECOMMENDATION/);
-  assert.match(source, /Your household conditions changed since this advice was generated/);
+test('outdated recommendations do not appear as current advice', () => {
+  assert.match(source, /nemotronAdviceContext === currentAdvisorContext/);
+  assert.match(source, /currentAdviceTask/);
+  assert.match(source, /activeAdvisorTasks\.find/);
   assert.match(source, /task\.task_id, task\.title, task\.status, task\.priority, task\.duration_min, task\.duration_max/);
 });
 

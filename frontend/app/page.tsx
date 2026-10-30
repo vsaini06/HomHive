@@ -12,6 +12,7 @@ import { WORK_DAYS, readableWorkDays, readableWorkTime, workWindowError } from "
 
 import { TimeWheelField } from "../lib/time-wheel";
 import { currentTimeZone, isValidTimeZone, quietHoursActiveAt, timeInZone } from "../lib/quiet-hours";
+import { HouseholdTimeZonePicker } from "../lib/time-zone-picker";
 
 import { HomHiveSelect } from "../lib/hh-select";
 
@@ -429,6 +430,12 @@ export default function Home() {
 
   const [calendarError, setCalendarError] = useState("");
 
+  useEffect(() => {
+    if (!calendarError) return;
+    const timer = window.setTimeout(() => setCalendarError(""), 7000);
+    return () => window.clearTimeout(timer);
+  }, [calendarError]);
+
   const [nemotronAdvice, setNemotronAdvice] = useState<NemotronAdvice | null>(null);
 
   const [nemotronAdviceContext, setNemotronAdviceContext] = useState("");
@@ -447,7 +454,7 @@ export default function Home() {
 
   const [guidanceBusy, setGuidanceBusy] = useState(false);
 
-  const [autoPlanEnabled, setAutoPlanEnabled] = useState(false);
+  const [autoPlanEnabled, setAutoPlanEnabled] = useState(true);
 
   const lastAutoPlanSignature = useRef("");
 
@@ -517,6 +524,8 @@ export default function Home() {
 
   const [busy, setBusy] = useState(false);
 
+  const [pendingTaskAction, setPendingTaskAction] = useState<string | null>(null);
+
   const [scanProgress, setScanProgress] = useState<{ phase: "uploading" | "analyzing" | "held" | "done" | "error"; percent: number | null; mediaId: string | null; detail: string } | null>(null);
 
 
@@ -555,7 +564,7 @@ export default function Home() {
 
     setNotices(items => [...items.slice(-2), {id, kind, title, detail}]);
 
-    setTimeout(() => setNotices(items => items.filter(item => item.id !== id)), kind === "error" ? 11000 : 7500);
+    setTimeout(() => setNotices(items => items.filter(item => item.id !== id)), kind === "error" ? 7000 : 4500);
 
   }
 
@@ -1180,6 +1189,15 @@ export default function Home() {
 
 
   const advisorPlan = calendarPlan ?? coordination;
+  const activeAdvisorTasks = advisorPlan?.tasks.filter(task =>
+    autonomousTasks.some(saved => saved.id === task.task_id && !["dismissed", "completed"].includes(saved.status))) ?? [];
+  const latestScanAdvice = coordination?.latest_automatic_coordination?.advice;
+  const latestScanTask = latestScanAdvice?.selected_task_id
+    ? activeAdvisorTasks.find(task => task.task_id === latestScanAdvice.selected_task_id) : undefined;
+  const currentAdviceTask = nemotronAdvice?.selected_task_id
+    ? activeAdvisorTasks.find(task => task.task_id === nemotronAdvice.selected_task_id && task.status === "NOW") : undefined;
+  const waitingAdvisorTask = activeAdvisorTasks.find(task => task.status !== "NOW");
+
 
   const currentAdvisorContext = advisorPlan ? JSON.stringify({
 
@@ -1407,7 +1425,7 @@ export default function Home() {
 
   useEffect(() => {
 
-    if (!autoPlanEnabled || view !== "automations" || !token || !coordination?.tasks.length || !planSignature || nemotronBusy) return;
+    if (!autoPlanEnabled || view !== "automations" || !token || !activeAdvisorTasks.length || !planSignature || nemotronBusy) return;
 
     if (lastAutoPlanSignature.current === planSignature) return;
 
@@ -2088,11 +2106,26 @@ export default function Home() {
 
 
   async function decideAutonomousTask(taskId: string, decision: "accept" | "decline" | "remind" | "done") {
-
-    const result = await run(`Updating household work...`, () => api.decideAutonomousTask(taskId, decision));
-
-    if (result) await loadAutonomousState();
-
+    if (pendingTaskAction) return;
+    setPendingTaskAction(taskId);
+    try {
+      const result = await api.decideAutonomousTask(taskId, decision);
+      setAutonomousTasks(tasks => tasks.map(task => task.id === taskId
+        ? {...task, status: result.status, remind_at: decision === "remind" ? new Date(Date.now() + 30 * 60_000).toISOString() : null}
+        : task));
+      const feedback = {
+        accept: ["Task approved", "This task is now on your household list."],
+        decline: ["Suggestion dismissed", "This task will no longer appear in your active list."],
+        remind: ["Reminder set", "This suggestion will return in about 30 minutes."],
+        done: ["Completion reported", "HomHive will check your progress when you add a newer photo. This task has not yet been visually verified."],
+      } as const;
+      notify("success", feedback[decision][0], feedback[decision][1]);
+      await loadAutonomousState();
+    } catch (error) {
+      notify("error", "Couldn't update this task", friendlyError(error, "Please try again."));
+    } finally {
+      setPendingTaskAction(null);
+    }
   }
 
 
@@ -2776,9 +2809,7 @@ export default function Home() {
           <div className="hh-quiet-control"><div><strong>Enable quiet hours</strong><small>Keep household tasks on hold during your chosen hours.</small></div>
             <button type="button" role="switch" aria-label="Enable quiet hours" aria-checked={quietEnabled} className={`hh-toggle-switch ${quietEnabled ? "is-on" : ""}`} onClick={() => setQuietEnabled(value => !value)}><span /></button></div>
           <div className="hh-schedule-times"><TimeWheelField id="hh-quiet-from" label="From" value={quietStart} onChange={setQuietStart}/><span className="hh-schedule-to" aria-hidden="true">to</span><TimeWheelField id="hh-quiet-until" label="Until" value={quietEnd} onChange={setQuietEnd}/></div>
-          <label htmlFor="hh-household-timezone">Household time zone</label>
-          <input id="hh-household-timezone" list="hh-common-timezones" value={quietTimezone} onChange={event => setQuietTimezone(event.target.value)} autoComplete="off" spellCheck={false} aria-invalid={!isValidTimeZone(quietTimezone)} />
-          <datalist id="hh-common-timezones">{["America/Phoenix", "America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York", "America/Toronto", "Europe/London", "Europe/Paris", "Asia/Kolkata", "Asia/Tokyo", "Australia/Sydney", "UTC"].map(zone => <option key={zone} value={zone} />)}</datalist>
+          <HouseholdTimeZonePicker value={quietTimezone} onChange={setQuietTimezone} />
           <p className="hh-quiet-zone-hint">{isValidTimeZone(quietTimezone) ? `Current household time: ${timeInZone(clockNow, quietTimezone)}.` : "Enter a recognized time zone, such as America/Phoenix."}</p>
           <button type="button" className="hh-quiet-use-device" onClick={() => setQuietTimezone(deviceTimezone)}>Use this device's time zone ({deviceTimezone})</button>
           <p className="hh-quiet-zone-hint">Your chosen time zone is saved with the household, not this browser. Travel and daylight saving changes will not silently reset your schedule.</p>
@@ -3100,7 +3131,7 @@ export default function Home() {
 
         <section className="hh-advisor-section" aria-label="Household intelligence and research">
 
-          <div className="hh-advisor-heading"><p className="hh-kicker">HOUSEHOLD INTELLIGENCE</p><h2>Clear guidance for your home</h2><p>Get a practical suggestion or look up an unfamiliar household issue.</p></div>
+          <div className="hh-advisor-heading"><p className="hh-kicker">HOUSEHOLD INTELLIGENCE</p><h2>Clear guidance for your home</h2><p>HomHive reviews your photos, researches unfamiliar issues when needed, and suggests evidence-backed next steps.</p></div>
 
           <div className="hh-advisor-grid">
 
@@ -3108,62 +3139,45 @@ export default function Home() {
 
               <div className="hh-advisor-card-heading"><span className="hh-advisor-symbol" aria-hidden="true">✧</span><div><h3>What should I focus on?</h3><small>Powered by NVIDIA Nemotron on Nebius Token Factory</small></div></div>
 
-              <p>Get a useful recommendation based on your tasks and availability. You can connect Google Calendar to check for conflicts.</p>
+              <p>HomHive updates advice as household conditions change. Only tasks supported by your saved photos can become recommendations.</p>
 
-              <div className="hh-advisor-context"><span>{advisorPlan?.tasks.length ?? 0} reviewed tasks</span><span>{advisorPlan?.groups.NOW ?? 0} ready now</span><span>{advisorPlan?.groups.BLOCKED ?? 0} need attention first</span></div>
+              <div className="hh-advisor-context"><span>{activeAdvisorTasks.length} active tasks</span><span>{activeAdvisorTasks.filter(task => task.status === "NOW").length} ready now</span><span>{activeAdvisorTasks.filter(task => task.status === "BLOCKED").length} need attention first</span></div>
 
-              <button type="button" disabled={!isConnected || !advisorPlan?.tasks.length || nemotronBusy || (Boolean(calendarSession) && !calendarPlan)} onClick={() => void askNemotron()}>{nemotronBusy ? "Checking your household…" : "Suggest my next step"}</button>
+              <button type="button" disabled={!isConnected || !activeAdvisorTasks.length || nemotronBusy || (Boolean(calendarSession) && !calendarPlan)} onClick={() => void askNemotron()}>{nemotronBusy ? "Checking your household…" : "Suggest my next step"}</button>
 
               <div className="hh-advisor-autoplan">
 
-                <div><strong>Update recommendations automatically</strong><small>Updates advice when your household plan changes. Additional AI usage may incur charges.</small></div>
+                <div><strong>Update recommendations automatically</strong><small>Reviews your household plan when it changes. Model requests may incur usage charges.</small></div>
 
                 <button type="button" role="switch" aria-label="Automatically refresh Nemotron suggestions" aria-checked={autoPlanEnabled} className={`hh-advisor-switch${autoPlanEnabled ? " is-on" : ""}`} onClick={() => {lastAutoPlanSignature.current = ""; setAutoPlanEnabled(current => !current);}}><span aria-hidden="true" /></button>
 
               </div>
 
               {coordination?.latest_automatic_coordination?.status === "completed" && <div className="hh-advisor-result" role="status">
-
-                <p className="hh-kicker">AUTOMATIC UPDATE FROM LAST SCAN</p>
-
-                <p>{coordination.latest_automatic_coordination.advice?.summary || "HomHive reviewed the latest household evidence."}</p>
-
-                {coordination.latest_automatic_coordination.advice?.reason && <p><strong>Why:</strong> {coordination.latest_automatic_coordination.advice.reason}</p>}
-
-                <small>{coordination.latest_automatic_coordination.researched_tasks ? `${coordination.latest_automatic_coordination.researched_tasks} task researched with Tavily · ` : ""}Planning: {coordination.latest_automatic_coordination.planning_status.replaceAll("_", " ")}</small>
-
+                <p className="hh-kicker">LATEST SCAN REVIEW</p>
+                {latestScanTask ? <>
+                  <h4>{latestScanTask.title}</h4>
+                  <p>{latestScanAdvice?.summary}</p>
+                  <p><strong>Why:</strong> {latestScanAdvice?.reason}</p>
+                </> : <p>HomHive reviewed the latest photo. No new executable recommendation was verified from this review.</p>}
+                <small>{coordination.latest_automatic_coordination.researched_tasks ? `${coordination.latest_automatic_coordination.researched_tasks} task researched automatically · ` : ""}Scan review complete</small>
               </div>}
 
               {nemotronError && <p className="hh-advisor-error" role="alert">{nemotronError}</p>}
 
-              {nemotronAdvice && <div className="hh-advisor-result" role="status">
-
-                <p className="hh-kicker">{nemotronAdviceContext === currentAdvisorContext ? "HOMHIVE RECOMMENDS" : "PREVIOUS HOMHIVE RECOMMENDATION"}</p>
-
-                {nemotronAdviceContext !== currentAdvisorContext && <p className="hh-muted">Your household conditions changed since this advice was generated. Refresh the suggestion before acting.</p>}
-
-                {nemotronAdvice.selected_task_id ? <>
-
-                  <h4>{advisorPlan?.tasks.find(task => task.task_id === nemotronAdvice.selected_task_id)?.title ?? nemotronAdvice.summary}</h4>
-
-                  <p>{nemotronAdvice.summary}</p><p><strong>Why:</strong> {nemotronAdvice.reason}</p>
-
-                </> : <>
-
-                  <h4>Here's what needs to happen first</h4>
-
+              {nemotronAdvice && nemotronAdviceContext === currentAdvisorContext && <div className="hh-advisor-result" role="status">
+                <p className="hh-kicker">CURRENT HOUSEHOLD PLAN</p>
+                {currentAdviceTask ? <>
+                  <h4>{currentAdviceTask.title}</h4>
                   <p>{nemotronAdvice.summary}</p>
-
                   <p><strong>Why:</strong> {nemotronAdvice.reason}</p>
-
+                </> : waitingAdvisorTask ? <>
+                  <h4>{waitingAdvisorTask.title}</h4>
+                  <p>{waitingAdvisorTask.reasons.map(simpleReason).join(" ")}</p>
+                  <p className="hh-muted">This is an existing task, but it is not ready to schedule automatically.</p>
                   <button type="button" className="secondary" onClick={reviewHouseholdReadiness}>Review household readiness</button>
-
-                  <small>No task is ready to schedule yet. Check the details before proceeding.</small>
-
-                </>}
-
-                <small>{nemotronAdvice.model ? `NVIDIA Nemotron on Nebius · ${nemotronAdvice.model}` : "Based on existing household status"}</small>
-
+                </> : <p>No verified task is ready for a recommendation. Add another photo to update the household plan.</p>}
+                <small>{currentAdviceTask ? "NVIDIA Nemotron on Nebius" : "Based on the verified household task list"}</small>
               </div>}
 
               <small>Suggestions only. Your existing approval and safety rules always apply.</small>
@@ -3172,10 +3186,11 @@ export default function Home() {
 
             <section className="hh-panel hh-advisor-card" aria-label="Tavily household research">
 
-              <div className="hh-advisor-card-heading"><span className="hh-advisor-symbol" aria-hidden="true">⌕</span><div><h3>Find a trustworthy answer</h3><small>Research powered by Tavily</small></div></div>
+              <div className="hh-advisor-card-heading"><span className="hh-advisor-symbol" aria-hidden="true">⌕</span><div><h3>Automatic household research</h3><small>Evidence-guided research using Tavily</small></div></div>
 
-              <p>Ask about a plant, appliance, repair, or unfamiliar household situation. You'll see sources you can open.</p>
-
+              <p>When a photo reveals an unfamiliar object or condition, HomHive can look up relevant information automatically and include sources with its task guidance.</p>
+              <div className="hh-research-summary"><strong>{activeHouseholdTasks.filter(task => task.automatic_guidance?.sources?.length).length} researched tasks</strong><span>See sources under the related tasks.</span><button type="button" className="secondary" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); }}>View research results</button></div>
+              <details className="hh-research-optional"><summary>Ask a separate question (optional)</summary>
               <form onSubmit={event => {event.preventDefault(); void researchHousehold();}}>
 
                 <label htmlFor="hh-guidance-question">What would you like help with?</label>
@@ -3216,8 +3231,8 @@ export default function Home() {
 
               </div>}
 
-              <small>Only your question is used for this search. Your photos and household history aren't included.</small>
-
+              <small>Manual searches use only the question you enter. Automatic scan research uses verified observations.</small>
+              </details>
             </section>
 
           </div>
@@ -3246,7 +3261,7 @@ export default function Home() {
 
         </div>
 
-        <section className="hh-panel hh-automation-card" aria-label="Google Calendar free busy connection">
+        <section className="hh-panel hh-automation-card hh-calendar-connection" aria-label="Google Calendar free busy connection">
 
           <div className="hh-advisor-card-heading"><span className="hh-advisor-symbol" aria-hidden="true">▦</span><div><h2>Google Calendar</h2><small>Checks busy times, not event details</small></div></div>
 
@@ -3268,7 +3283,7 @@ export default function Home() {
 
           </div> : <p className="hh-muted">{calendarSession ? "Calendar check needs refreshing." : "Not connected. HomHive currently uses your preferred routine and manually confirmed availability."}</p>}
 
-          {calendarError && <p className="hh-advisor-error" role="alert">{calendarError}</p>}
+          {calendarError && <div className="hh-advisor-error hh-dismissible-error" role="alert"><span>{calendarError}</span><button type="button" aria-label="Dismiss calendar notice" onClick={() => setCalendarError("")}>Dismiss</button></div>}
 
           <div className="hh-automation-chips">
 
@@ -3286,7 +3301,7 @@ export default function Home() {
 
         </section>
 
-        <section className="hh-panel hh-automation-roadmap"><h2>Additional connections</h2><p></p></section>
+
 
       </section>}
 
@@ -3545,7 +3560,14 @@ export default function Home() {
 
               {task.recommended_at && <details className="hh-task-evidence"><summary>Earlier suggested time</summary><p>{new Date(task.recommended_at).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"})} was suggested from the household routine. Check current availability and calendar conflicts before starting.</p>{!simpleInterface && task.effort_max != null && task.effort_max > 0 && new Date(task.recommended_at).getTime() > Date.now() && <button type="button" className="secondary" onClick={() => exportCalendarTask(task)}>Download suggested calendar slot (.ics)</button>}</details>}
 
-              <div className="hh-task-actions">{task.status === "proposed" && <button disabled={busy} onClick={() => decideAutonomousTask(task.id,"accept")}>Approve</button>}{["pending", "accepted", "in_progress"].includes(task.status) && <button disabled={busy} onClick={() => decideAutonomousTask(task.id,"done")}>I did this · verify later</button>}{["pending", "proposed"].includes(task.status) && <button className="secondary" disabled={busy} onClick={() => decideAutonomousTask(task.id,"remind")}>Remind later</button>}{["pending", "proposed", "accepted", "in_progress"].includes(task.status) && <button className="hh-text-danger" disabled={busy} onClick={() => decideAutonomousTask(task.id,"decline")}>Dismiss</button>}</div>
+              {task.status === "in_progress" && <p className="hh-task-next" role="status">Completion reported. Add a newer photo to verify the result.</p>}
+              <div className="hh-task-actions">
+                {task.status === "proposed" && <button disabled={pendingTaskAction !== null} onClick={() => void decideAutonomousTask(task.id,"accept")}>{pendingTaskAction === task.id ? "Saving…" : "Approve"}</button>}
+                {["pending", "accepted"].includes(task.status) && <button disabled={pendingTaskAction !== null} onClick={() => void decideAutonomousTask(task.id,"done")}>{pendingTaskAction === task.id ? "Saving…" : "I finished this"}</button>}
+                {task.status === "in_progress" && <button className="secondary" onClick={() => setScanOpen(true)}>Add follow-up photo</button>}
+                {["pending", "proposed"].includes(task.status) && <button className="secondary" disabled={pendingTaskAction !== null} onClick={() => void decideAutonomousTask(task.id,"remind")}>{pendingTaskAction === task.id ? "Saving…" : "Remind me later"}</button>}
+                {["pending", "proposed", "accepted", "in_progress"].includes(task.status) && <button className="hh-text-danger" disabled={pendingTaskAction !== null} onClick={() => void decideAutonomousTask(task.id,"decline")}>Dismiss</button>}
+              </div>
 
               <details className="hh-task-evidence" onToggle={event => {if (event.currentTarget.open) void showTaskTimeline(task.id);}}><summary>Why was this suggested?</summary><p><strong>Observed:</strong> {task.evidence_summary || "Reviewed photo evidence"}</p><p><strong>Desired result:</strong> {task.criteria}</p><p><strong>Action:</strong> {task.action}</p>{task.estimate_rationale && <p><strong>Time estimate:</strong> {task.estimate_rationale}</p>}{task.estimate_sources?.length ? <p><strong>References:</strong> {task.estimate_sources.map((url,i) => <span key={url}><a href={url} target="_blank" rel="noopener noreferrer">Source {i+1}</a> </span>)}</p> : null}
 
@@ -3631,7 +3653,7 @@ export default function Home() {
 
                     <details className="hh-plan-detail"><summary>Research and planning details</summary><p>Research: {capitalizeFirst(review.automatic_coordination.research_status?.replaceAll("_", " ") || "Pending")} · Recommendation: {capitalizeFirst(review.automatic_coordination.planning_status?.replaceAll("_", " ") || "Pending")}</p></details>
 
-                    {review.automatic_coordination.advice && <p>{review.automatic_coordination.advice.summary} {review.automatic_coordination.advice.reason}</p>}
+                    {review.automatic_coordination.advice?.selected_task_id && activeAdvisorTasks.some(task => task.task_id === review.automatic_coordination?.advice?.selected_task_id) && <p>Previous advice for a known task: {review.automatic_coordination.advice.summary}</p>}
 
                     {review.automatic_coordination.object_insights?.map(item => <div className="hh-object-insight" key={item.object_id}>
 
@@ -3904,4 +3926,3 @@ export default function Home() {
   );
 
 }
-

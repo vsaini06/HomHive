@@ -14,14 +14,14 @@ test('minimal Today shows one prioritized task with evidence-based state', () =>
   assert.match(simplePage, /simpleHomeTasks\[0\]\.detail/);
   assert.match(simplePage, /simpleHomeTasks\[0\]\.status/);
   assert.match(page, /\.sort\(\(a, b\) => \(\{ NOW: 0/);
-  assert.match(simplePage, /This does not confirm the chore is finished/);
+  assert.match(simplePage, /Completion still needs confirmation/);
 });
 
 test('additional work is revealed on demand and all tasks remain accessible', () => {
   assert.match(simplePage, /<details className="hh-minimal-extra">/);
   assert.match(simplePage, /simpleHomeTasks\.slice\(1\)/);
   assert.match(simplePage, /setView\("tasks"\)/);
-  assert.match(simplePage, /changeInterfaceMode\(false\)/);
+  assert.match(simplePage, /setTaskRoomFilter\("all"\)/);
 });
 
 test('simplified Today gives one contextual scan action and room/object links', () => {
