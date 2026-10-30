@@ -3227,7 +3227,20 @@ export default function Home() {
               <div className="hh-advisor-card-heading"><span className="hh-advisor-symbol" aria-hidden="true">⌕</span><div><h3>Automatic household research</h3><small>Evidence-guided research using Tavily</small></div></div>
 
               <p>When a photo reveals an unfamiliar object or condition, HomHive can look up relevant information automatically and include sources with its task guidance.</p>
-              <div className="hh-research-summary"><strong>{activeHouseholdTasks.filter(task => task.automatic_guidance?.sources?.length).length} researched tasks</strong><span>See sources under the related tasks.</span><button type="button" className="secondary" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); }}>View research results</button></div>
+              <div className="hh-research-summary"><strong>{activeHouseholdTasks.filter(task => task.automatic_guidance?.sources?.length).length} tasks with research</strong><span>Reference material is also shown below when the latest photo needed separate research.</span><button type="button" className="secondary" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); }}>View task guidance</button></div>
+              {coordination?.latest_automatic_coordination?.scene_research?.some(topic => topic.sources.length > 0) && <section className="hh-advisor-result hh-latest-scan-research" aria-label="Latest scan research">
+                <p className="hh-kicker">RESEARCH FROM YOUR LATEST PHOTO</p>
+                {coordination.latest_automatic_coordination.scene_research.filter(topic => topic.sources.length > 0).map((topic, index) => <div className="hh-research-topic" key={`${topic.topic}-${index}`}>
+                  <h4>{topic.topic === "plant_care" ? "Plant identification and care" : topic.topic === "appliance_guidance" ? "Appliance guidance" : topic.topic === "maintenance" ? "Maintenance guidance" : "Household reference"}</h4>
+                  <p>{topic.note}</p>
+                  <div className="hh-advisor-sources">{topic.sources.map((source, i) => <article key={`${source.url}-${i}`}>
+                    <strong>{source.title}</strong>
+                    {source.excerpt && <p>{readableResearchExcerpt(source.excerpt).slice(0, 220)}</p>}
+                    <a href={source.url} target="_blank" rel="noopener noreferrer">Read source {i + 1}</a>
+                  </article>)}</div>
+                </div>)}
+                <small>Web references cannot confirm a plant's identity from a photograph. Check the visible characteristics before following species-specific care instructions.</small>
+              </section>}
               <details className="hh-research-optional"><summary>Ask a separate question (optional)</summary>
               <form onSubmit={event => {event.preventDefault(); void researchHousehold();}}>
 

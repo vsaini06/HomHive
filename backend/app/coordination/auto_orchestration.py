@@ -18,7 +18,7 @@ from .service import coordination_plan
 
 logger = logging.getLogger(__name__)
 
-_PLANT = re.compile(r"\b(plant|pothos|succulent|houseplant|monstera|ficus|fern|orchid|cactus|aloe|leaf|leaves|foliage)\b", re.I)
+_PLANT = re.compile(r"\b(plant|planter|potted|sapling|pothos|succulent|houseplant|monstera|ficus|fern|orchid|cactus|aloe|leaf|leaves|foliage|flower|shrub|vine|herb|bougainvillea|jasmine|hibiscus)\b", re.I)
 _SYMPTOM = re.compile(r"\b(yellow|yellowing|brown|browning|wilting|wilted|droop|dying|disease|spots?|pests?|fungus|unhealthy|discolor|blight)\b", re.I)
 _APPLIANCE = re.compile(r"\b(dishwasher|washing machine|washer|refrigerator|fridge|dryer|hvac|furnace|air conditioner|microwave|oven|water heater|appliance|dehumidifier)\b", re.I)
 _LAWN = re.compile(r"\b(lawn|grass|turf|yard|backyard)\b", re.I)
@@ -69,7 +69,7 @@ def scene_research_topics(summary: dict) -> list[tuple]:
             'Distinguish elapsed cycle time from hands-on sorting effort.'))
     for pattern, purpose, prefix in (
         (_PLANT, ResearchPurpose.PLANT_CARE,
-         'Possible houseplant types, ordinary care, and potential causes of visibly observed symptoms; do not assume a diagnosis:'),
+         'Compare possible potted or outdoor plant types using ONLY the verified visible leaf shape, growth habit and flowers if described; give cautious identification possibilities and general light, watering, drainage and pot-care guidance. Do not assert a species or disease without confirmation:'),
         (_APPLIANCE, ResearchPurpose.APPLIANCE_GUIDANCE,
          'Possible appliance type, standard maintenance, and safe troubleshooting; verify the exact model before product-specific advice:'),
         (_LAWN, ResearchPurpose.MAINTENANCE,
@@ -121,6 +121,13 @@ def reason_scene_research_topics(summary: dict, *, client=None, model: str | Non
                 'When verified facts show both a washer and loose clothing, consider researching '
                 'manufacturer-sourced typical normal wash cycle elapsed duration and fabric care. '
                 'This does not prove the clothing needs washing or establish exact machine timing. '
+                'When an independently reviewed scene contains a plant, especially one with '
+                'an unknown identity, normally research plausible identification clues and '
+                'general care requirements. Use only supplied leaf shape, colors, growth '
+                'habit, flowers and setting. Do not state that Tavily can see the photograph; '
+                'web sources may suggest candidates but cannot confirm species. Even healthy '
+                'plants can benefit from care references. Do not invent seasonal or local '
+                'weather conditions or recommend watering without checking soil moisture. '
                 'Never invent a species, defect, product model, urgency, or medical diagnosis. '
                 'Never ask for unsafe DIY actions or personal/location details. '
                 'Return ONLY JSON with exactly one key topics, an array of 0 to 3 objects '
@@ -152,6 +159,17 @@ def reason_scene_research_topics(summary: dict, *, client=None, model: str | Non
             topic = f"{query.strip()} Observed context: {'; '.join(claims[i] for i in dict.fromkeys(indices))}"[:500]
             if (purpose, topic) not in topics:
                 topics.append((purpose, topic))
+        # Ensure visually corroborated plants can receive reference guidance even
+        # when the model declines to research a healthy or unidentified plant.
+        # Sources remain possible matches, never photographic identification.
+        if (_PLANT.search(' '.join(claims)) and len(topics) < 3
+                and not any(purpose == ResearchPurpose.PLANT_CARE for purpose, _ in topics)):
+            plant_claims = [claim for claim in claims if _PLANT.search(claim)][:2]
+            topics.append((ResearchPurpose.PLANT_CARE,
+                ('Horticultural references for possible identification based on described '
+                 'visible traits, and general light, watering, drainage and container care; '
+                 'do not claim species confirmed. Reviewed observations: '
+                 + '; '.join(plant_claims))[:500]))
         # A model can miss the practical timing question. The fallback stays
         # anchored to two kinds of reviewed visual evidence, not assumed dirt.
         if (_LAUNDRY.search(' '.join(claims)) and _WASHER.search(' '.join(claims))
@@ -188,7 +206,7 @@ def external_reference_for_scene(summary: dict, *, provider=None, reasoner=None)
                             'excerpt': re.sub(r'[#*\s]+', ' ', item.content[:450]).strip()[:220]}
                            for item in results.evidence[:3] if str(item.url).startswith('https://')]
                 output.append({'topic': purpose.value, 'sources': sources,
-                               'note': 'External reference only; not an image observation or diagnosis.'})
+                               'note': 'External references suggest possible identities and care, not confirmed visual identification.' if purpose.value == 'plant_care' else 'External reference only; not an image observation or diagnosis.'})
             except Exception as exc:
                 logger.warning('Tavily reference lookup unavailable (%s): %s', purpose.value, type(exc).__name__)
         return output
@@ -340,7 +358,7 @@ class HouseholdAutoOrchestrator:
                             'excerpt': re.sub(r'[#*\s]+', ' ', item.content[:450]).strip()[:220]}
                             for item in result.evidence[:3] if str(item.url).startswith('https://')]
                         scene_sources.append({'topic': purpose.value, 'sources': sources,
-                            'note': 'Possible identification and care guidance, not a visual diagnosis.'})
+                            'note': 'References may suggest plant types and care; the photograph does not confirm species.' if purpose.value == 'plant_care' else 'External reference only; not a visual diagnosis.'})
                         output['source_count'] += len(sources)
                     except Exception as exc:
                         logger.warning('Scene Tavily research unavailable (%s): %s',

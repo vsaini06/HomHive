@@ -69,6 +69,7 @@ export type CoordinationPlan = {
   latest_automatic_coordination?: {
     status: string; scan_id: string; updated_at: string; research_status: string;
     researched_tasks: number; source_count: number; planning_status: string;
+    scene_research?: Array<{ topic: string; note: string; sources: Array<{title: string; url: string; excerpt?: string}> }>;
     advice?: NemotronAdvice;
   } | null;
 };
