@@ -721,7 +721,9 @@ export default function Home() {
             detail: "Your photo was saved, but the review could not start. Please try again." } : current);
           return;
         }
-        if (job.state === "completed") {
+        if (job.state === "completed") {
+          setTaskRoomFilter("all");
+          setStatus("Review complete");
           setScanProgress({ phase: "done", percent: 100, mediaId: job.media_id,
             detail: Object.values(job.review_summary?.progress_results ?? {}).includes("completed")
               ? "Review complete. Fresh evidence verified an existing task as finished. See your updates." :
@@ -734,10 +736,12 @@ export default function Home() {
               job.review_summary?.verification === "no_corroborated_evidence" ? "The photo did not show enough clear details. Try a different angle." :
               "Review complete. No task was supported by the available evidence." });
           await loadAutonomousState();
-        } else if (job.state === "held_unverified_room") {
+        } else if (job.state === "held_unverified_room") {
+          setStatus("Room confirmation needed");
           setScanProgress({ phase: "held", percent: null, mediaId: job.media_id,
             detail: "This photo could not be safely linked to one registered space. Choose a known room or add a separate space only if you recognize it as new." });
-        } else if (job.state === "failed") {
+        } else if (job.state === "failed") {
+          setStatus("Scan needs attention");
           setScanProgress({ phase: "error", percent: null, mediaId: job.media_id,
             detail: job.message || "AI review could not finish. The photo is saved; you can retry this scan." });
         }
@@ -1361,7 +1365,7 @@ export default function Home() {
       <header className="hh-header">
         <div className="hh-brand"><img className="hh-logo" src="/branding/homhive-192.png" alt="" width="45" height="45" /><span>HomHive<small>Household intelligence</small></span></div>
         <nav className="hh-nav" aria-label="Main navigation">
-          {(simpleInterface ? navItems.filter(item => ["home", "spaces", "tasks"].includes(item.id)) : navItems).map((item) => <button key={item.id} className={view === item.id ? "hh-nav-active" : "hh-nav-button"} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span aria-hidden="true">{item.icon}</span>{simpleInterface && item.id === "home" ? "Today" : simpleInterface && item.id === "spaces" ? "Rooms" : item.label}</button>)}
+          {(simpleInterface ? navItems.filter(item => ["home", "spaces", "tasks"].includes(item.id)) : navItems).map((item) => <button key={item.id} className={view === item.id ? "hh-nav-active" : "hh-nav-button"} aria-current={view === item.id ? "page" : undefined} onClick={() => { if (item.id === "tasks") { setTaskRoomFilter("all"); void loadAutonomousState(); } setView(item.id); }}><span aria-hidden="true">{item.icon}</span>{simpleInterface && item.id === "home" ? "Today" : simpleInterface && item.id === "spaces" ? "Rooms" : item.label}</button>)}
           {simpleInterface && <button ref={moreButtonRef} type="button" className={["objects", "schedule", "automations", "activity"].includes(view) ? "hh-nav-active" : "hh-nav-button"} aria-expanded={moreNavigationOpen} aria-haspopup="true" aria-controls="hh-more-pages" onClick={(event) => {
             const bounds = event.currentTarget.getBoundingClientRect();
             setMoreMenuPosition({ top: bounds.bottom + 7, left: Math.max(12, Math.min(bounds.left, window.innerWidth - 300)) });
@@ -1388,7 +1392,7 @@ export default function Home() {
                 onChange={value => setHeldRoomChoices(current => ({...current, [job.media_id]: value}))}
                 choices={[{value: "", label: "Choose a registered space"}, ...enrolledRooms.map(room => ({value: room.room_id, label: roomDisplayName(room.room_id), detail: "Previously registered space"}))]} /><button className="hh-confirm-room" disabled={!heldRoomChoices[job.media_id] || autonomousLoading || busy}
                 onClick={() => confirmExistingRoom(job)}>Confirm this is the same room</button>
-              <p className="hh-room-match-help">Only confirm a real physical match. Similar kitchens are not necessarily the same kitchen.</p></div></div>)}{(scanProgress.phase === "error" || scanProgress.phase === "held") && scanProgress.mediaId && <button className="secondary" disabled={busy} onClick={() => { setShowScanStatus(true); setView("tasks"); void loadAutonomousState(); }}>View scan status</button>}</div>
+              <p className="hh-room-match-help">Only confirm a real physical match. Similar kitchens are not necessarily the same kitchen.</p></div></div>)}{(scanProgress.phase === "error" || scanProgress.phase === "held") && scanProgress.mediaId && <button className="secondary" disabled={busy} onClick={() => { setShowScanStatus(true); setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>View scan status</button>}</div>
       </section>}
 
       {!isConnected && <section className="hh-notice" role="status"><strong>Connect your household</strong><span>Sign in to load your authorized household.</span><button onClick={() => setSettingsOpen(true)}>Open Settings</button></section>}
@@ -1406,7 +1410,7 @@ export default function Home() {
               <h2>{simpleHomeTasks[0].title}</h2>
               <p className="hh-minimal-explanation">{simpleHomeTasks[0].detail}</p>
               {simpleHomeTasks[0].progress != null && <p className="hh-minimal-context">About {simpleHomeTasks[0].progress}% visually complete. This does not confirm the chore is finished.</p>}
-              <div className="hh-minimal-actions"><button type="button" onClick={() => setView("tasks")}>View task details →</button><button type="button" className="secondary" onClick={() => setScanOpen(true)}>Scan a space</button></div>
+              <div className="hh-minimal-actions"><button type="button" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>View task details →</button><button type="button" className="secondary" onClick={() => setScanOpen(true)}>Scan a space</button></div>
             </> : <>
               <h2>Nothing needs your attention right now.</h2>
               <p className="hh-minimal-explanation">You can scan a room to check for changes.</p>
@@ -1414,13 +1418,13 @@ export default function Home() {
             </>}
             {simpleHomeTasks.length > 1 && <details className="hh-minimal-extra"><summary>{simpleHomeTasks.length - 1} more suggestion{simpleHomeTasks.length === 2 ? "" : "s"} to preview</summary>
               <div className="hh-consumer-task-list">{simpleHomeTasks.slice(1).map(task =>
-                <button type="button" key={task.id} className="hh-consumer-task" onClick={() => setView("tasks")}>
+                <button type="button" key={task.id} className="hh-consumer-task" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>
                   <span className="hh-consumer-task-icon" aria-hidden="true">→</span>
                   <span className="hh-consumer-task-copy"><strong>{task.title}</strong><small>{task.detail}</small></span>
                   <span className="hh-consumer-status">{task.status}</span>
                 </button>)}</div>
               </details>}
-            {simpleActiveTaskCount > 1 && <button type="button" className="hh-link hh-minimal-all" onClick={() => setView("tasks")}>See all {simpleActiveTaskCount} suggestions →</button>}
+            {simpleActiveTaskCount > 1 && <button type="button" className="hh-link hh-minimal-all" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>See all {simpleActiveTaskCount} suggestions →</button>}
           </section>
           <div className="hh-minimal-quicklinks" aria-label="Your household shortcuts">
             <button type="button" onClick={() => setView("spaces")}><strong>{enrolledRooms.length}</strong><span>Rooms</span><span aria-hidden="true">→</span></button>
@@ -1436,7 +1440,7 @@ export default function Home() {
         {isConnected && <div className="hh-stats">
           <button onClick={() => setView("spaces")}><span>Spaces</span><strong>{enrolledRooms.length}</strong><small>Recognized spaces</small></button>
           <button onClick={() => setView("objects")}><span>Objects</span><strong>{trackedObjects.length}</strong><small>Tracked household objects</small></button>
-          <button onClick={() => setView("tasks")}><span>Suggested work</span><strong>{autonomousTasks.filter(task => ["pending", "accepted", "in_progress", "proposed"].includes(task.status)).length}</strong><small>Active household suggestions</small></button>
+          <button onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}><span>Suggested work</span><strong>{autonomousTasks.filter(task => ["pending", "accepted", "in_progress", "proposed"].includes(task.status)).length}</strong><small>Active household suggestions</small></button>
           <button onClick={() => { setShowScanStatus(true); setView("tasks"); }}><span>Updates</span><strong>{autonomousAlerts.filter(alert => !alert.read_at).length}</strong><small>New task and progress alerts</small></button>
         </div>}
         {isConnected && <section className="hh-panel hh-decision-center" aria-label="Household decision center">
@@ -1478,7 +1482,7 @@ export default function Home() {
           <small className="hh-schedule-disclaimer">Your routine doesn't automatically reserve time on your calendar.</small>
         </section>}
         {isConnected && householdPulse && householdPulse.suggestions.length > 0 && <section className="hh-panel" aria-label="Your household intelligence pulse" style={{marginBottom:20}}>
-          <div className="hh-panel-head"><div><p className="hh-kicker">YOUR HOUSEHOLD PULSE</p><h2>What HomHive suggests next</h2></div><button className="hh-link" onClick={() => setView("tasks")}>See all work →</button></div>
+          <div className="hh-panel-head"><div><p className="hh-kicker">YOUR HOUSEHOLD PULSE</p><h2>What HomHive suggests next</h2></div><button className="hh-link" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>See all work →</button></div>
           <p className="hh-muted">Suggestions are based on what HomHive has observed and how long tasks have been waiting.</p>
           <div className="hh-compact-list">{householdPulse.suggestions.slice(0,3).map(item => <div className="hh-history-entry" key={item.task_id}>
             <strong>{item.title}</strong>
@@ -1487,14 +1491,14 @@ export default function Home() {
             <small>{item.recommended_at ? `Suggested ${new Date(item.recommended_at).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})} within your preferred window` : item.research_needed ? "Duration not independently sourced yet" : `${item.estimate_min}-${item.estimate_max} min · source-backed estimate`}</small>
           </div>)}</div>
         </section>}
-        {isConnected && autonomousTasks.some(task => ["proposed", "pending", "accepted", "in_progress"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())) && <section className="hh-panel hh-home-priority"><div className="hh-panel-head"><div><p className="hh-kicker">NEXT UP</p><h2>{[...autonomousTasks].filter(task => ["proposed", "pending", "accepted", "in_progress"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())).sort((a,b) => b.created_at.localeCompare(a.created_at))[0].title}</h2></div><button className="hh-link" onClick={() => setView("tasks")}>View suggestion →</button></div><p className="hh-muted">{[...autonomousTasks].filter(task => ["proposed", "pending", "accepted", "in_progress"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())).sort((a,b) => b.created_at.localeCompare(a.created_at))[0].evidence_summary || "Independently reviewed household work"}</p></section>}
+        {isConnected && autonomousTasks.some(task => ["proposed", "pending", "accepted", "in_progress"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())) && <section className="hh-panel hh-home-priority"><div className="hh-panel-head"><div><p className="hh-kicker">NEXT UP</p><h2>{[...autonomousTasks].filter(task => ["proposed", "pending", "accepted", "in_progress"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())).sort((a,b) => b.created_at.localeCompare(a.created_at))[0].title}</h2></div><button className="hh-link" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>View suggestion →</button></div><p className="hh-muted">{[...autonomousTasks].filter(task => ["proposed", "pending", "accepted", "in_progress"].includes(task.status) && (!task.remind_at || Date.parse(task.remind_at) <= Date.now())).sort((a,b) => b.created_at.localeCompare(a.created_at))[0].evidence_summary || "Independently reviewed household work"}</p></section>}
         <div className="hh-home-grid">
           <section className="hh-panel"><div className="hh-panel-head"><h2>Your spaces</h2><button className="hh-link" onClick={() => setView("spaces")}>View spaces →</button></div>
             {enrolledRooms.length === 0 ? <p className="hh-empty">Your spaces will appear after your first verified scan.</p> :
               <div className="hh-compact-list">{enrolledRooms.slice(0, 4).map(room => { const task = autonomousTasks.find(t => t.room_id === room.room_id); return <button key={room.room_id} className="hh-room-row" onClick={() => setView("spaces")}><span className="hh-room-symbol" aria-hidden="true">⌂</span><span><strong>{room.room_category ? capitalizeFirst(display(room.room_category)) : task?.room_category ? capitalizeFirst(display(task.room_category)) : "Recognized space"}</strong><small>{autonomousTasks.filter(t => t.room_id === room.room_id && ["pending", "proposed", "accepted", "in_progress"].includes(t.status)).length} active suggestions</small></span></button>; })}</div>}
           </section>
-          <section className="hh-panel"><div className="hh-panel-head"><h2>Household automation</h2><button className="hh-link" onClick={() => setView("tasks")}>All tasks →</button></div>
-            {autonomousTasks.filter(t => ["pending", "accepted", "in_progress", "proposed"].includes(t.status)).length === 0 ? <p className="hh-empty">No active suggestions yet. Scan a space to begin.</p> : <><p className="hh-muted">{autonomousTasks.filter(t => ["pending", "accepted", "in_progress", "proposed"].includes(t.status)).length} current suggestions · {autonomousTasks.filter(t => t.progress?.percent != null && t.status !== "completed").length} with observed progress.</p><button className="hh-inline-action" onClick={() => setView("tasks")}>View suggestions and updates →</button></>}
+          <section className="hh-panel"><div className="hh-panel-head"><h2>Household automation</h2><button className="hh-link" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>All tasks →</button></div>
+            {autonomousTasks.filter(t => ["pending", "accepted", "in_progress", "proposed"].includes(t.status)).length === 0 ? <p className="hh-empty">No active suggestions yet. Scan a space to begin.</p> : <><p className="hh-muted">{autonomousTasks.filter(t => ["pending", "accepted", "in_progress", "proposed"].includes(t.status)).length} current suggestions · {autonomousTasks.filter(t => t.progress?.percent != null && t.status !== "completed").length} with observed progress.</p><button className="hh-inline-action" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>View suggestions and updates →</button></>}
           </section>
         </div>
       </section>}
@@ -1641,7 +1645,7 @@ export default function Home() {
           <div className="hh-schedule-save"><button disabled={savingContext || quietStart === quietEnd} onClick={() => void saveQuietHours()}>{savingContext ? "Saving..." : "Save quiet hours"}</button></div>
           <small>Time zone: {coordination.quiet_hours.timezone}. Overnight hours are supported. Presence and availability expire automatically.</small>
         </section>}
-                <section className="hh-panel hh-schedule-explainer"><h2>What happens next?</h2><p>When HomHive discovers an evidence-supported task, it can research how long the task usually takes, then suggest a time within your chosen work window. You can still do the task whenever you want.</p><p><strong>Your routine is not a calendar booking.</strong> Connect Google Calendar in Automation to check for conflicts when requesting advice. HomHive does not book events automatically.</p><button className="hh-link" onClick={() => setView("tasks")}>View suggested tasks →</button></section>
+                <section className="hh-panel hh-schedule-explainer"><h2>What happens next?</h2><p>When HomHive discovers an evidence-supported task, it can research how long the task usually takes, then suggest a time within your chosen work window. You can still do the task whenever you want.</p><p><strong>Your routine is not a calendar booking.</strong> Connect Google Calendar in Automation to check for conflicts when requesting advice. HomHive does not book events automatically.</p><button className="hh-link" onClick={() => { setTaskRoomFilter("all"); setView("tasks"); void loadAutonomousState(); }}>View suggested tasks →</button></section>
       </section>}
 
       {view === "spaces" && <section className="hh-view">
