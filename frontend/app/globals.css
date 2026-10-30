@@ -602,3 +602,111 @@ body{background:linear-gradient(160deg,#ecf3ed 0%,#f8faf7 42%,#f1f4f1 100%);colo
   .hh-header .hh-nav button{flex:none;white-space:nowrap;padding:.55rem .8rem}
   .hh-header .hh-toolbar{margin-left:auto}
 }
+
+.hh-header .hh-mode-switch{background:#eff5ee;border:1px solid #d5e2d5;border-radius:11px;color:#26543b;font-weight:700;font-size:.76rem;padding:.62rem .78rem;white-space:nowrap}
+.hh-header .hh-mode-switch:hover{background:#e2ede1}
+ .hh-more-links{display:flex;align-items:center;justify-content:center;gap:.5rem;flex-wrap:wrap;padding:.6rem;background:#fff;border:1px solid #e2e8e1;border-radius:12px;box-shadow:0 6px 18px #1a382510}
+.hh-app .hh-more-links button{background:#eff5ef;border:1px solid #e0e9e0;border-radius:10px;padding:.6rem 1rem;color:#25583b;font-size:.83rem;font-weight:650}
+.hh-app .hh-more-links button[aria-current="page"]{background:#dce9df}
+.hh-consumer-home{max-width:1050px;margin:0 auto 3rem}
+.hh-consumer-hero{padding:2.6rem 0 1rem;display:flex;align-items:center;justify-content:space-between;gap:1.3rem}
+.hh-consumer-hero h1{font-size:clamp(2rem,4vw,3.15rem);letter-spacing:-.055em;line-height:1.08;margin:.45rem 0 .7rem;color:#204631}
+.hh-consumer-hero p:not(.hh-kicker){font-size:1rem;color:#67776b;max-width:48ch;margin:0}
+.hh-app .hh-consumer-scan{font-weight:800;border-radius:14px;padding:.9rem 1.15rem;white-space:nowrap}
+.hh-consumer-home .hh-panel{margin:.8rem 0}
+.hh-consumer-focus{padding:1.55rem}
+.hh-consumer-focus .hh-panel-head h2{font-size:1.35rem;margin:.4rem 0 .4rem}
+.hh-consumer-task-list{display:grid;margin-top:.65rem}
+.hh-app .hh-consumer-task{display:flex;align-items:center;gap:.95rem;padding:1rem .15rem;border:0;border-bottom:1px solid #e9eee9;background:transparent;text-align:left;color:#244933;border-radius:0;width:100%}
+.hh-app .hh-consumer-task:hover{background:#f8fbf7}
+.hh-consumer-task-icon{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:#edf6e9;color:#38664b;flex-shrink:0}
+.hh-consumer-task-copy{display:grid;gap:.25rem;flex:1;min-width:0}
+.hh-consumer-task-copy strong{font-size:1.01rem}
+.hh-consumer-task-copy small{font-size:.81rem;color:#67776c;font-weight:450;line-height:1.4;overflow-wrap:anywhere}
+.hh-consumer-status{background:#eef4ed;color:#3d644a;font-size:.72rem;padding:.4rem .58rem;border-radius:999px;white-space:normal;text-align:center;max-width:130px}
+.hh-consumer-disclaimer{font-size:.73rem;color:#6a7c6f;margin:1rem 0 0}
+.hh-consumer-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.hh-consumer-facts{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:.9rem 0}
+.hh-app .hh-consumer-facts button{display:grid;gap:.2rem;text-align:left;border:1px solid #e0ebe0;border-radius:12px;background:#f8fbf8;color:#26533a;padding:.8rem 1rem}
+.hh-consumer-facts strong{font-size:1.6rem}.hh-consumer-facts span{font-size:.79rem;color:#6e7e72}
+.hh-consumer-update{padding:.75rem 0}.hh-consumer-update p{font-size:.85rem;color:#67776b;line-height:1.5}
+.hh-consumer-empty p{font-size:.9rem;color:#637569;line-height:1.5}
+.hh-consumer-footer{display:flex;justify-content:center;align-items:center;gap:.7rem;flex-wrap:wrap;padding:1.15rem;font-size:.8rem;color:#627567}
+@media(max-width:850px){.hh-consumer-hero{align-items:start}.hh-header .hh-mode-switch{font-size:.72rem}}
+@media(max-width:640px){.hh-consumer-hero{flex-direction:column;padding:1.35rem 0 .65rem}.hh-consumer-hero h1{font-size:2rem}.hh-app .hh-consumer-scan{width:100%}.hh-consumer-bottom-grid{grid-template-columns:1fr}.hh-consumer-focus{padding:1rem}.hh-consumer-status{font-size:.68rem}.hh-header .hh-mode-switch{padding:.52rem .65rem}.hh-more-links{justify-content:flex-start}}
+
+
+/* Keep navigation below the brand and actions at every viewport width. */
+.hh-app .hh-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:1rem;row-gap:.25rem;padding:.65rem 0 .5rem;min-width:0}
+.hh-app .hh-header .hh-brand{grid-column:1;grid-row:1;min-width:0;max-width:100%;margin:0}
+.hh-app .hh-header .hh-toolbar{grid-column:2;grid-row:1;min-width:0;margin:0;justify-content:flex-end}
+.hh-app .hh-header .hh-nav{grid-column:1/-1;grid-row:2;order:initial;display:flex;flex:initial;width:100%;max-width:100%;min-width:0;margin:0;padding:.25rem 0;gap:.4rem;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+.hh-app .hh-header .hh-nav button{flex:none;min-width:max-content;padding:.5rem .8rem;white-space:nowrap}
+.hh-app .hh-header .hh-toolbar .hh-muted{max-width:142px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hh-app{position:relative}
+.hh-app .hh-more-links{position:fixed;top:112px;right:max(1rem,calc((100vw - 1240px)/2 + 1rem));z-index:25;width:min(300px,calc(100vw - 2rem));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem;box-shadow:0 14px 40px #1a382524;padding:.75rem}
+.hh-app .hh-more-links button{min-width:0;white-space:normal}
+@media(max-width:630px){
+  .hh-app .hh-header{grid-template-columns:minmax(0,1fr) auto;column-gap:.4rem}
+  .hh-app .hh-header .hh-toolbar .hh-muted{display:none}
+  .hh-app .hh-header .hh-mode-switch{padding:.47rem .55rem;font-size:.68rem}
+  .hh-app .hh-header .hh-toolbar{gap:.3rem}
+  .hh-app .hh-header .hh-toolbar .hh-scan{padding:.52rem .65rem}
+  .hh-app .hh-header .hh-nav button{font-size:.79rem;padding:.5rem .65rem}
+  .hh-app .hh-more-links{top:107px;right:.7rem}
+}
+
+/* A consumer surface: one actionable suggestion, deeper history on demand. */
+.hh-minimal-today{max-width:780px;margin:0 auto;padding-bottom:2rem}
+.hh-minimal-heading{display:flex;align-items:end;justify-content:space-between;gap:1.5rem;padding:2.1rem 0 1.1rem}
+.hh-minimal-heading h1{color:#204631;font-size:clamp(1.75rem,3.2vw,2.55rem);letter-spacing:-.045em;line-height:1.12;margin:.42rem 0 .45rem}
+.hh-minimal-heading p:not(.hh-kicker){font-size:.92rem;color:#68776b;margin:0;line-height:1.45}
+.hh-minimal-overview{font-size:.76rem;color:#355d44;border-radius:999px;background:#e8f1e7;padding:.43rem .72rem;white-space:nowrap}
+.hh-minimal-primary{padding:1.6rem 1.7rem!important;border-radius:24px!important;margin:.4rem 0 1rem!important;box-shadow:0 12px 35px #1b362508!important}
+.hh-minimal-eyebrow{display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:1rem}
+.hh-minimal-primary h2{font-size:clamp(1.4rem,2.3vw,1.82rem)!important;line-height:1.22;letter-spacing:-.035em;margin:.3rem 0 .75rem!important;color:#193b2b}
+.hh-minimal-explanation{font-size:.93rem;color:#52685a;max-width:60ch;line-height:1.6;margin:.15rem 0 .75rem}
+.hh-minimal-context{font-size:.8rem;color:#7b856e;margin:.5rem 0 .8rem}
+.hh-minimal-actions{display:flex;gap:.55rem;flex-wrap:wrap;margin-top:1.3rem}
+.hh-app .hh-minimal-actions button{border-radius:12px;padding:.78rem 1rem;font-weight:750}
+.hh-minimal-extra{margin-top:1.15rem;border-top:1px solid #e6ece5;padding-top:.95rem}
+.hh-minimal-extra summary{font-weight:650;cursor:pointer;color:#315c42}
+.hh-minimal-extra .hh-consumer-task-list{margin-top:.45rem}
+.hh-minimal-extra .hh-consumer-task{padding:.72rem .3rem}
+.hh-minimal-all{display:block;margin-top:.85rem;margin-left:auto}
+.hh-minimal-quicklinks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem}
+.hh-app .hh-minimal-quicklinks button{display:flex;align-items:center;gap:.55rem;text-align:left;padding:.85rem .95rem;border:1px solid #dde8dd;border-radius:15px;background:#ffffffd9;color:#47614e;min-width:0}
+.hh-minimal-quicklinks button strong{font-size:1.18rem;color:#204731}
+.hh-minimal-quicklinks button span:nth-child(2){flex:1;font-size:.84rem}
+.hh-minimal-quicklinks button span:last-child{color:#8c9d91}
+.hh-minimal-footnote{font-size:.74rem;line-height:1.6;color:#718074;margin:1.15rem .2rem}
+.hh-minimal-footnote .hh-link{display:inline;font-size:inherit;margin-left:.2rem}
+@media(max-width:630px){
+  .hh-minimal-heading{display:block;padding:1.3rem 0 .7rem}
+  .hh-minimal-heading h1{font-size:1.82rem}
+  .hh-minimal-overview{display:inline-block;margin-top:.65rem}
+  .hh-minimal-primary{padding:1.1rem!important}
+  .hh-minimal-quicklinks{gap:.4rem}
+  .hh-app .hh-minimal-quicklinks button{padding:.7rem .45rem;gap:.25rem}
+  .hh-minimal-quicklinks button strong{font-size:1.06rem}
+  .hh-minimal-quicklinks button span:nth-child(2){font-size:.73rem}
+}
+
+/* Put the overflow menu next to its trigger. Position comes from the trigger bounds. */
+.hh-app .hh-more-links{position:fixed;right:auto;z-index:45;max-width:calc(100vw - 24px)}
+.hh-app .hh-more-links button:focus-visible{outline:2px solid #43805c;outline-offset:2px}
+.hh-consumer-alert{border-bottom:1px solid #e6eee7;padding:.85rem .15rem;margin:0!important}
+.hh-consumer-alert:last-child{border-bottom:0}
+.hh-consumer-alert>strong{display:block;font-size:.95rem;line-height:1.35}
+.hh-consumer-alert>p{margin:.35rem 0;font-size:.8rem;line-height:1.45}
+.hh-consumer-alert .hh-task-update-source{font-size:.76rem;color:#637969}
+.hh-consumer-alert .hh-task-actions{margin-top:.55rem}
+.hh-consumer-alert .hh-task-actions button{font-size:.75rem;padding:.4rem .65rem}
+.hh-consumer-alert .hh-alert-history{margin:.35rem 0;font-size:.76rem}
+.hh-consumer-alert .hh-alert-history p{color:#5b7261;margin:.5rem 0;line-height:1.45}
+.hh-simple-task-card{padding:1rem 1.15rem;box-shadow:none}
+.hh-simple-task-card h3{font-size:1rem;margin:.45rem 0 .3rem}
+.hh-simple-task-card .hh-task-description{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:.2rem 0}
+.hh-simple-task-card .hh-task-metadata{margin:.65rem 0}
+.hh-simple-task-card .hh-task-progress{margin:.6rem 0}
+.hh-simple-task-card .hh-task-actions{margin:.7rem 0}

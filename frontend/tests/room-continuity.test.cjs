@@ -7,7 +7,8 @@ const api = fs.readFileSync(path.join(__dirname, '..', 'lib/api.ts'), 'utf8');
 
 test('uncertain physical room identity offers both safe user decisions', () => {
   assert.match(page, /Add this photo as a new space/);
-  assert.match(page, /Confirm same physical room/);
+  assert.match(page, /Confirm this is the same room/);
+  assert.match(page, /confirmExistingRoom\(job\)/);
   assert.match(page, /same physical space/);
   assert.match(page, /heldRoomChoices\[job.media_id\]/);
 });

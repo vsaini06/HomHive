@@ -61,6 +61,11 @@ export type CoordinationPlan = {
   timezone: string; preferred_minutes_remaining: number;
   groups: Record<"NOW" | "SOON" | "DEFERRED" | "BLOCKED", number>;
   tasks: CoordinationTask[]; evaluated_at: string; source_note: string;
+  calendar?: {
+    connected: boolean; source: string; busy_now: boolean; conflict_free_minutes: number;
+    effective_work_minutes: number; checked_until: string;
+    next_busy_starts_at: string | null; busy_interval_count: number;
+  };
   latest_automatic_coordination?: {
     status: string; scan_id: string; updated_at: string; research_status: string;
     researched_tasks: number; source_count: number; planning_status: string;
@@ -493,6 +498,22 @@ export class HomHiveApi {
     const response = await fetch(
       `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/coordination/nemotron-advice`,
       { method: "POST", headers: this.headers() },
+    );
+    return this.parse(response);
+  }
+
+  async googleCalendarPlan(accessToken: string): Promise<CoordinationPlan> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/coordination/google-calendar/plan`,
+      {method: "POST", headers: this.headers(), body: JSON.stringify({access_token: accessToken})},
+    );
+    return this.parse(response);
+  }
+
+  async googleCalendarNemotronAdvice(accessToken: string): Promise<NemotronAdvice> {
+    const response = await fetch(
+      `${this.baseUrl}/households/${encodeURIComponent(this.householdId)}/coordination/google-calendar/nemotron-advice`,
+      {method: "POST", headers: this.headers(), body: JSON.stringify({access_token: accessToken})},
     );
     return this.parse(response);
   }

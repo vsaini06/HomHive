@@ -6,6 +6,7 @@ import { clearAccountSession, readAccountSession, saveAccountSession } from "../
 import { WORK_DAYS, readableWorkDays, readableWorkTime, workWindowError } from "../lib/work-schedule";
 import { TimeWheelField } from "../lib/time-wheel";
 import { HomHiveSelect } from "../lib/hh-select";
+import {preloadGoogleCalendar, requestGoogleCalendarAccess, type GoogleCalendarSession} from "../lib/google-calendar";
 import demoCatalog from "../public/demo-library/catalog.json";
 import {
   HomHiveApi,
@@ -42,6 +43,7 @@ function readableResearchExcerpt(raw: string): string {
 }
 
 const defaultApi = process.env.NEXT_PUBLIC_HOMHIVE_API_URL ?? "http://127.0.0.1:8000";
+const googleCalendarClientId = process.env.NEXT_PUBLIC_HOMHIVE_GOOGLE_CLIENT_ID ?? "";
 function HouseholdObjectCard({item, api, tasks, rooms, onMove}: {
   item: AutonomousObject;
   api: HomHiveApi;
@@ -199,7 +201,13 @@ export default function Home() {
   const [notifications, setNotifications] = useState<HouseholdNotification[]>([]);
   const [presence, setPresence] = useState<HouseholdPresence | null>(null);
   const [coordination, setCoordination] = useState<CoordinationPlan | null>(null);
+  const [calendarSession, setCalendarSession] = useState<GoogleCalendarSession | null>(null);
+  const [calendarPlan, setCalendarPlan] = useState<CoordinationPlan | null>(null);
+  const [calendarBusy, setCalendarBusy] = useState(false);
+  const [calendarError, setCalendarError] = useState("");
   const [nemotronAdvice, setNemotronAdvice] = useState<NemotronAdvice | null>(null);
+  const [nemotronAdviceContext, setNemotronAdviceContext] = useState("");
+  const nemotronRequestId = useRef(0);
   const [nemotronBusy, setNemotronBusy] = useState(false);
   const [nemotronError, setNemotronError] = useState("");
   const [guidanceQuery, setGuidanceQuery] = useState("");
@@ -220,6 +228,11 @@ export default function Home() {
   const [researchQuery, setResearchQuery] = useState("");
   const [status, setStatus] = useState("Ready");
   const [view, setView] = useState<"home" | "spaces" | "objects" | "tasks" | "activity" | "schedule" | "automations">("home");
+  const [simpleInterface, setSimpleInterface] = useState(true);
+  const [moreNavigationOpen, setMoreNavigationOpen] = useState(false);
+  const [moreMenuPosition, setMoreMenuPosition] = useState({ top: 0, left: 0 });
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const moreMenuRef = useRef<HTMLElement>(null);
   const [navigationReady, setNavigationReady] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
@@ -302,6 +315,43 @@ export default function Home() {
       notify("warning", "Your session won't survive a refresh", "This browser is blocking tab storage. Your current sign-in can still be used.");
     }
   }, []);
+
+  useEffect(() => {
+    try { setSimpleInterface(window.localStorage.getItem("homhive.interfaceMode") !== "full"); } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!moreNavigationOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node &&
+        (moreButtonRef.current?.contains(event.target) || moreMenuRef.current?.contains(event.target))) return;
+      setMoreNavigationOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMoreNavigationOpen(false);
+        moreButtonRef.current?.focus();
+      }
+    };
+    const closeOnMove = () => setMoreNavigationOpen(false);
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", closeOnMove);
+    window.addEventListener("scroll", closeOnMove, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", closeOnMove);
+      window.removeEventListener("scroll", closeOnMove, true);
+    };
+  }, [moreNavigationOpen]);
+
+  function changeInterfaceMode(simple: boolean) {
+    setSimpleInterface(simple);
+    setMoreNavigationOpen(false);
+    try { window.localStorage.setItem("homhive.interfaceMode", simple ? "simple" : "full"); } catch {}
+    setView("home");
+  }
 
   useEffect(() => {
     try { const saved = window.sessionStorage.getItem("homhive.taskRoomFilter"); if (saved) setTaskRoomFilter(saved); } catch {}
@@ -516,21 +566,94 @@ export default function Home() {
     }
   }
 
+  const advisorPlan = calendarPlan ?? coordination;
+  const currentAdvisorContext = advisorPlan ? JSON.stringify({
+    householdId,
+    presence: advisorPlan.presence.state,
+    availability: advisorPlan.availability.state,
+    quietHours: advisorPlan.quiet_hours.active,
+    workWindow: advisorPlan.work_window,
+    calendar: advisorPlan.calendar ? [advisorPlan.calendar.busy_now, advisorPlan.calendar.effective_work_minutes,
+      advisorPlan.calendar.next_busy_starts_at] : null,
+    tasks: advisorPlan.tasks.map(task => [
+      task.task_id, task.title, task.status, task.priority, task.duration_min, task.duration_max,
+    ]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+  }) : "";
+
   useEffect(() => {
+    nemotronRequestId.current += 1;
     setNemotronAdvice(null);
+    setNemotronAdviceContext("");
     setNemotronError("");
-  }, [coordination?.evaluated_at]);
+    setNemotronBusy(false);
+    setCalendarSession(null);
+    setCalendarPlan(null);
+    setCalendarError("");
+  }, [token, householdId]);
+
+  useEffect(() => {
+    if (googleCalendarClientId) void preloadGoogleCalendar().catch(() => undefined);
+  }, []);
+
+  async function connectCalendar() {
+    if (!isConnected) return;
+    setCalendarBusy(true);
+    setCalendarError("");
+    try {
+      const session = await requestGoogleCalendarAccess(googleCalendarClientId);
+      const plan = await api.googleCalendarPlan(session.accessToken);
+      setCalendarSession(session);
+      setCalendarPlan(plan);
+      notify("success", "Google Calendar connected", "Only busy times are read. No event titles or details are accessed.");
+    } catch (error) {
+      setCalendarSession(null);
+      setCalendarPlan(null);
+      setCalendarError(friendlyError(error, "Calendar connection failed. Please try again."));
+    } finally { setCalendarBusy(false); }
+  }
+
+  async function refreshCalendar() {
+    if (!calendarSession) return;
+    if (Date.now() >= calendarSession.expiresAt - 15000) {
+      setCalendarPlan(null);
+      setCalendarError("Calendar access expired. Reconnect to check your schedule.");
+      return;
+    }
+    setCalendarBusy(true);
+    setCalendarError("");
+    try { setCalendarPlan(await api.googleCalendarPlan(calendarSession.accessToken)); }
+    catch (error) {
+      setCalendarPlan(null);
+      setCalendarError(friendlyError(error, "Could not refresh Google Calendar availability."));
+    } finally { setCalendarBusy(false); }
+  }
+
 
   const askNemotron = async () => {
+    const requestId = ++nemotronRequestId.current;
+    const contextAtRequest = currentAdvisorContext;
     setNemotronBusy(true);
-    setNemotronAdvice(null);
     setNemotronError("");
     try {
-      setNemotronAdvice(await api.nemotronAdvice());
+      if (calendarSession && Date.now() >= calendarSession.expiresAt - 15000) {
+        throw new Error("Google Calendar access has expired. Reconnect before requesting calendar-aware advice.");
+      }
+      if (calendarSession && !calendarPlan) {
+        throw new Error("Refresh your Google Calendar check before requesting advice.");
+      }
+      const advice = calendarSession
+        ? await api.googleCalendarNemotronAdvice(calendarSession.accessToken)
+        : await api.nemotronAdvice();
+      if (nemotronRequestId.current !== requestId) return;
+      setNemotronAdviceContext(contextAtRequest);
+      setNemotronAdvice(advice);
     } catch (error) {
-      setNemotronError(friendlyError(error, "Planning is temporarily unavailable. Your current household tasks are unchanged."));
+      if (nemotronRequestId.current === requestId) {
+        setNemotronAdviceContext("");
+        setNemotronError(friendlyError(error, "Planning is temporarily unavailable. Your current household tasks are unchanged."));
+      }
     } finally {
-      setNemotronBusy(false);
+      if (nemotronRequestId.current === requestId) setNemotronBusy(false);
     }
   };
 
@@ -555,11 +678,7 @@ export default function Home() {
     }
   }
 
-  const planSignature = coordination ? JSON.stringify({
-    presence:coordination.presence.state, availability:coordination.availability.state,
-    quiet:coordination.quiet_hours.active, window:coordination.preferred_minutes_remaining,
-    tasks:coordination.tasks.map(task => [task.task_id, task.status, task.priority, task.progress_percent]),
-  }) : "";
+  const planSignature = currentAdvisorContext;
   useEffect(() => {
     if (!autoPlanEnabled || view !== "automations" || !token || !coordination?.tasks.length || !planSignature || nemotronBusy) return;
     if (lastAutoPlanSignature.current === planSignature) return;
@@ -1069,6 +1188,7 @@ export default function Home() {
       state === "UNKNOWN" ? api.revokePresence() : api.updatePresence(state, true));
     if (result) {
       setPresence(result);
+      setCalendarPlan(null);
       try { setCoordination(await api.coordinationPlan()); }
       catch { notify("warning", "Decision status unavailable", "Presence was saved, but recommendations could not refresh."); }
     }
@@ -1078,6 +1198,7 @@ export default function Home() {
     const result = await run("Updating household availability...", () => api.updateAvailability(state));
     if (result) {
       setCoordination(result);
+      setCalendarPlan(null);
       notify("info", "Recommendations updated", `Your availability is now ${state.toLowerCase()}. Changes expire automatically.`);
     }
   }
@@ -1087,6 +1208,7 @@ export default function Home() {
     try {
       const result = await api.updateQuietHours(quietEnabled, quietStart, quietEnd, Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
       setCoordination(result);
+      setCalendarPlan(null);
       notify("success", "Quiet hours saved", "HomHive updated what can be suggested during your quiet hours.");
     } catch (error) {
       notify("error", "Couldn't save quiet hours", error instanceof Error ? error.message : "Try again.");
@@ -1187,6 +1309,28 @@ export default function Home() {
   const scheduleSummary = workWindow
     ? `${readableWorkDays(workWindow.weekdays)} · ${readableWorkTime(workWindow.start_time)} - ${readableWorkTime(workWindow.end_time)}`
     : "Not set up yet";
+  const simpleReason = (reason: string) => {
+    if (reason.startsWith("Presence is unknown;")) return "Confirm you are home to see if this can be scheduled.";
+    if (reason.startsWith("Home is not the same as available")) return "Let HomHive know when you are free for household work.";
+    if (reason.startsWith("Duration has not been independently supported")) return "The time estimate needs more evidence before scheduling.";
+    if (reason.startsWith("Waiting for your approval")) return "Your approval is needed before scheduling.";
+    if (reason.startsWith("Quiet hours are active")) return "This may need to wait until quiet hours end.";
+    if (reason.startsWith("Not enough time remains")) return "There isn't enough time left in your preferred work window.";
+    return reason;
+  };
+  const simpleHomeTasks = advisorPlan?.tasks.length ? [...advisorPlan.tasks]
+    .sort((a, b) => ({ NOW: 0, SOON: 1, DEFERRED: 2, BLOCKED: 3 }[a.status] - { NOW: 0, SOON: 1, DEFERRED: 2, BLOCKED: 3 }[b.status]))
+    .slice(0, 3).map(task => ({
+      id: task.task_id, title: task.title,
+      status: task.status === "NOW" ? "Ready to consider" : task.status === "SOON" ? "For later" : task.status === "DEFERRED" ? "Deferred" : "Needs more information",
+      detail: simpleReason(task.reasons[0] || "Based on reviewed household evidence."),
+      progress: task.progress_percent,
+    })) : activeHouseholdTasks.slice(0, 3).map(task => ({
+      id: task.id, title: task.title, status: "Needs review",
+      detail: task.evidence_summary || "Based on a reviewed household photo.",
+      progress: task.progress?.percent ?? null,
+    }));
+  const simpleActiveTaskCount = advisorPlan?.tasks.length ?? activeHouseholdTasks.length;
   const navItems = [
     { id: "home", label: "Home", icon: "⌂" },
     { id: "spaces", label: "Spaces", icon: "▦" },
@@ -1217,10 +1361,19 @@ export default function Home() {
       <header className="hh-header">
         <div className="hh-brand"><img className="hh-logo" src="/branding/homhive-192.png" alt="" width="45" height="45" /><span>HomHive<small>Household intelligence</small></span></div>
         <nav className="hh-nav" aria-label="Main navigation">
-          {navItems.map((item) => <button key={item.id} className={view === item.id ? "hh-nav-active" : "hh-nav-button"} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span aria-hidden="true">{item.icon}</span>{item.label}</button>)}
+          {(simpleInterface ? navItems.filter(item => ["home", "spaces", "tasks"].includes(item.id)) : navItems).map((item) => <button key={item.id} className={view === item.id ? "hh-nav-active" : "hh-nav-button"} aria-current={view === item.id ? "page" : undefined} onClick={() => setView(item.id)}><span aria-hidden="true">{item.icon}</span>{simpleInterface && item.id === "home" ? "Today" : simpleInterface && item.id === "spaces" ? "Rooms" : item.label}</button>)}
+          {simpleInterface && <button ref={moreButtonRef} type="button" className={["objects", "schedule", "automations", "activity"].includes(view) ? "hh-nav-active" : "hh-nav-button"} aria-expanded={moreNavigationOpen} aria-haspopup="true" aria-controls="hh-more-pages" onClick={(event) => {
+            const bounds = event.currentTarget.getBoundingClientRect();
+            setMoreMenuPosition({ top: bounds.bottom + 7, left: Math.max(12, Math.min(bounds.left, window.innerWidth - 300)) });
+            setMoreNavigationOpen(open => !open);
+          }}>☷ More</button>}
         </nav>
-        <div className="hh-toolbar">{isConnected && <span className="hh-muted" aria-label="Connected household">Connected · My household</span>}<button className="hh-scan" onClick={() => setScanOpen(true)}>＋ Scan</button><button className="hh-icon-button" aria-label="Open settings" onClick={() => setSettingsOpen(true)}>⚙</button></div>
+        <div className="hh-toolbar">{isConnected && <span className="hh-muted" aria-label="Connected household">Connected · My household</span>}<button type="button" className="hh-mode-switch" onClick={() => changeInterfaceMode(!simpleInterface)}>{simpleInterface ? "Full dashboard" : "Simple view"}</button><button className="hh-scan" onClick={() => setScanOpen(true)}>＋ Scan</button><button className="hh-icon-button" aria-label="Open settings" onClick={() => setSettingsOpen(true)}>⚙</button></div>
       </header>
+      {simpleInterface && moreNavigationOpen && <nav ref={moreMenuRef} id="hh-more-pages" className="hh-more-links" aria-label="More household pages" style={{ top: moreMenuPosition.top, left: moreMenuPosition.left, right: "auto" }}>
+        {navItems.filter(item => ["objects", "schedule", "automations", "activity"].includes(item.id)).map(item =>
+          <button type="button" key={item.id} aria-current={view === item.id ? "page" : undefined} onClick={() => { setView(item.id); setMoreNavigationOpen(false); }}>{item.label}</button>)}
+      </nav>}
       {isConnected && autonomousFetchError && <div className="hh-scan-message hh-scan-problem" role="status"><p>{autonomousFetchError}</p><button className="secondary" onClick={() => void loadAutonomousState()}>Try again</button></div>}
       <div id="household-content" className="hh-live" role="status" aria-live="polite"><span className={busy ? "pulse" : "dot"}/>{status}</div>
 
@@ -1240,7 +1393,45 @@ export default function Home() {
 
       {!isConnected && <section className="hh-notice" role="status"><strong>Connect your household</strong><span>Sign in to load your authorized household.</span><button onClick={() => setSettingsOpen(true)}>Open Settings</button></section>}
 
-      {view === "home" && <section className="hh-view">
+      {view === "home" && simpleInterface && <section className="hh-view hh-consumer-home hh-minimal-today" aria-label="Today at home">
+        <div className="hh-minimal-heading">
+          <div><p className="hh-kicker">TODAY AT HOME</p><h1>Your home, at a glance.</h1>
+            <p>One thing at a time. HomHive keeps track of the rest.</p></div>
+          {isConnected && <span className="hh-minimal-overview">{simpleActiveTaskCount} suggestion{simpleActiveTaskCount === 1 ? "" : "s"} to review</span>}
+        </div>
+        {isConnected ? <>
+          <section className="hh-panel hh-minimal-primary" aria-label="Next household suggestion">
+            <div className="hh-minimal-eyebrow"><span className="hh-kicker">NEXT TO REVIEW</span>{simpleHomeTasks.length > 0 && <span className="hh-consumer-status">{simpleHomeTasks[0].status}</span>}</div>
+            {simpleHomeTasks.length > 0 ? <>
+              <h2>{simpleHomeTasks[0].title}</h2>
+              <p className="hh-minimal-explanation">{simpleHomeTasks[0].detail}</p>
+              {simpleHomeTasks[0].progress != null && <p className="hh-minimal-context">About {simpleHomeTasks[0].progress}% visually complete. This does not confirm the chore is finished.</p>}
+              <div className="hh-minimal-actions"><button type="button" onClick={() => setView("tasks")}>View task details →</button><button type="button" className="secondary" onClick={() => setScanOpen(true)}>Scan a space</button></div>
+            </> : <>
+              <h2>Nothing needs your attention right now.</h2>
+              <p className="hh-minimal-explanation">You can scan a room to check for changes.</p>
+              <div className="hh-minimal-actions"><button type="button" onClick={() => setScanOpen(true)}>Scan a space →</button></div>
+            </>}
+            {simpleHomeTasks.length > 1 && <details className="hh-minimal-extra"><summary>{simpleHomeTasks.length - 1} more suggestion{simpleHomeTasks.length === 2 ? "" : "s"} to preview</summary>
+              <div className="hh-consumer-task-list">{simpleHomeTasks.slice(1).map(task =>
+                <button type="button" key={task.id} className="hh-consumer-task" onClick={() => setView("tasks")}>
+                  <span className="hh-consumer-task-icon" aria-hidden="true">→</span>
+                  <span className="hh-consumer-task-copy"><strong>{task.title}</strong><small>{task.detail}</small></span>
+                  <span className="hh-consumer-status">{task.status}</span>
+                </button>)}</div>
+              </details>}
+            {simpleActiveTaskCount > 1 && <button type="button" className="hh-link hh-minimal-all" onClick={() => setView("tasks")}>See all {simpleActiveTaskCount} suggestions →</button>}
+          </section>
+          <div className="hh-minimal-quicklinks" aria-label="Your household shortcuts">
+            <button type="button" onClick={() => setView("spaces")}><strong>{enrolledRooms.length}</strong><span>Rooms</span><span aria-hidden="true">→</span></button>
+            <button type="button" onClick={() => setView("objects")}><strong>{trackedObjects.length}</strong><span>Objects</span><span aria-hidden="true">→</span></button>
+            <button type="button" onClick={() => { setShowScanStatus(true); setView("tasks"); }}><strong>{autonomousAlerts.filter(alert => !alert.read_at).length}</strong><span>Updates</span><span aria-hidden="true">→</span></button>
+          </div>
+          <p className="hh-minimal-footnote">Suggestions use reviewed evidence. HomHive does not assume a task is finished just because something disappears from a photograph. <button type="button" className="hh-link" onClick={() => changeInterfaceMode(false)}>Full dashboard →</button></p>
+        </> : <section className="hh-panel hh-consumer-empty"><h2>Connect to your household</h2><p>Sign in to review your rooms, objects, and household suggestions.</p><button type="button" onClick={() => setSettingsOpen(true)}>Connect household</button></section>}
+      </section>}
+
+      {view === "home" && !simpleInterface && <section className="hh-view">
         <div className="hh-view-title"><div><p className="hh-kicker">HomHive / Home intelligence</p><h1>Good to be home.</h1><p>Your home, understood. The right actions, at the right time.</p></div><button className="secondary" disabled={busy || !token} onClick={loadHousehold}>↻ Refresh</button></div>
         {isConnected && <div className="hh-stats">
           <button onClick={() => setView("spaces")}><span>Spaces</span><strong>{enrolledRooms.length}</strong><small>Recognized spaces</small></button>
@@ -1250,7 +1441,7 @@ export default function Home() {
         </div>}
         {isConnected && <section className="hh-panel hh-decision-center" aria-label="Household decision center">
           <div className="hh-panel-head"><div><p className="hh-kicker">HOMHIVE / LIVE DECISIONS</p><h2>What makes sense right now?</h2></div><button className="hh-link" onClick={() => setView("schedule")}>Set household routine →</button></div>
-          <p className="hh-muted">Your household plan adapts to presence, real availability, quiet hours, and reviewed evidence. Nothing here assumes a calendar or location connection.</p>
+          <p className="hh-muted">Your household plan checks your chosen routine, manual availability, and reviewed tasks. Google Calendar is checked only when you explicitly connect it in Automation.</p>
           {coordination ? <>
             <div className="hh-context-controls">
               <fieldset><legend>Are you home?</legend><div className="hh-schedule-shortcuts">
@@ -1320,9 +1511,9 @@ export default function Home() {
           <div className="hh-advisor-grid">
             <section className="hh-panel hh-advisor-card" aria-label="AI household planner">
               <div className="hh-advisor-card-heading"><span className="hh-advisor-symbol" aria-hidden="true">✧</span><div><h3>What should I do next?</h3><small>Powered by NVIDIA Nemotron on Nebius Token Factory</small></div></div>
-              <p>Get a short recommendation based on your verified tasks, whether you're home, your available time, and quiet hours.</p>
-              <div className="hh-advisor-context"><span>{coordination?.tasks.length ?? 0} reviewed tasks</span><span>{coordination?.groups.NOW ?? 0} ready now</span><span>{coordination?.groups.BLOCKED ?? 0} need attention first</span></div>
-              <button type="button" disabled={!isConnected || !coordination?.tasks.length || nemotronBusy} onClick={() => void askNemotron()}>{nemotronBusy ? "Checking your household…" : "Suggest my next step"}</button>
+              <p>Get a short recommendation based on verified tasks, your preferred work window, and confirmed availability. Connect Google Calendar below to check scheduled conflicts.</p>
+              <div className="hh-advisor-context"><span>{advisorPlan?.tasks.length ?? 0} reviewed tasks</span><span>{advisorPlan?.groups.NOW ?? 0} ready now</span><span>{advisorPlan?.groups.BLOCKED ?? 0} need attention first</span></div>
+              <button type="button" disabled={!isConnected || !advisorPlan?.tasks.length || nemotronBusy || (Boolean(calendarSession) && !calendarPlan)} onClick={() => void askNemotron()}>{nemotronBusy ? "Checking your household…" : "Suggest my next step"}</button>
               <div className="hh-advisor-autoplan">
                 <div><strong>Keep suggestions up to date</strong><small>Optional. Refreshes when your household plan changes while this page is open. Uses Nebius credits.</small></div>
                 <button type="button" role="switch" aria-label="Automatically refresh Nemotron suggestions" aria-checked={autoPlanEnabled} className={`hh-advisor-switch${autoPlanEnabled ? " is-on" : ""}`} onClick={() => {lastAutoPlanSignature.current = ""; setAutoPlanEnabled(current => !current);}}><span aria-hidden="true" /></button>
@@ -1334,14 +1525,18 @@ export default function Home() {
                 <small>{coordination.latest_automatic_coordination.researched_tasks ? `${coordination.latest_automatic_coordination.researched_tasks} task researched with Tavily · ` : ""}Planning: {coordination.latest_automatic_coordination.planning_status.replaceAll("_", " ")}</small>
               </div>}
               {nemotronError && <p className="hh-advisor-error" role="alert">{nemotronError}</p>}
-              {nemotronAdvice && <div className="hh-advisor-result" role="status"><p className="hh-kicker">HOMHIVE RECOMMENDS</p>
+              {nemotronAdvice && <div className="hh-advisor-result" role="status">
+                <p className="hh-kicker">{nemotronAdviceContext === currentAdvisorContext ? "HOMHIVE RECOMMENDS" : "PREVIOUS HOMHIVE RECOMMENDATION"}</p>
+                {nemotronAdviceContext !== currentAdvisorContext && <p className="hh-muted">Your household conditions changed since this advice was generated. Refresh the suggestion before acting.</p>}
                 {nemotronAdvice.selected_task_id ? <>
-                  <h4>{coordination?.tasks.find(task => task.task_id === nemotronAdvice.selected_task_id)?.title ?? nemotronAdvice.summary}</h4>
+                  <h4>{advisorPlan?.tasks.find(task => task.task_id === nemotronAdvice.selected_task_id)?.title ?? nemotronAdvice.summary}</h4>
                   <p>{nemotronAdvice.summary}</p><p><strong>Why:</strong> {nemotronAdvice.reason}</p>
                 </> : <>
-                  <h4>Nothing ready to start yet</h4>
-                  <p>You have {coordination?.tasks.length ?? 0} reviewed household tasks, but none passes all scheduling checks yet. Open Home → Live Decisions to see the reason for each task, including missing duration evidence or a future work window. Nemotron cannot override those checks.</p>
-                  <details className="hh-advisor-model-detail"><summary>Provider response and eligibility details</summary><p>{nemotronAdvice.summary}</p><p>{nemotronAdvice.reason}</p></details>
+                  <h4>Here's what needs to happen first</h4>
+                  <p>{nemotronAdvice.summary}</p>
+                  <p><strong>Why:</strong> {nemotronAdvice.reason}</p>
+                  <button type="button" className="secondary" onClick={() => changeInterfaceMode(false)}>Review household readiness</button>
+                  <small>No household task has passed every scheduling check. HomHive never treats a pending task as approved or ready.</small>
                 </>}
                 <small>{nemotronAdvice.model ? `NVIDIA Nemotron on Nebius · ${nemotronAdvice.model}` : "Based on existing household status"}</small>
               </div>}
@@ -1385,7 +1580,27 @@ export default function Home() {
           <section className="hh-panel hh-automation-card"><span className="hh-automation-icon" aria-hidden="true">✓</span><h2>Suggestions and progress</h2><p>Evidence-backed suggestions are saved to their rooms. View progress from newer photographs.</p><span className="hh-automation-status">{activeHouseholdTasks.length} active tasks</span><button className="secondary" onClick={() => {setTaskRoomFilter("all");setView("tasks");}}>View household tasks</button></section>
 
         </div>
-        <section className="hh-panel hh-automation-roadmap"><h2>Additional connections</h2><p>Calendar, email, phone-location, cameras, robots, and external smart-home devices are not connected in this build. HomHive will never claim to know your actual calendar availability or location without a real integration and your permission.</p></section>
+        <section className="hh-panel hh-automation-card" aria-label="Google Calendar free busy connection">
+          <div className="hh-advisor-card-heading"><span className="hh-advisor-symbol" aria-hidden="true">▦</span><div><h2>Google Calendar</h2><small>Real read-only Free/Busy connection</small></div></div>
+          <p>Use your Google Calendar's busy times to avoid scheduling chores over meetings. Add dummy meetings to your own calendar to try it. HomHive never reads event titles or creates events.</p>
+          {calendarPlan?.calendar ? <div className="hh-advisor-result" role="status">
+            <strong>Connected: Google Calendar (primary)</strong>
+            <p>{calendarPlan.calendar.busy_now ? "You're currently marked busy in Google Calendar." : calendarPlan.calendar.next_busy_starts_at
+              ? `Next busy event: ${new Date(calendarPlan.calendar.next_busy_starts_at).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"})}`
+              : "No scheduled conflicts found in the checked time range."}</p>
+            <p>{calendarPlan.calendar.effective_work_minutes} minutes fit before the next calendar conflict or your routine ends. This does not prove you are personally available.</p>
+            <small>Last checked {new Date(calendarPlan.evaluated_at).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"})}. Only live Google results are used.</small>
+          </div> : <p className="hh-muted">{calendarSession ? "Calendar check needs refreshing." : "Not connected. HomHive currently uses your preferred routine and manually confirmed availability."}</p>}
+          {calendarError && <p className="hh-advisor-error" role="alert">{calendarError}</p>}
+          <div className="hh-automation-chips">
+            {!calendarSession && <button type="button" disabled={!isConnected || calendarBusy || !googleCalendarClientId} onClick={() => void connectCalendar()}>{calendarBusy ? "Connecting…" : "Connect Google Calendar"}</button>}
+            {calendarSession && <><button type="button" disabled={calendarBusy} onClick={() => void refreshCalendar()}>{calendarBusy ? "Checking…" : "Refresh calendar"}</button>
+              <button type="button" className="secondary" onClick={() => {setCalendarSession(null);setCalendarPlan(null);setCalendarError("");}}>Disconnect</button></>}
+          </div>
+          {!googleCalendarClientId && <small>Demo setup: set NEXT_PUBLIC_HOMHIVE_GOOGLE_CLIENT_ID in frontend/.env.local, then restart Next.js.</small>}
+          <small>Google access lasts for this browser session only and is not stored. A production deployment requires HTTPS and additional hardening.</small>
+        </section>
+        <section className="hh-panel hh-automation-roadmap"><h2>Additional connections</h2><p>Google Calendar is optional and only used when you connect and check it. Email, phone-location, cameras, robots, and external smart-home devices are not connected in this build.</p></section>
       </section>}
 
       {view === "schedule" && <section className="hh-view" aria-label="Household work schedule">
@@ -1430,7 +1645,7 @@ export default function Home() {
       </section>}
 
       {view === "spaces" && <section className="hh-view">
-        <div className="hh-view-title"><div><p className="hh-kicker">Your household</p><h1>Spaces</h1><p>Rooms anchored to independently reviewed photographs.</p></div><button className="secondary" onClick={loadAutonomousState}>↻ Refresh</button></div>
+        <div className="hh-view-title"><div><p className="hh-kicker">Your household</p><h1>{simpleInterface ? "Rooms" : "Spaces"}</h1><p>Rooms anchored to independently reviewed photographs.</p></div><button className="secondary" onClick={loadAutonomousState}>↻ Refresh</button></div>
         {enrolledRooms.length === 0 ? <div className="hh-panel hh-empty">No verified spaces yet. Scan a photograph and HomHive will establish the first space automatically once its room category is corroborated.</div> :
           <div className="hh-home-grid">{enrolledRooms.map(room => {
             const tasks = autonomousTasks.filter(task => task.room_id === room.room_id);
@@ -1470,10 +1685,24 @@ export default function Home() {
         {autonomousAlerts.some(alert => !alert.read_at) && <section className="hh-panel" aria-label="Household automation updates" style={{marginBottom:20}}>
           <h2>HomHive has suggestions for you</h2>
           <p className="hh-muted">New evidence-backed tasks and photo progress updates. No acceptance required for ordinary work.</p>
-          {autonomousAlerts.filter(alert => !alert.read_at).slice(0,5).map(alert => <div key={alert.id} className="hh-history-entry" style={{marginTop:12}}>
-            <strong>{alert.title}</strong><p className="hh-task-update-source">{autonomousTasks.find(task => task.id === alert.task_id) ? `From ${roomDisplayName(autonomousTasks.find(task => task.id === alert.task_id)!.room_id, autonomousTasks.find(task => task.id === alert.task_id)!.room_category)}` : "Household update"}</p><p>{alert.detail}</p><small>{new Date(alert.created_at).toLocaleString()}</small>
-            <div className="hh-task-actions"><button className="secondary" onClick={() => void acknowledgeAlert(alert.id)}>Got it</button></div>
-          </div>)}
+          {autonomousAlerts.filter(alert => !alert.read_at).slice(0,5).map(alert => {
+            const task = autonomousTasks.find(item => item.id === alert.task_id);
+            const room = task ? roomDisplayName(task.room_id, task.room_category) : "";
+            const isEarlierTimingAdvice = /^a good time for:/i.test(alert.title) || /preferred household.work window|availability isn't synchronized|check your real calendar before starting/i.test(alert.detail);
+            const heading = alert.title.replace(/^a good time for:\s*/i, "Suggested: ");
+            return <div key={alert.id} className={`hh-history-entry hh-consumer-alert${simpleInterface ? " hh-consumer-alert-compact" : ""}`}>
+              <strong>{heading}</strong>
+              <p className="hh-task-update-source">{task ? (/unassigned|unknown/i.test(room) ? "Location not confirmed" : room) : "Household update"}</p>
+              {isEarlierTimingAdvice ? <>
+                <p className="hh-muted">Earlier suggestion. This is not confirmation that the time is free now.</p>
+                <details className="hh-alert-history"><summary>Original scheduling note</summary>
+                  <p>The original suggestion used the household routine at that time, not a verified current calendar opening.</p>
+                  <p>{alert.detail}</p><small>{new Date(alert.created_at).toLocaleString()}</small>
+                </details>
+              </> : <><p>{alert.detail}</p>{!simpleInterface && <small>{new Date(alert.created_at).toLocaleString()}</small>}</>}
+              <div className="hh-task-actions"><button className="secondary" onClick={() => void acknowledgeAlert(alert.id)}>Got it</button></div>
+            </div>;
+          })}
         </section>}
         <div className="hh-room-task-toolbar">
           <div><strong>Tasks by space or object</strong><p>See which room or photographed object prompted each task, with the supporting evidence.</p></div>
@@ -1484,7 +1713,7 @@ export default function Home() {
         {visibleHouseholdTasks.length === 0 ? <section className="hh-panel hh-friendly-empty"><h2>No active tasks {taskRoomFilter === "all" ? "yet" : "for this space"}</h2><p>When a photo shows independently supported work, HomHive will add it to the relevant physical space. A scan can correctly produce no tasks.</p><button className="secondary" onClick={() => {setScanOpen(true);setTaskRoomFilter("all");}}>Scan a space</button></section> :
           <div className="hh-room-task-sections">{groupedHouseholdTasks.map(group => <section key={group.roomId} className="hh-room-task-section" aria-label={`${group.label} tasks`}>
             <div className="hh-room-task-heading"><div><p className="hh-kicker">{group.tasks.some(task => objectKindForTask(task) && ["", "unassigned space", "indoor plants"].includes((enrolledRooms.find(room => room.room_id === task.room_id)?.room_category || task.room_category || "").toLowerCase())) ? "OBSERVED OBJECT" : "SPACE"}</p><h2>{group.label}</h2></div><span>{group.tasks.length} active {group.tasks.length === 1 ? "task" : "tasks"}</span></div>
-            <div className="hh-task-grid">{group.tasks.map(task => <article className="hh-panel hh-intelligent-task" key={task.id}>
+            <div className="hh-task-grid">{group.tasks.map(task => <article className={`hh-panel hh-intelligent-task${simpleInterface ? " hh-simple-task-card" : ""}`} key={task.id}>
               <div className="hh-task-top"><span className="hh-task-space">{group.label}</span><span className="hh-task-date">Added {new Date(task.created_at).toLocaleDateString()}</span></div>
               <h3>{task.title}</h3>
               <p className="hh-task-description">{(task.action || task.evidence_summary || "Photo-supported household suggestion").slice(0,220)}{(task.action || task.evidence_summary || "").length > 220 ? "…" : ""}</p>
@@ -1505,7 +1734,7 @@ export default function Home() {
               {task.automatic_guidance && <details className="hh-task-evidence" open={Boolean(objectKindForTask(task))}><summary>Research found automatically</summary>
                 <p>{task.automatic_guidance.note}</p><ul>{task.automatic_guidance.sources.map((source,i) => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || `Source ${i+1}`}</a></li>)}</ul>
               </details>}
-              {task.recommended_at && <p className="hh-muted">Suggested time: {new Date(task.recommended_at).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"})}. Based on your preferred time, not confirmed calendar availability.</p>}
+              {task.recommended_at && <details className="hh-task-evidence"><summary>Earlier suggested time</summary><p>{new Date(task.recommended_at).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"})} was suggested from the household routine. Check current availability and calendar conflicts before starting.</p>{!simpleInterface && task.effort_max != null && task.effort_max > 0 && new Date(task.recommended_at).getTime() > Date.now() && <button type="button" className="secondary" onClick={() => exportCalendarTask(task)}>Download suggested calendar slot (.ics)</button>}</details>}
               <div className="hh-task-actions">{task.status === "proposed" && <button disabled={busy} onClick={() => decideAutonomousTask(task.id,"accept")}>Approve</button>}{["pending", "accepted", "in_progress"].includes(task.status) && <button disabled={busy} onClick={() => decideAutonomousTask(task.id,"done")}>I did this · verify later</button>}{["pending", "proposed"].includes(task.status) && <button className="secondary" disabled={busy} onClick={() => decideAutonomousTask(task.id,"remind")}>Remind later</button>}{["pending", "proposed", "accepted", "in_progress"].includes(task.status) && <button className="hh-text-danger" disabled={busy} onClick={() => decideAutonomousTask(task.id,"decline")}>Dismiss</button>}</div>
               <details className="hh-task-evidence" onToggle={event => {if (event.currentTarget.open) void showTaskTimeline(task.id);}}><summary>Why was this suggested?</summary><p><strong>Observed:</strong> {task.evidence_summary || "Reviewed photo evidence"}</p><p><strong>Desired result:</strong> {task.criteria}</p><p><strong>Action:</strong> {task.action}</p>{task.estimate_rationale && <p><strong>Time estimate:</strong> {task.estimate_rationale}</p>}{task.estimate_sources?.length ? <p><strong>References:</strong> {task.estimate_sources.map((url,i) => <span key={url}><a href={url} target="_blank" rel="noopener noreferrer">Source {i+1}</a> </span>)}</p> : null}
               {taskTimelines[task.id] && <div className="hh-compact-list"><h4>Previous photo reviews</h4>{taskTimelines[task.id].events.filter(event => ["discovery", "verification", "user_decision"].includes(event.kind)).map((event,index) => <div className="hh-history-entry" key={`${event.kind}-${index}`}><strong>{event.kind === "verification" ? "Photo recheck" : event.kind === "discovery" ? "Task found" : "Your decision"}</strong><p>{String(event.detail.reason || event.detail.decision || "Review recorded")}</p><small>{new Date(event.created_at).toLocaleString()}</small></div>)}</div>}

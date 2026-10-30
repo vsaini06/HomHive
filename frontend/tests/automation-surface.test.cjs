@@ -14,12 +14,16 @@ test('visible household pulse is grounded in backend household-scoped observatio
 
 test('task evidence history remains explorable', () => {
   assert.match(api, /async taskTimeline\(/);
-  assert.match(page, /Why HomHive suggested this · Evidence history/);
+  assert.match(page, /<summary>Why was this suggested\?<\/summary>/);
+  assert.match(page, /showTaskTimeline\(task\.id\)/);
+  assert.match(page, /taskTimelines\[task\.id\]/);
   assert.match(page, /progress_percent/);
 });
 
 test('calendar is an explicit export rather than silent account access', () => {
   assert.match(page, /text\/calendar/);
-  assert.match(page, /Add suggested slot to my calendar/);
+  assert.match(page, /function exportCalendarTask\(task: AutonomousTask\)/);
+  assert.match(page, /onClick=\{\(\) => exportCalendarTask\(task\)\}/);
+  assert.match(page, /Download suggested calendar slot/);
   assert.match(page, /not checked whether you're free/);
 });
