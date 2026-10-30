@@ -21,7 +21,7 @@ test('transient calendar errors and notifications expire', () => {
 });
 
 test('task completion shows feedback and awaits real photo verification', () => {
-  assert.match(page, /setPendingTaskAction\(taskId\)/);
+  assert.match(page, /setPendingTaskActions\(current => \(\{\.\.\.current, \[taskId\]: decision\}\)\)/);
   assert.match(page, /notify\("success", feedback\[decision\]\[0\], feedback\[decision\]\[1\]\)/);
   assert.match(page, /Completion reported\. Add a newer photo to verify the result\./);
   assert.match(page, /Add follow-up photo/);

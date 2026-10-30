@@ -524,7 +524,9 @@ export default function Home() {
 
   const [busy, setBusy] = useState(false);
 
-  const [pendingTaskAction, setPendingTaskAction] = useState<string | null>(null);
+  const pendingTaskActionRef = useRef<Set<string>>(new Set());
+  const [pendingTaskActions, setPendingTaskActions] = useState<Record<string, "accept" | "decline" | "remind" | "done">>({});
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
 
   const [scanProgress, setScanProgress] = useState<{ phase: "uploading" | "analyzing" | "held" | "done" | "error"; percent: number | null; mediaId: string | null; detail: string } | null>(null);
 
@@ -1196,7 +1198,9 @@ export default function Home() {
     ? activeAdvisorTasks.find(task => task.task_id === latestScanAdvice.selected_task_id) : undefined;
   const currentAdviceTask = nemotronAdvice?.selected_task_id
     ? activeAdvisorTasks.find(task => task.task_id === nemotronAdvice.selected_task_id && task.status === "NOW") : undefined;
-  const waitingAdvisorTask = activeAdvisorTasks.find(task => task.status !== "NOW");
+  const waitingAdvisorTask = nemotronAdvice?.selected_task_id
+    ? activeAdvisorTasks.find(task => task.task_id === nemotronAdvice.selected_task_id && task.status !== "NOW")
+    : activeAdvisorTasks.find(task => task.status !== "NOW");
 
 
   const currentAdvisorContext = advisorPlan ? JSON.stringify({
@@ -2106,8 +2110,9 @@ export default function Home() {
 
 
   async function decideAutonomousTask(taskId: string, decision: "accept" | "decline" | "remind" | "done") {
-    if (pendingTaskAction) return;
-    setPendingTaskAction(taskId);
+    if (pendingTaskActionRef.current.has(taskId)) return;
+    pendingTaskActionRef.current.add(taskId);
+    setPendingTaskActions(current => ({...current, [taskId]: decision}));
     try {
       const result = await api.decideAutonomousTask(taskId, decision);
       setAutonomousTasks(tasks => tasks.map(task => task.id === taskId
@@ -2124,7 +2129,12 @@ export default function Home() {
     } catch (error) {
       notify("error", "Couldn't update this task", friendlyError(error, "Please try again."));
     } finally {
-      setPendingTaskAction(null);
+      pendingTaskActionRef.current.delete(taskId);
+      setPendingTaskActions(current => {
+        const updated = {...current};
+        delete updated[taskId];
+        return updated;
+      });
     }
   }
 
@@ -2510,6 +2520,29 @@ export default function Home() {
     section?.scrollIntoView({behavior: "smooth", block: "center"});
     section?.focus({preventScroll: true});
   }
+
+  function openRecommendedTask(taskId: string) {
+    const task = autonomousTasks.find(item => item.id === taskId && !["dismissed", "completed"].includes(item.status));
+    if (!task) {
+      notify("info", "Task no longer available", "The household task list has changed. Review your current suggestions.");
+      void loadAutonomousState();
+      return;
+    }
+    setTaskRoomFilter("all");
+    setFocusedTaskId(task.id);
+    setView("tasks");
+  }
+
+  useEffect(() => {
+    if (view !== "tasks" || !focusedTaskId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const card = document.getElementById(`hh-task-${focusedTaskId}`);
+      if (!card) return;
+      card.scrollIntoView({behavior: "smooth", block: "center"});
+      card.focus({preventScroll: true});
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [view, focusedTaskId, taskRoomFilter]);
 
   async function saveQuietHours() {
     if (!isValidTimeZone(quietTimezone)) {
@@ -3159,6 +3192,7 @@ export default function Home() {
                   <h4>{latestScanTask.title}</h4>
                   <p>{latestScanAdvice?.summary}</p>
                   <p><strong>Why:</strong> {latestScanAdvice?.reason}</p>
+                  <button type="button" className="secondary" onClick={() => openRecommendedTask(latestScanTask.task_id)}>View suggested task</button>
                 </> : <p>HomHive reviewed the latest photo. No new executable recommendation was verified from this review.</p>}
                 <small>{coordination.latest_automatic_coordination.researched_tasks ? `${coordination.latest_automatic_coordination.researched_tasks} task researched automatically · ` : ""}Scan review complete</small>
               </div>}
@@ -3171,11 +3205,15 @@ export default function Home() {
                   <h4>{currentAdviceTask.title}</h4>
                   <p>{nemotronAdvice.summary}</p>
                   <p><strong>Why:</strong> {nemotronAdvice.reason}</p>
+                  <button type="button" className="secondary" onClick={() => openRecommendedTask(currentAdviceTask.task_id)}>View suggested task</button>
                 </> : waitingAdvisorTask ? <>
                   <h4>{waitingAdvisorTask.title}</h4>
                   <p>{waitingAdvisorTask.reasons.map(simpleReason).join(" ")}</p>
                   <p className="hh-muted">This is an existing task, but it is not ready to schedule automatically.</p>
-                  <button type="button" className="secondary" onClick={reviewHouseholdReadiness}>Review household readiness</button>
+                  <div className="hh-advisor-result-actions">
+                    <button type="button" className="secondary" onClick={() => openRecommendedTask(waitingAdvisorTask.task_id)}>View suggested task</button>
+                    <button type="button" className="secondary" onClick={reviewHouseholdReadiness}>Review household readiness</button>
+                  </div>
                 </> : <p>No verified task is ready for a recommendation. Add another photo to update the household plan.</p>}
                 <small>{currentAdviceTask ? "NVIDIA Nemotron on Nebius" : "Based on the verified household task list"}</small>
               </div>}
@@ -3516,7 +3554,7 @@ export default function Home() {
 
             <div className="hh-room-task-heading"><div><p className="hh-kicker">{group.tasks.some(task => objectKindForTask(task) && ["", "unassigned space", "indoor plants"].includes((enrolledRooms.find(room => room.room_id === task.room_id)?.room_category || task.room_category || "").toLowerCase())) ? "OBSERVED OBJECT" : "SPACE"}</p><h2>{group.label}</h2></div><span>{group.tasks.length} active {group.tasks.length === 1 ? "task" : "tasks"}</span></div>
 
-            <div className="hh-task-grid">{group.tasks.map(task => <article className={`hh-panel hh-intelligent-task${simpleInterface ? " hh-simple-task-card" : ""}`} key={task.id}>
+            <div className="hh-task-grid">{group.tasks.map(task => <article id={`hh-task-${task.id}`} tabIndex={-1} className={`hh-panel hh-intelligent-task${simpleInterface ? " hh-simple-task-card" : ""}${focusedTaskId === task.id ? " hh-recommended-task" : ""}`} key={task.id}>
 
               <div className="hh-task-top"><span className="hh-task-space">{group.label}</span><span className="hh-task-date">Added {new Date(task.created_at).toLocaleDateString()}</span></div>
 
@@ -3562,11 +3600,11 @@ export default function Home() {
 
               {task.status === "in_progress" && <p className="hh-task-next" role="status">Completion reported. Add a newer photo to verify the result.</p>}
               <div className="hh-task-actions">
-                {task.status === "proposed" && <button disabled={pendingTaskAction !== null} onClick={() => void decideAutonomousTask(task.id,"accept")}>{pendingTaskAction === task.id ? "Saving…" : "Approve"}</button>}
-                {["pending", "accepted"].includes(task.status) && <button disabled={pendingTaskAction !== null} onClick={() => void decideAutonomousTask(task.id,"done")}>{pendingTaskAction === task.id ? "Saving…" : "I finished this"}</button>}
+                {task.status === "proposed" && <button disabled={Boolean(pendingTaskActions[task.id])} onClick={() => void decideAutonomousTask(task.id,"accept")}>{pendingTaskActions[task.id] === "accept" ? "Saving…" : "Approve"}</button>}
+                {["pending", "accepted"].includes(task.status) && <button disabled={Boolean(pendingTaskActions[task.id])} onClick={() => void decideAutonomousTask(task.id,"done")}>{pendingTaskActions[task.id] === "done" ? "Saving…" : "I finished this"}</button>}
                 {task.status === "in_progress" && <button className="secondary" onClick={() => setScanOpen(true)}>Add follow-up photo</button>}
-                {["pending", "proposed"].includes(task.status) && <button className="secondary" disabled={pendingTaskAction !== null} onClick={() => void decideAutonomousTask(task.id,"remind")}>{pendingTaskAction === task.id ? "Saving…" : "Remind me later"}</button>}
-                {["pending", "proposed", "accepted", "in_progress"].includes(task.status) && <button className="hh-text-danger" disabled={pendingTaskAction !== null} onClick={() => void decideAutonomousTask(task.id,"decline")}>Dismiss</button>}
+                {["pending", "proposed"].includes(task.status) && <button className="secondary" disabled={Boolean(pendingTaskActions[task.id])} onClick={() => void decideAutonomousTask(task.id,"remind")}>{pendingTaskActions[task.id] === "remind" ? "Saving…" : "Remind me later"}</button>}
+                {["pending", "proposed", "accepted", "in_progress"].includes(task.status) && <button className="hh-text-danger" disabled={Boolean(pendingTaskActions[task.id])} onClick={() => void decideAutonomousTask(task.id,"decline")}>{pendingTaskActions[task.id] === "decline" ? "Saving…" : "Dismiss"}</button>}
               </div>
 
               <details className="hh-task-evidence" onToggle={event => {if (event.currentTarget.open) void showTaskTimeline(task.id);}}><summary>Why was this suggested?</summary><p><strong>Observed:</strong> {task.evidence_summary || "Reviewed photo evidence"}</p><p><strong>Desired result:</strong> {task.criteria}</p><p><strong>Action:</strong> {task.action}</p>{task.estimate_rationale && <p><strong>Time estimate:</strong> {task.estimate_rationale}</p>}{task.estimate_sources?.length ? <p><strong>References:</strong> {task.estimate_sources.map((url,i) => <span key={url}><a href={url} target="_blank" rel="noopener noreferrer">Source {i+1}</a> </span>)}</p> : null}
